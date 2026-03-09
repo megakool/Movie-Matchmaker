@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Admin Login{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
+  <div class="card" style="width:100%;max-width:380px;padding:36px 32px;">
+    <h2 style="margin:0 0 8px;font-size:1.5rem;">Admin Login</h2>
+    <p style="margin:0 0 24px;font-size:14px;opacity:0.6;">Marquee puzzle builder</p>
+
+    {% if error %}
+    <div style="background:#ffeaea;border:2px solid #cc2200;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;color:#cc2200;margin-bottom:18px;">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/admin/login">
+      <label for="password" style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password"
+             style="width:100%;box-sizing:border-box;padding:10px 12px;font-size:15px;border:var(--bw) solid var(--border);border-radius:8px;font-family:inherit;margin-bottom:18px;">
+      <button type="submit" class="btn btn--primary" style="width:100%;">Log In</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

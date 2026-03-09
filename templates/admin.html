@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+
+{% block head %}
+<style>
+/* ── Layout ─────────────────────────────────────────────────────── */
+.admin-wrap        { max-width: 1280px; margin: 0 auto; padding: 24px 16px 80px; }
+.admin-tabs        { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 24px; flex-wrap: wrap; }
+.admin-tab         { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
+                     padding: 10px 18px; font-family: inherit; font-size: 14px; font-weight: 700;
+                     cursor: pointer; color: var(--text2); white-space: nowrap; }
+.admin-tab.active  { color: var(--text); border-bottom-color: var(--border); }
+.admin-panel       { display: none; }
+.admin-panel.active{ display: block; }
+
+/* ── Shared card ────────────────────────────────────────────────── */
+.admin-card        { background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+
+/* ── Split layout ───────────────────────────────────────────────── */
+.split-layout      { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .split-layout { grid-template-columns: 1fr; } }
+
+/* ── Movie pool ─────────────────────────────────────────────────── */
+.pool-header       { padding: 12px 14px; border-bottom: 1px solid #e5ddd5; }
+.pool-search       { width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 13px;
+                     border: 1.5px solid #ccc; border-radius: 8px; font-family: inherit; }
+.pool-list         { max-height: 480px; overflow-y: auto; padding: 6px; }
+.pool-movie        { padding: 7px 10px; border-radius: 6px; font-size: 13px; cursor: pointer;
+                     display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pool-movie:hover  { background: #f0ebe5; }
+.pool-movie__year  { font-size: 11px; opacity: 0.45; flex-shrink: 0; }
+.pool-movie.in-use { opacity: 0.3; pointer-events: none; }
+
+/* ── Active-slot selector ───────────────────────────────────────── */
+.slot-selector     { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.slot-dot          { width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid var(--border);
+                     cursor: pointer; transition: transform .1s, box-shadow .1s; flex-shrink: 0; }
+.slot-dot:hover    { transform: scale(1.1); }
+.slot-dot.active-slot { box-shadow: 0 0 0 3px #333; transform: scale(1.15); }
+
+/* ── Category slots ─────────────────────────────────────────────── */
+.categories-area   { display: flex; flex-direction: column; gap: 10px; }
+.cat-slot          { background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.cat-slot.active-target { box-shadow: var(--shadow), 0 0 0 3px #333; }
+.cat-slot__header  { display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+                     border-bottom: 1px solid #e5ddd5; cursor: pointer; }
+.cat-slot__header:hover { background: #faf4ef; }
+.cat-dot           { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.cat-slot__title   { flex: 1; font-size: 14px; font-weight: 700; background: none; border: none;
+                     font-family: inherit; color: var(--text); padding: 0; min-width: 0; }
+.cat-slot__title::placeholder { color: var(--text2); font-weight: 400; }
+.cat-difficulty    { font-size: 11px; opacity: 0.5; white-space: nowrap; flex-shrink: 0; }
+.cat-slot__actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.slot-reorder-btn  { background: none; border: 1.5px solid #ccc; border-radius: 5px;
+                     padding: 2px 6px; font-size: 13px; cursor: pointer; color: var(--text2);
+                     line-height: 1.2; }
+.slot-reorder-btn:hover   { background: #f0ebe5; border-color: #999; }
+.slot-reorder-btn:disabled{ opacity: 0.2; pointer-events: none; }
+.cat-slot__movies  { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px; min-height: 46px; }
+.cat-movie-chip    { display: flex; align-items: center; gap: 6px; background: #f0ebe5;
+                     border: 1.5px solid #ccc; border-radius: 20px; padding: 4px 10px 4px 12px;
+                     font-size: 12px; font-weight: 600; }
+.cat-movie-chip__remove { background: none; border: none; cursor: pointer; font-size: 14px;
+                          line-height: 1; color: #888; padding: 0; }
+.cat-movie-chip__remove:hover { color: #cc2200; }
+.cat-empty         { font-size: 13px; opacity: 0.4; align-self: center; }
+
+/* ── Live preview ───────────────────────────────────────────────── */
+.preview-panel     { background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 12px; box-shadow: var(--shadow); padding: 14px 16px; margin-top: 12px; }
+.preview-label     { font-size: 11px; font-weight: 700; opacity: 0.5; text-transform: uppercase;
+                     letter-spacing: .06em; margin-bottom: 10px; }
+.preview-cat       { border-radius: 8px; padding: 8px 12px; margin-bottom: 6px;
+                     display: flex; align-items: center; gap: 10px; opacity: 0.35; transition: opacity .2s; }
+.preview-cat.filled{ opacity: 1; }
+.preview-cat--yellow { background: var(--yellow); color: var(--yellow-text); }
+.preview-cat--green  { background: var(--green);  color: var(--green-text);  }
+.preview-cat--blue   { background: var(--blue);   color: var(--blue-text);   }
+.preview-cat--purple { background: var(--purple); color: var(--purple-text); }
+
+/* ── Publish bar ────────────────────────────────────────────────── */
+.publish-bar       { background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 12px; box-shadow: var(--shadow); padding: 12px 16px;
+                     display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.publish-bar label { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.publish-bar input[type=date] { padding: 7px 10px; border: 1.5px solid #ccc; border-radius: 8px;
+                                font-family: inherit; font-size: 13px; }
+.pub-note-input    { flex: 1; min-width: 120px; padding: 7px 10px; border: 1.5px solid #ccc;
+                     border-radius: 8px; font-family: inherit; font-size: 13px; }
+.publish-msg       { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.publish-msg.ok    { color: #1a7a1a; }
+.publish-msg.err   { color: #cc2200; }
+#validation-msg    { display: none; background: #ffeaea; border: 2px solid #cc2200;
+                     border-radius: 8px; padding: 10px 14px; font-size: 13px; font-weight: 700;
+                     color: #cc2200; margin-top: 10px; }
+
+/* ── Category library ───────────────────────────────────────────── */
+.cat-library-card  { background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 10px; box-shadow: var(--shadow-xs); padding: 12px 14px; margin-bottom: 10px; }
+.cat-library-card__title  { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.cat-library-card__movies { font-size: 12px; color: var(--text2); margin-bottom: 8px; line-height: 1.5; }
+.cat-library-card__footer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.source-badge      { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+                     padding: 2px 7px; border-radius: 8px; }
+.source-badge--manual     { background: #f0ebe5; color: #666; }
+.source-badge--submission { background: #fff3cd; color: #7a5c00; }
+.source-badge--ai         { background: #e8d5ff; color: #4a0080; }
+
+/* ── Browse panel ───────────────────────────────────────────────── */
+.browse-movie-row  { display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+                     border-radius: 6px; font-size: 13px; cursor: pointer; }
+.browse-movie-row:hover { background: #f0ebe5; }
+.browse-movie-row input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+.filter-btn        { padding: 4px 10px; font-size: 12px; font-weight: 700; border-radius: 6px;
+                     border: 1.5px solid #ccc; background: none; cursor: pointer; font-family: inherit; }
+.filter-btn.active { background: #111; color: #fff; border-color: #111; }
+.filter-btn:hover:not(.active) { background: #f0ebe5; }
+
+/* ── Submissions ────────────────────────────────────────────────── */
+.sub-table         { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sub-table th      { text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--border);
+                     font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.sub-table td      { padding: 10px 12px; border-bottom: 1px solid #e5ddd5; vertical-align: top; }
+.sub-table tr:hover td { background: #faf4ef; }
+.sub-actions       { display: flex; gap: 6px; flex-wrap: wrap; }
+.sub-badge         { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+.sub-badge--pending    { background: #fff3cd; color: #7a5c00; }
+.sub-badge--used       { background: #d4edda; color: #1a4d19; }
+.sub-badge--saved      { background: #dce5ff; color: #1a3580; }
+.sub-badge--dismissed  { background: #f0ebe5; color: #888; }
+
+/* ── Published expand ───────────────────────────────────────────── */
+.pub-row__summary  { display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+                     cursor: pointer; border-bottom: 1px solid #e5ddd5; }
+.pub-row__summary:hover { background: #faf4ef; }
+.pub-row__expand   { margin-left: auto; font-size: 12px; color: var(--text2); user-select: none; }
+.pub-row__detail   { display: none; padding: 0 12px 12px; }
+.pub-row__detail.open { display: block; }
+.pub-cat-detail    { border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
+.pub-cat-detail strong { display: block; font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrap">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+    <h1 style="margin:0;font-size:1.8rem;">Admin</h1>
+    <div style="display:flex;align-items:center;gap:12px;">
+      {% if pending_count > 0 %}
+      <span style="background:#f9df6d;border:1.5px solid var(--border);border-radius:12px;padding:3px 10px;font-size:12px;font-weight:700;">
+        {{ pending_count }} pending
+      </span>
+      {% endif %}
+      <a href="/admin/logout" class="btn btn--ghost btn--sm">Log out</a>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="admin-tabs">
+    <button class="admin-tab active" data-tab="builder">Puzzle Builder</button>
+    <button class="admin-tab" data-tab="categories">Categories</button>
+    <button class="admin-tab" data-tab="submissions">Submissions{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</button>
+    <button class="admin-tab" data-tab="published">Published</button>
+  </div>
+
+  <!-- ══════════════ BUILDER TAB ══════════════ -->
+  <div class="admin-panel active" id="panel-builder">
+    <div class="split-layout">
+
+      <!-- Left: Movie Pool -->
+      <div>
+        <div class="admin-card">
+          <div class="pool-header">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <strong style="font-size:14px;">Movie Pool</strong>
+              <span id="pool-count" style="font-size:12px;opacity:0.5;"></span>
+            </div>
+            <input class="pool-search" id="pool-search" type="text"
+                   placeholder="Search by title, actor, or director…" autocomplete="off">
+          </div>
+          <div class="pool-list" id="pool-list">
+            <div style="padding:20px;text-align:center;opacity:0.5;font-size:13px;">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Slots + Preview + Publish -->
+      <div>
+        <!-- Active slot selector -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+          <span style="font-size:12px;font-weight:700;opacity:0.6;">Adding to:</span>
+          <div class="slot-selector" id="slot-selector"></div>
+          <div style="margin-left:auto;display:flex;gap:8px;">
+            <button class="btn btn--ghost btn--sm" id="btn-load-draft">Load Draft ▾</button>
+            <button class="btn btn--ghost btn--sm" id="btn-clear-builder">Clear All</button>
+          </div>
+        </div>
+
+        <!-- Category slots -->
+        <div class="categories-area" id="categories-area"></div>
+        <div id="validation-msg"></div>
+
+        <!-- Live preview -->
+        <div class="preview-panel">
+          <div class="preview-label">Live Preview</div>
+          <div id="preview-cats"></div>
+        </div>
+
+        <!-- Publish / Draft bar -->
+        <div class="publish-bar">
+          <label for="pub-date">Date</label>
+          <input type="date" id="pub-date">
+          <input type="text" id="pub-note" class="pub-note-input" placeholder="Author note (optional)">
+          <button class="btn btn--ghost" id="btn-save-draft">Save Draft</button>
+          <button class="btn btn--primary" id="btn-publish">Publish</button>
+          <span class="publish-msg" id="publish-msg"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════ CATEGORIES TAB ══════════════ -->
+  <div class="admin-panel" id="panel-categories">
+    <div class="split-layout">
+
+      <!-- Left: Browse panel -->
+      <div>
+        <div class="admin-card">
+          <div class="pool-header">
+            <strong style="font-size:14px;display:block;margin-bottom:10px;">Browse Movies</strong>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="actor">Actor</button>
+              <button class="filter-btn" data-filter="director">Director</button>
+              <button class="filter-btn" data-filter="oscar">Won Oscar</button>
+            </div>
+            <input class="pool-search" id="browse-search" type="text"
+                   placeholder="Type name to filter…" autocomplete="off">
+          </div>
+          <div class="pool-list" id="browse-list" style="max-height:380px;">
+            <div style="padding:20px;text-align:center;opacity:0.5;font-size:13px;">Load movies first by visiting the Builder tab.</div>
+          </div>
+          <div style="padding:12px 16px;border-top:1px solid #e5ddd5;">
+            <input type="text" id="cat-lib-name" placeholder="Name this connection…" maxlength="80"
+                   style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:12px;opacity:0.5;" id="browse-selected-count">0/4 selected</span>
+              <button class="btn btn--ghost btn--sm" id="btn-load-to-builder" disabled style="margin-left:auto;">→ Builder</button>
+              <button class="btn btn--sm" id="btn-save-to-lib" disabled>★ Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Library -->
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+          <strong style="font-size:15px;">Category Library</strong>
+          <span id="lib-count" style="font-size:12px;opacity:0.5;"></span>
+          <input type="text" id="lib-search" placeholder="Search library…"
+                 style="margin-left:auto;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;width:180px;">
+        </div>
+        <div id="category-library-list">
+          <div style="opacity:0.5;font-size:13px;">Loading…</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════ SUBMISSIONS TAB ══════════════ -->
+  <div class="admin-panel" id="panel-submissions">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <strong>Community Submissions</strong>
+      <button class="btn btn--ghost btn--sm" id="btn-reload-subs">Refresh</button>
+    </div>
+    <div id="subs-table-wrap">
+      <div style="opacity:0.5;font-size:13px;">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ══════════════ PUBLISHED TAB ══════════════ -->
+  <div class="admin-panel" id="panel-published">
+    <div style="margin-bottom:16px;"><strong>Published Puzzles</strong></div>
+    {% if puzzle_dates %}
+    <div style="background:var(--surface);border:var(--bw) solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      {% for d in puzzle_dates | reverse %}
+      <div class="pub-row" data-date="{{ d }}">
+        <div class="pub-row__summary">
+          <strong>{{ d }}</strong>
+          <span style="font-size:12px;opacity:0.5;">#{{ loop.revindex }}</span>
+          <a href="/puzzle/{{ d }}" class="btn btn--ghost btn--sm" target="_blank"
+             onclick="event.stopPropagation()">Play ↗</a>
+          <span class="pub-row__expand">▶ Expand</span>
+        </div>
+        <div class="pub-row__detail" id="detail-{{ d }}">
+          <div style="opacity:0.5;font-size:12px;padding:8px 0;">Click to load details…</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="opacity:0.5;font-size:13px;">No puzzles published yet.</p>
+    {% endif %}
+  </div>
+
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='admin.js') }}"></script>
+{% endblock %}

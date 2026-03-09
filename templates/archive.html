@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Archive{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="archive-header">
+    <h1>Archive</h1>
+    <p style="font-size:14px;color:var(--text2);margin-top:6px;">Every puzzle, all in one place.</p>
+  </div>
+
+  {% if puzzles %}
+    <div class="archive-grid">
+      {% for p in puzzles %}
+        <a href="/puzzle/{{ p.date }}"
+           class="archive-card {% if p.is_today %}archive-card--today{% endif %}"
+           data-date="{{ p.date }}">
+          <div class="archive-card__num">#{{ p.puzzle_number }}</div>
+          <div class="archive-card__date">{{ p.date }}</div>
+          <div class="archive-card__emoji" id="archive-emoji-{{ p.date }}"></div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="text-align:center;padding:60px 0;color:var(--text2);">
+      <p style="font-size:18px;font-weight:700;">No puzzles yet.</p>
+      <p style="margin-top:8px;font-size:14px;">Check back soon!</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load played history from localStorage and show emoji summaries
+(function() {
+  var history = {};
+  try { history = JSON.parse(localStorage.getItem('marquee_history') || '{}'); } catch(e) {}
+  document.querySelectorAll('[data-date]').forEach(function(el) {
+    var d = el.getAttribute('data-date');
+    var rec = history[d];
+    var emojiEl = document.getElementById('archive-emoji-' + d);
+    if (rec && emojiEl) {
+      if (rec.emoji) {
+        emojiEl.textContent = rec.emoji;
+      } else if (rec.solved) {
+        emojiEl.textContent = '✓';
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

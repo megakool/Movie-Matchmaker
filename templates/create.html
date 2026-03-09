@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Create a Category{% endblock %}
+
+{% block content %}
+<div class="create-wrap">
+  <div class="container">
+
+    <div class="create-header">
+      <h1>Build a Category</h1>
+      <p>You'll get 8 random movies. Pick 4 that share a hidden connection — then name it.</p>
+    </div>
+
+    <!-- Loading state -->
+    <div id="create-loading" style="text-align:center;padding:40px 0;color:var(--text2);font-weight:600;">
+      Loading movies…
+    </div>
+
+    <!-- Game area (hidden until loaded) -->
+    <div id="create-area" style="display:none;">
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
+        <button id="btn-refresh-unselected" class="btn btn--ghost btn--sm">↺ Swap Unselected</button>
+        <button id="btn-refresh-all" class="btn btn--ghost btn--sm">↺ New Movies</button>
+      </div>
+
+      <div id="create-grid" class="create-grid"></div>
+
+      <div class="create-form">
+        <div>
+          <label for="category-name">Name your connection</label>
+          <input type="text" id="category-name" maxlength="60"
+                 placeholder='e.g. "Movies where the hero works alone"'
+                 autocomplete="off">
+        </div>
+      </div>
+
+      <div class="create-submit-row">
+        <button id="btn-create-submit" class="btn btn--primary" disabled>
+          Submit Category
+        </button>
+      </div>
+
+      <!-- Result card (hidden until submitted) -->
+      <div id="create-result" class="create-result" style="display:none;">
+        <div class="create-result__label">Your Category</div>
+        <div class="create-result__title" id="result-category-name"></div>
+        <div class="create-result__movies" id="result-movies"></div>
+        <p style="font-size:13px;opacity:0.8;margin-bottom:14px;">
+          Thanks! We'll review your submission and may use it in a future puzzle.
+        </p>
+        <div class="create-result__actions">
+          <a href="/" class="btn btn--ghost btn--sm">Play Today's Puzzle</a>
+          <button id="btn-try-again" class="btn btn--sm">Try Again ↺</button>
+        </div>
+      </div>
+
+      <!-- Error message -->
+      <div id="create-error" style="display:none;text-align:center;color:#cc2200;font-size:13px;font-weight:700;margin-top:12px;"></div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='create.js') }}"></script>
+{% endblock %}

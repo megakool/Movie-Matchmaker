@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Marquee{% endblock %} — The Daily Movie Puzzle</title>
+  <meta name="description" content="Group 16 movies into 4 hidden categories. A new puzzle every day.">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a href="/" class="site-logo">
+        Marquee
+        <span>Daily Movie Puzzle</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/archive" class="btn btn--ghost btn--sm">Archive</a>
+        <a href="/create" class="btn btn--ghost btn--sm">Create ★</a>
+      </nav>
+    </div>
+  </header>
+
+  {% block content %}{% endblock %}
+
+  {% block scripts %}{% endblock %}
+
+  {% if dev_mode %}
+  <div style="position:fixed;bottom:14px;right:14px;z-index:9999;display:flex;gap:8px;align-items:center;">
+    <span style="font-size:10px;font-weight:700;color:#888;letter-spacing:.05em;">DEV</span>
+    <a href="/admin" style="background:#111;color:#fff;border:2px solid #111;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;text-decoration:none;font-family:inherit;">⚙ Admin</a>
+  </div>
+  {% endif %}
+</body>
+</html>

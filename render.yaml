@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: marquee
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    disk:
+      name: marquee-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    envVars:
+      - key: MARQUEE_DEV_MODE
+        value: "0"
+      - key: MARQUEE_ADMIN_PASSWORD
+        generateValue: true
+      - key: MARQUEE_SECRET_KEY
+        generateValue: true
