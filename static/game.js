@@ -20,6 +20,7 @@ const state = {
   guessHistory: [],         // [{movie_ids, color|null}] for emoji grid
   gameOver:   false,
   won:        false,
+  posterMode: false,        // toggle: show posters instead of text
 };
 
 /* ── DOM refs ── */
@@ -27,6 +28,7 @@ const $grid       = document.getElementById('tile-grid');
 const $solved     = document.getElementById('solved-list');
 const $submit     = document.getElementById('btn-submit');
 const $shuffle    = document.getElementById('btn-shuffle');
+const $posterBtn  = document.getElementById('btn-posters');
 const $overlay    = document.getElementById('result-overlay');
 const $headline   = document.getElementById('result-headline');
 const $resultSub  = document.getElementById('result-sub');
@@ -62,9 +64,26 @@ function renderGrid() {
     .filter(tile => !solvedIds.has(tile.id))
     .forEach(tile => {
       const div = document.createElement('div');
-      div.className = 'tile';
-      div.textContent = tile.title;
       div.dataset.id = tile.id;
+
+      if (state.posterMode && tile.poster_url) {
+        div.className = 'tile tile--poster';
+
+        const img = document.createElement('img');
+        img.className = 'tile__poster-img';
+        img.src = tile.poster_url;
+        img.alt = tile.title;
+        img.draggable = false;
+        div.appendChild(img);
+
+        const overlay = document.createElement('div');
+        overlay.className = 'tile__overlay';
+        overlay.textContent = tile.title;
+        div.appendChild(overlay);
+      } else {
+        div.className = 'tile';
+        div.textContent = tile.title;
+      }
 
       if (state.selected.has(tile.id)) {
         div.classList.add('tile--selected');
@@ -75,6 +94,13 @@ function renderGrid() {
       }
       $grid.appendChild(div);
     });
+}
+
+function togglePosterMode() {
+  state.posterMode = !state.posterMode;
+  $posterBtn.textContent = state.posterMode ? '🔤 Text' : '🎬 Posters';
+  $posterBtn.classList.toggle('btn--active', state.posterMode);
+  renderGrid();
 }
 
 function renderLives() {
@@ -427,6 +453,7 @@ function updateStreak(won) {
 function bindEvents() {
   $submit.addEventListener('click', onSubmit);
   $shuffle.addEventListener('click', onShuffle);
+  $posterBtn.addEventListener('click', togglePosterMode);
   $share.addEventListener('click', onShare);
   $closeResult.addEventListener('click', () => {
     $overlay.style.display = 'none';

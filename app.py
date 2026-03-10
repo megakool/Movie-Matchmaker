@@ -161,7 +161,7 @@ def play_puzzle(puzzle_date: str):
     for mid in all_movie_ids:
         movie = movies_by_id.get(mid)
         if movie:
-            tiles.append({"id": mid, "title": movie["title"]})
+            tiles.append({"id": mid, "title": movie["title"], "poster_url": movie.get("poster_url", "")})
 
     # Puzzle data sent to client (categories include titles — revealed only when solved)
     puzzle_for_client = {
