@@ -23,7 +23,7 @@ const slots = COLOR_ORDER.map((color, i) => ({
 let catBrowseSelected    = [];   // [{id, title, year}] — max 4
 let savedCategories      = [];
 let catLibraryQuery      = '';
-let catLibraryHideUsed   = false;
+let catLibraryHideUsed   = true;
 
 // ── Connections State ──────────────────────────────────────────────
 let connectionsData      = [];   // raw from /admin/connections
@@ -725,11 +725,16 @@ function bindCategoriesEvents() {
   document.getElementById('lib-search').addEventListener('input', e => {
     catLibraryQuery = e.target.value; renderCategoryLibrary();
   });
-  document.getElementById('btn-lib-hide-used').addEventListener('click', function() {
-    catLibraryHideUsed = !catLibraryHideUsed;
-    this.textContent   = catLibraryHideUsed ? 'Show All' : 'Hide Used';
-    this.style.background = catLibraryHideUsed ? '#2a2a2a' : '';
-    this.style.color      = catLibraryHideUsed ? '#fff' : '';
+  const hideUsedBtn = document.getElementById('btn-lib-hide-used');
+  // Reflect default state (true)
+  hideUsedBtn.textContent      = 'Show All';
+  hideUsedBtn.style.background = '#2a2a2a';
+  hideUsedBtn.style.color      = '#fff';
+  hideUsedBtn.addEventListener('click', function() {
+    catLibraryHideUsed        = !catLibraryHideUsed;
+    this.textContent          = catLibraryHideUsed ? 'Show All' : 'Hide Used';
+    this.style.background     = catLibraryHideUsed ? '#2a2a2a' : '';
+    this.style.color          = catLibraryHideUsed ? '#fff' : '';
     renderCategoryLibrary();
   });
 }

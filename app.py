@@ -239,13 +239,15 @@ def archive():
     today = date.today().isoformat()
     puzzles_meta = []
     for d in reversed(all_dates):
+        if d > today:
+            continue
         p = get_puzzle(d)
         puzzles_meta.append({
             "date": d,
             "puzzle_number": p.get("puzzle_number", "?") if p else "?",
             "is_today": d == today,
             "is_past": d < today,
-            "is_future": d > today,
+            "is_future": False,
         })
     return render_template("archive.html", puzzles=puzzles_meta, today=today)
 

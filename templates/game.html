@@ -11,15 +11,6 @@
       <div class="game-meta__num">Puzzle #{{ puzzle.puzzle_number }}</div>
     </div>
 
-    <!-- Prev / next nav -->
-    <div style="display:flex;justify-content:center;gap:8px;margin-bottom:16px;">
-      {% if prev_date %}
-        <a href="/puzzle/{{ prev_date }}" class="btn btn--ghost btn--sm">← {{ prev_date }}</a>
-      {% endif %}
-      {% if next_date %}
-        <a href="/puzzle/{{ next_date }}" class="btn btn--ghost btn--sm">{{ next_date }} →</a>
-      {% endif %}
-    </div>
 
     <p class="game-instructions">Select four movies that share a hidden connection.</p>
 
