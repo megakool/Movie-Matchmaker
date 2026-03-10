@@ -570,7 +570,10 @@
       <div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
           <strong style="font-size:15px;">Published Puzzles</strong>
-          <button class="btn btn--ghost btn--sm" id="btn-renumber-all" style="margin-left:auto;font-size:11px;">Renumber All</button>
+          <div style="display:flex;gap:8px;margin-left:auto;">
+            <button class="btn btn--ghost btn--sm" id="btn-reset-progress" style="font-size:11px;color:#cc6600;border-color:#cc6600;">Reset All Player Progress</button>
+            <button class="btn btn--ghost btn--sm" id="btn-renumber-all" style="font-size:11px;">Renumber All</button>
+          </div>
         </div>
         {% if puzzle_dates %}
         <div style="background:var(--surface);border:var(--bw) solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">

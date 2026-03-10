@@ -72,9 +72,12 @@ _movies_cache = None
 
 def get_settings() -> dict:
     if not SETTINGS_PATH.exists():
-        return {"active_dataset": "curated"}
+        return {"active_dataset": "curated", "progress_version": 1}
     with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+        s = json.load(f)
+    if "progress_version" not in s:
+        s["progress_version"] = 1
+    return s
 
 def save_settings(settings: dict):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -230,6 +233,7 @@ def play_puzzle(puzzle_date: str):
         today=today,
         prev_date=prev_date,
         next_date=next_date,
+        progress_version=get_settings().get("progress_version", 1),
     )
 
 
@@ -455,6 +459,14 @@ def admin_get_submissions():
 def admin_clear_submissions():
     save_submissions([])
     return jsonify({"ok": True})
+
+@app.post("/admin/reset-progress")
+@admin_required
+def admin_reset_progress():
+    settings = get_settings()
+    settings["progress_version"] = settings.get("progress_version", 1) + 1
+    save_settings(settings)
+    return jsonify({"ok": True, "progress_version": settings["progress_version"]})
 
 @app.post("/admin/submissions/<sub_id>/use")
 @admin_required

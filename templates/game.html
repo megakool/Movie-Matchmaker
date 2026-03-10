@@ -74,10 +74,11 @@
 
 {% block scripts %}
 <script>
-  const PUZZLE_DATA = {{ puzzle_json | safe }};
-  const TILES       = {{ tiles_json | safe }};
-  const PUZZLE_DATE = "{{ puzzle_date }}";
-  const DEV_MODE    = {{ 'true' if dev_mode else 'false' }};
+  const PUZZLE_DATA       = {{ puzzle_json | safe }};
+  const TILES             = {{ tiles_json | safe }};
+  const PUZZLE_DATE       = "{{ puzzle_date }}";
+  const DEV_MODE          = {{ 'true' if dev_mode else 'false' }};
+  const PROGRESS_VERSION  = {{ progress_version }};
 </script>
 <script src="{{ url_for('static', filename='game.js') }}"></script>
 {% endblock %}

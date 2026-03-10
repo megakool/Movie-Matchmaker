@@ -1172,6 +1172,14 @@ function bindPublishedEvents() {
 
   const renumberBtn = document.getElementById('btn-renumber-all');
   if (renumberBtn) renumberBtn.addEventListener('click', renumberAll);
+
+  const resetBtn = document.getElementById('btn-reset-progress');
+  if (resetBtn) resetBtn.addEventListener('click', async () => {
+    if (!confirm('This will wipe ALL players\' progress and streaks on their next visit. Continue?')) return;
+    const res  = await fetch('/admin/reset-progress', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) alert(`Done. All players will start fresh (version ${data.progress_version}).`);
+  });
 }
 
 async function redatePuzzle(oldDate) {

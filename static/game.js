@@ -9,7 +9,18 @@
 const COLOR_ORDER = ['yellow', 'green', 'blue', 'purple'];
 const STORAGE_KEY_HISTORY = 'marquee_history';
 const STORAGE_KEY_STREAK  = 'marquee_streak';
+const STORAGE_KEY_VERSION = 'marquee_progress_version';
 const MAX_MISTAKES = 4;
+
+// If the server's progress version is newer, wipe all stored history
+(function checkProgressVersion() {
+  const stored = parseInt(localStorage.getItem(STORAGE_KEY_VERSION) || '0', 10);
+  if (stored < PROGRESS_VERSION) {
+    localStorage.removeItem(STORAGE_KEY_HISTORY);
+    localStorage.removeItem(STORAGE_KEY_STREAK);
+    localStorage.setItem(STORAGE_KEY_VERSION, String(PROGRESS_VERSION));
+  }
+})();
 
 /* ── State ── */
 const state = {
