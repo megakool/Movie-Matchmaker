@@ -1158,12 +1158,34 @@ function bindPublishedEvents() {
     });
   });
 
+  document.querySelectorAll('.pub-redate-btn').forEach(btn => {
+    btn.addEventListener('click', () => redatePuzzle(btn.dataset.date));
+  });
   document.querySelectorAll('.pub-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => deletePuzzle(btn.dataset.date));
   });
 
   const renumberBtn = document.getElementById('btn-renumber-all');
   if (renumberBtn) renumberBtn.addEventListener('click', renumberAll);
+}
+
+async function redatePuzzle(oldDate) {
+  const newDate = prompt(`Change date for puzzle "${oldDate}" to:`, oldDate);
+  if (!newDate || newDate === oldDate) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+    alert('Date must be in YYYY-MM-DD format.');
+    return;
+  }
+  const res  = await fetch(`/admin/puzzles/${oldDate}/redate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ new_date: newDate }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    location.reload();
+  } else {
+    alert(`Error: ${data.error}`);
+  }
 }
 
 function renderPublishedDetail(container, data) {

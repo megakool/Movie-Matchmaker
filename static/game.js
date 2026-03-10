@@ -242,7 +242,7 @@ function revealAll() {
     }, i * 500);
   });
 
-  setTimeout(() => showResult(), unsolved.length * 500 + 600);
+  setTimeout(() => { saveProgress(); showResult(); }, unsolved.length * 500 + 600);
 }
 
 /* ── Shuffle ── */

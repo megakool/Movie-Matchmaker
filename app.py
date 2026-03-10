@@ -400,6 +400,28 @@ def admin_publish():
     return jsonify({"ok": True, "puzzle_number": puzzle_number})
 
 
+@app.post("/admin/puzzles/<puzzle_date>/redate")
+@admin_required
+def admin_redate_puzzle(puzzle_date: str):
+    new_date = (request.get_json(force=True) or {}).get("new_date", "").strip()
+    if not new_date:
+        return jsonify({"error": "new_date required"}), 400
+    old_path = PUZZLES_DIR / f"{puzzle_date}.json"
+    new_path = PUZZLES_DIR / f"{new_date}.json"
+    if not old_path.exists():
+        return jsonify({"error": "puzzle not found"}), 404
+    if new_path.exists() and new_date != puzzle_date:
+        return jsonify({"error": f"A puzzle for {new_date} already exists"}), 409
+    with open(old_path, "r", encoding="utf-8") as f:
+        puzzle = json.load(f)
+    puzzle["date"] = new_date
+    with open(new_path, "w", encoding="utf-8") as f:
+        json.dump(puzzle, f, indent=2, ensure_ascii=False)
+    if new_date != puzzle_date:
+        old_path.unlink()
+    return jsonify({"ok": True, "new_date": new_date})
+
+
 @app.delete("/admin/puzzles/<puzzle_date>")
 @admin_required
 def admin_delete_puzzle(puzzle_date: str):
