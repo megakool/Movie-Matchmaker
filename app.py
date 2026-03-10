@@ -157,9 +157,9 @@ def index():
     # Try today's puzzle; fall back to most recent
     if get_puzzle(today):
         return redirect(url_for("play_puzzle", puzzle_date=today))
-    all_dates = get_all_puzzle_dates()
-    if all_dates:
-        return redirect(url_for("play_puzzle", puzzle_date=all_dates[-1]))
+    past_dates = [d for d in get_all_puzzle_dates() if d <= today]
+    if past_dates:
+        return redirect(url_for("play_puzzle", puzzle_date=past_dates[-1]))
     return render_template("no_puzzle.html", puzzle_date=today)
 
 
