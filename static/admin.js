@@ -571,7 +571,9 @@ function renderConnectionMovies() {
   $sub.textContent   = `${conn.movies.length} movie${conn.movies.length !== 1 ? 's' : ''} · select up to 4`;
   $list.innerHTML = '';
 
-  conn.movies.forEach(m => {
+  const sorted = [...conn.movies].sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
+
+  sorted.forEach(m => {
     const alreadySel = catBrowseSelected.some(s => s.id === m.id);
     const inUse      = usedIds.has(m.id);
     const row        = document.createElement('div');
