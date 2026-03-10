@@ -1032,48 +1032,72 @@ async function onAIPuzzle() {
 }
 
 function renderAIPuzzleResult(cats) {
+  const $results = document.getElementById('ai-puzzle-results');
   const wrap = document.createElement('div');
   wrap.style.cssText = 'border:1.5px solid #ddd;border-radius:10px;padding:14px;background:#faf7f4;margin-top:4px;';
+
+  // Track which categories are checked
+  const checked = cats.map(() => true);
 
   cats.forEach((cat, i) => {
     const color = COLOR_ORDER[i] || 'yellow';
     const hex   = COLOR_HEX[color];
     const text  = COLOR_TEXT[color];
-    const card  = document.createElement('div');
-    card.style.cssText = `background:${hex};color:${text};border-radius:8px;padding:10px 12px;margin-bottom:8px;`;
-    card.innerHTML = `
+
+    const card = document.createElement('div');
+    card.style.cssText = `position:relative;background:${hex};color:${text};border-radius:8px;padding:10px 12px 10px 38px;margin-bottom:8px;transition:opacity 0.15s;`;
+
+    // Checkbox in top-left
+    const cb = document.createElement('input');
+    cb.type    = 'checkbox';
+    cb.checked = true;
+    cb.style.cssText = 'position:absolute;left:10px;top:12px;width:16px;height:16px;cursor:pointer;accent-color:#111;';
+    cb.addEventListener('change', () => {
+      checked[i] = cb.checked;
+      card.style.opacity = cb.checked ? '1' : '0.45';
+    });
+    card.appendChild(cb);
+
+    const body = document.createElement('div');
+    body.innerHTML = `
       <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${escHtml(cat.title)}</div>
       <div style="font-size:12px;opacity:0.8;line-height:1.5;">${(cat.movie_titles || []).map(t => escHtml(t)).join(' · ')}</div>
       ${cat.connection_type ? `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;opacity:0.6;">${escHtml(cat.connection_type)}</div>` : ''}`;
+    card.appendChild(body);
     wrap.appendChild(card);
   });
 
   const footer = document.createElement('div');
-  footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;';
+  footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center;';
 
-  const loadAllBtn = document.createElement('button');
-  loadAllBtn.className   = 'btn btn--primary';
-  loadAllBtn.textContent = '→ Load All into Builder';
-  loadAllBtn.addEventListener('click', () => {
-    cats.forEach((cat, i) => {
-      if (i >= slots.length) return;
-      slots[i].title  = cat.title;
-      slots[i].movies = (cat.movie_ids || []).map((id, j) => ({
+  const loadBtn = document.createElement('button');
+  loadBtn.className   = 'btn btn--primary';
+  loadBtn.textContent = '→ Load Selected into Builder';
+  loadBtn.addEventListener('click', () => {
+    const selected = cats.filter((_, i) => checked[i]);
+    let slotIdx = 0;
+    selected.forEach(cat => {
+      if (slotIdx >= slots.length) return;
+      slots[slotIdx].title  = cat.title;
+      slots[slotIdx].movies = (cat.movie_ids || []).map((id, j) => ({
         id, title: cat.movie_titles?.[j] || String(id), year: '',
       }));
+      slotIdx++;
     });
     activeSlot = 0;
     switchToTab('builder');
     renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
   });
-  footer.appendChild(loadAllBtn);
+  footer.appendChild(loadBtn);
 
-  const saveAllBtn = document.createElement('button');
-  saveAllBtn.className   = 'btn btn--ghost';
-  saveAllBtn.textContent = '★ Save All to Library';
-  saveAllBtn.addEventListener('click', async () => {
-    saveAllBtn.disabled = true;
-    for (const cat of cats) {
+  const saveBtn = document.createElement('button');
+  saveBtn.className   = 'btn btn--ghost';
+  saveBtn.textContent = '★ Save Selected to Library';
+  saveBtn.addEventListener('click', async () => {
+    const selected = cats.filter((_, i) => checked[i]);
+    if (!selected.length) return;
+    saveBtn.disabled = true;
+    for (const cat of selected) {
       await fetch('/admin/categories', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1084,9 +1108,16 @@ function renderAIPuzzleResult(cats) {
         }),
       });
     }
-    saveAllBtn.textContent = '✓ Saved!';
+    saveBtn.textContent = `✓ Saved ${selected.length}`;
   });
-  footer.appendChild(saveAllBtn);
+  footer.appendChild(saveBtn);
+
+  const discardBtn = document.createElement('button');
+  discardBtn.className   = 'btn btn--ghost';
+  discardBtn.style.cssText = 'margin-left:auto;color:#cc2200;border-color:#cc2200;';
+  discardBtn.textContent = '✕ Discard';
+  discardBtn.addEventListener('click', () => { $results.innerHTML = ''; });
+  footer.appendChild(discardBtn);
 
   wrap.appendChild(footer);
   return wrap;
