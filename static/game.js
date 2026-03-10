@@ -101,7 +101,8 @@ function renderSolvedBanners() {
 }
 
 function updateSubmitBtn() {
-  $submit.disabled = (state.selected.size !== 4 || state.gameOver);
+  $submit.disabled  = (state.selected.size !== 4 || state.gameOver);
+  $shuffle.disabled = (state.selected.size === 0 || state.gameOver);
 }
 
 /* ── Tile Interaction ── */
