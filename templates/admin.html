@@ -141,6 +141,43 @@
 .pub-cat-detail    { border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
 .pub-cat-detail strong { display: block; font-size: 12px; font-weight: 700; margin-bottom: 2px; }
 
+/* ── Dataset toggle ─────────────────────────────────────────────── */
+.dataset-bar       { display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+                     padding: 8px 14px; background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 10px; box-shadow: var(--shadow-xs); flex-wrap: wrap; }
+.dataset-bar label { font-size: 12px; font-weight: 700; opacity: 0.6; white-space: nowrap; }
+.dataset-btn       { padding: 4px 12px; font-size: 12px; font-weight: 700; border-radius: 6px;
+                     border: 1.5px solid #ccc; background: none; cursor: pointer; font-family: inherit;
+                     color: var(--text2); transition: all .15s; }
+.dataset-btn:hover:not(.active) { background: #f0ebe5; }
+.dataset-btn.active{ background: #111; color: #fff; border-color: #111; }
+.dataset-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+#dataset-status    { font-size: 12px; opacity: 0.5; margin-left: auto; }
+
+/* ── AI Assistant ───────────────────────────────────────────────── */
+.ai-panel          { background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 12px; box-shadow: var(--shadow); margin-top: 12px; overflow: hidden; }
+.ai-panel__header  { display: flex; align-items: center; justify-content: space-between;
+                     padding: 10px 14px; border-bottom: 1px solid #e5ddd5; cursor: pointer; }
+.ai-panel__header:hover { background: #faf4ef; }
+.ai-panel__title   { font-size: 13px; font-weight: 700; }
+.ai-panel__body    { padding: 12px 14px; display: none; }
+.ai-panel__body.open { display: block; }
+.ai-theme-row      { display: flex; gap: 6px; margin-bottom: 10px; }
+.ai-theme-input    { flex: 1; padding: 7px 10px; border: 1.5px solid #ccc; border-radius: 8px;
+                     font-family: inherit; font-size: 13px; }
+.ai-divider        { text-align: center; font-size: 11px; opacity: 0.4; margin: 8px 0; }
+.ai-results        { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.ai-result-card    { background: #f8f4f0; border: 1.5px solid #ddd; border-radius: 8px;
+                     padding: 10px 12px; }
+.ai-result-card__title  { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.ai-result-card__movies { font-size: 12px; color: var(--text2); margin-bottom: 8px; line-height: 1.5; }
+.ai-result-card__footer { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ai-conn-type      { font-size: 10px; font-weight: 700; text-transform: uppercase;
+                     letter-spacing: .04em; padding: 2px 7px; border-radius: 8px;
+                     background: #e8d5ff; color: #4a0080; margin-right: auto; }
+.ai-spinner        { text-align: center; padding: 16px; font-size: 13px; opacity: 0.5; }
+
 </style>
 {% endblock %}
 
@@ -170,9 +207,18 @@
 
   <!-- ══════════════ BUILDER TAB ══════════════ -->
   <div class="admin-panel active" id="panel-builder">
+
+    <!-- Dataset toggle -->
+    <div class="dataset-bar">
+      <label>Dataset:</label>
+      <button class="dataset-btn active" data-dataset="curated" id="btn-dataset-curated">Curated</button>
+      <button class="dataset-btn" data-dataset="full" id="btn-dataset-full">Full</button>
+      <span id="dataset-status">Loading…</span>
+    </div>
+
     <div class="split-layout">
 
-      <!-- Left: Movie Pool -->
+      <!-- Left: Movie Pool + AI Assistant -->
       <div>
         <div class="admin-card">
           <div class="pool-header">
@@ -181,10 +227,29 @@
               <span id="pool-count" style="font-size:12px;opacity:0.5;"></span>
             </div>
             <input class="pool-search" id="pool-search" type="text"
-                   placeholder="Search by title, actor, or director…" autocomplete="off">
+                   placeholder="Search by title, actor, director, genre…" autocomplete="off">
           </div>
           <div class="pool-list" id="pool-list">
             <div style="padding:20px;text-align:center;opacity:0.5;font-size:13px;">Loading…</div>
+          </div>
+        </div>
+
+        <!-- AI Assistant panel -->
+        <div class="ai-panel" id="ai-panel">
+          <div class="ai-panel__header" id="ai-panel-toggle">
+            <span class="ai-panel__title">✦ AI Assistant</span>
+            <span style="font-size:12px;opacity:0.5;">▼</span>
+          </div>
+          <div class="ai-panel__body" id="ai-panel-body">
+            <!-- Theme suggest -->
+            <div class="ai-theme-row">
+              <input class="ai-theme-input" id="ai-theme-input" type="text"
+                     placeholder="Theme: e.g. heist movies, Coen Brothers…" autocomplete="off">
+              <button class="btn btn--sm" id="btn-ai-suggest">Suggest</button>
+            </div>
+            <div class="ai-divider">── or ──</div>
+            <button class="btn btn--ghost btn--sm" id="btn-ai-discover" style="width:100%;">Discover Connections</button>
+            <div id="ai-results" class="ai-results"></div>
           </div>
         </div>
       </div>

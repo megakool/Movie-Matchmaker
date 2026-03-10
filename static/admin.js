@@ -40,9 +40,12 @@ async function init() {
   document.getElementById('pub-date').value = new Date().toISOString().slice(0, 10);
   bindTabs();
   bindBuilderEvents();
+  bindDatasetEvents();
+  bindAIEvents();
   bindCategoriesEvents();
   bindSubmissionsEvents();
   bindPublishedEvents();
+  await initDataset();
   await loadMovies();
 }
 
@@ -71,7 +74,10 @@ function renderPool() {
         m.title.toLowerCase().includes(q) ||
         String(m.year).includes(q) ||
         (m.directors || []).some(d => d.toLowerCase().includes(q)) ||
-        (m.actors    || []).some(a => a.toLowerCase().includes(q))
+        (m.actors    || []).some(a => a.toLowerCase().includes(q)) ||
+        (m.cast      || []).some(a => a.toLowerCase().includes(q)) ||
+        (m.genres    || []).some(g => g.toLowerCase().includes(q)) ||
+        (m.writers   || []).some(w => w.toLowerCase().includes(q))
       )
     : allMovies;
 
@@ -844,6 +850,182 @@ function renderPublishedDetail(container, data) {
   });
   row.appendChild(saveBtn);
   container.appendChild(row);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DATASET TOGGLE
+// ══════════════════════════════════════════════════════════════════
+
+async function initDataset() {
+  const res  = await fetch('/admin/settings');
+  const data = await res.json();
+  updateDatasetUI(data.active_dataset, data.full_available);
+}
+
+function updateDatasetUI(active, fullAvailable) {
+  const curBtn  = document.getElementById('btn-dataset-curated');
+  const fullBtn = document.getElementById('btn-dataset-full');
+  const status  = document.getElementById('dataset-status');
+
+  curBtn.classList.toggle('active', active === 'curated');
+  fullBtn.classList.toggle('active', active === 'full');
+  if (!fullAvailable) {
+    fullBtn.disabled = true;
+    fullBtn.title    = 'Run build_full_dataset.py first';
+  }
+  status.textContent = active === 'full' ? 'Full dataset active' : 'Curated dataset active';
+}
+
+function bindDatasetEvents() {
+  document.querySelectorAll('.dataset-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const dataset = btn.dataset.dataset;
+      const status  = document.getElementById('dataset-status');
+      status.textContent = 'Switching…';
+      const res  = await fetch('/admin/settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active_dataset: dataset }),
+      });
+      const data = await res.json();
+      if (data.error) { status.textContent = `Error: ${data.error}`; return; }
+      updateDatasetUI(dataset, true);
+      status.textContent = `${data.movie_count} movies loaded`;
+      await loadMovies();
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// AI ASSISTANT
+// ══════════════════════════════════════════════════════════════════
+
+function bindAIEvents() {
+  // Toggle panel open/close
+  document.getElementById('ai-panel-toggle').addEventListener('click', () => {
+    const body    = document.getElementById('ai-panel-body');
+    const chevron = document.querySelector('#ai-panel-toggle span:last-child');
+    const open    = body.classList.toggle('open');
+    chevron.textContent = open ? '▲' : '▼';
+  });
+
+  document.getElementById('btn-ai-suggest').addEventListener('click', onAISuggest);
+  document.getElementById('ai-theme-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') onAISuggest();
+  });
+  document.getElementById('btn-ai-discover').addEventListener('click', onAIDiscover);
+}
+
+function getExcludeIds() {
+  return slots.flatMap(s => s.movies.map(m => m.id));
+}
+
+async function onAISuggest() {
+  const theme = document.getElementById('ai-theme-input').value.trim();
+  if (!theme) return;
+  const $results = document.getElementById('ai-results');
+  $results.innerHTML = '<div class="ai-spinner">✦ Thinking…</div>';
+  try {
+    const res  = await fetch('/admin/ai/suggest', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme, exclude_ids: getExcludeIds() }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Error: ${escHtml(data.error)}</div>`;
+      return;
+    }
+    $results.innerHTML = '';
+    $results.appendChild(renderAICard(data));
+  } catch (e) {
+    $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Request failed.</div>`;
+  }
+}
+
+async function onAIDiscover() {
+  const btn      = document.getElementById('btn-ai-discover');
+  const $results = document.getElementById('ai-results');
+  btn.disabled   = true;
+  $results.innerHTML = '<div class="ai-spinner">✦ Discovering connections…</div>';
+  try {
+    const res  = await fetch('/admin/ai/discover', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exclude_ids: getExcludeIds(), count: 5 }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Error: ${escHtml(data.error)}</div>`;
+      return;
+    }
+    $results.innerHTML = '';
+    (data.categories || []).forEach(cat => $results.appendChild(renderAICard(cat)));
+  } catch (e) {
+    $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Request failed.</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderAICard(cat) {
+  const card = document.createElement('div');
+  card.className = 'ai-result-card';
+
+  const titleEl = document.createElement('div');
+  titleEl.className   = 'ai-result-card__title';
+  titleEl.textContent = cat.title;
+  card.appendChild(titleEl);
+
+  const moviesEl = document.createElement('div');
+  moviesEl.className   = 'ai-result-card__movies';
+  moviesEl.textContent = (cat.movie_titles || []).join(' · ');
+  card.appendChild(moviesEl);
+
+  const footer = document.createElement('div');
+  footer.className = 'ai-result-card__footer';
+
+  if (cat.connection_type) {
+    const badge = document.createElement('span');
+    badge.className   = 'ai-conn-type';
+    badge.textContent = cat.connection_type;
+    footer.appendChild(badge);
+  }
+
+  // Load into slot buttons
+  slots.forEach((slot, i) => {
+    const btn = document.createElement('button');
+    btn.className   = 'btn btn--ghost btn--sm';
+    btn.textContent = `→ Slot ${i + 1}`;
+    btn.style.borderLeft = `3px solid ${COLOR_HEX[slot.color]}`;
+    btn.addEventListener('click', () => {
+      slot.title  = cat.title;
+      slot.movies = (cat.movie_ids || []).map((id, j) => ({
+        id, title: cat.movie_titles?.[j] || String(id), year: '',
+      }));
+      activeSlot = i;
+      renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
+    });
+    footer.appendChild(btn);
+  });
+
+  // Save to library
+  const saveBtn = document.createElement('button');
+  saveBtn.className   = 'btn btn--ghost btn--sm';
+  saveBtn.textContent = '+ Library';
+  saveBtn.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    await fetch('/admin/categories', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title:        cat.title,
+        movie_ids:    cat.movie_ids,
+        movie_titles: cat.movie_titles,
+        source:       'ai',
+      }),
+    });
+    saveBtn.textContent = '✓ Saved';
+  });
+  footer.appendChild(saveBtn);
+  card.appendChild(footer);
+  return card;
 }
 
 // ══════════════════════════════════════════════════════════════════

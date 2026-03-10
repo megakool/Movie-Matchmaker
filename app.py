@@ -17,16 +17,19 @@ from flask import (
 )
 
 # ── Config ────────────────────────────────────────────────────────────────────
-BASE_DIR    = Path(__file__).parent
-MOVIES_PATH = BASE_DIR / "movies.json"
-PUZZLES_DIR = BASE_DIR / "puzzles"
-DATA_DIR    = BASE_DIR / "data"
+BASE_DIR          = Path(__file__).parent
+MOVIES_PATH       = BASE_DIR / "movies.json"
+MOVIES_FULL_PATH  = BASE_DIR / "movies_full.json"
+PUZZLES_DIR       = BASE_DIR / "puzzles"
+DATA_DIR          = BASE_DIR / "data"
 SUBMISSIONS_PATH  = DATA_DIR / "community_submissions.json"
 CATEGORIES_PATH   = DATA_DIR / "saved_categories.json"
 DRAFTS_PATH       = DATA_DIR / "drafts.json"
+SETTINGS_PATH     = DATA_DIR / "settings.json"
 
-ADMIN_PASSWORD  = os.environ.get("MARQUEE_ADMIN_PASSWORD", "marquee-admin-2026")
-DEV_MODE        = os.environ.get("MARQUEE_DEV_MODE", "0") == "1"
+ADMIN_PASSWORD    = os.environ.get("MARQUEE_ADMIN_PASSWORD", "marquee-admin-2026")
+DEV_MODE          = os.environ.get("MARQUEE_DEV_MODE", "0") == "1"
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("MARQUEE_SECRET_KEY", "marquee-secret-dev-2026")
@@ -38,10 +41,26 @@ def inject_globals():
 # ── Data ──────────────────────────────────────────────────────────────────────
 _movies_cache = None
 
+def get_settings() -> dict:
+    if not SETTINGS_PATH.exists():
+        return {"active_dataset": "curated"}
+    with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_settings(settings: dict):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2)
+
 def get_movies() -> list:
     global _movies_cache
     if _movies_cache is None:
-        with open(MOVIES_PATH, "r", encoding="utf-8") as f:
+        settings = get_settings()
+        if settings.get("active_dataset") == "full" and MOVIES_FULL_PATH.exists():
+            path = MOVIES_FULL_PATH
+        else:
+            path = MOVIES_PATH
+        with open(path, "r", encoding="utf-8") as f:
             _movies_cache = json.load(f)["movies"]
     return _movies_cache
 
@@ -464,6 +483,164 @@ def admin_published_detail(puzzle_date: str):
                        for mid in cat["movie_ids"] if mid in movies_by_id],
         })
     return jsonify({"date": puzzle_date, "categories": detail})
+
+
+# ── Settings ──────────────────────────────────────────────────────────────────
+@app.get("/admin/settings")
+@admin_required
+def admin_get_settings():
+    settings = get_settings()
+    full_available = MOVIES_FULL_PATH.exists()
+    return jsonify({
+        "active_dataset": settings.get("active_dataset", "curated"),
+        "full_available": full_available,
+        "curated_count": None,   # computed client-side after fetch
+    })
+
+@app.post("/admin/settings")
+@admin_required
+def admin_update_settings():
+    global _movies_cache
+    data    = request.get_json(force=True)
+    dataset = data.get("active_dataset", "curated")
+    if dataset not in ("curated", "full"):
+        return jsonify({"error": "invalid dataset"}), 400
+    if dataset == "full" and not MOVIES_FULL_PATH.exists():
+        return jsonify({"error": "movies_full.json not found — run build_full_dataset.py first"}), 400
+
+    settings = get_settings()
+    settings["active_dataset"] = dataset
+    save_settings(settings)
+    _movies_cache = None   # invalidate cache
+    movie_count   = len(get_movies())
+    return jsonify({"ok": True, "active_dataset": dataset, "movie_count": movie_count})
+
+
+# ── AI Puzzle Builder ──────────────────────────────────────────────────────────
+def _compact_movie_list(movies: list) -> str:
+    """Build a compact text representation of movies for Claude prompts."""
+    lines = []
+    for m in movies:
+        genres     = ", ".join(m.get("genres", []))
+        directors  = ", ".join(m.get("directors", []))
+        actors     = ", ".join((m.get("cast") or m.get("actors", []))[:5])
+        writers    = ", ".join(m.get("writers", [])[:3])
+        extra = " | ".join(filter(None, [
+            f"genres: {genres}" if genres else "",
+            f"dir: {directors}" if directors else "",
+            f"cast: {actors}" if actors else "",
+            f"written by: {writers}" if writers else "",
+        ]))
+        lines.append(f'id={m["id"]} "{m["title"]}" ({m["year"]}) — {extra}')
+    return "\n".join(lines)
+
+def _call_claude(system: str, user: str) -> str | None:
+    """Call Claude API and return the text response, or None on failure."""
+    if not ANTHROPIC_API_KEY:
+        return None
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        msg = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        return msg.content[0].text
+    except Exception as e:
+        print(f"Claude API error: {e}")
+        return None
+
+@app.post("/admin/ai/suggest")
+@admin_required
+def admin_ai_suggest():
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 503
+
+    data        = request.get_json(force=True)
+    theme       = (data.get("theme") or "").strip()[:200]
+    exclude_ids = set(data.get("exclude_ids", []))
+
+    if not theme:
+        return jsonify({"error": "theme required"}), 400
+
+    movies  = [m for m in get_movies() if m["id"] not in exclude_ids]
+    movies_by_id = {m["id"]: m for m in get_movies()}
+    compact = _compact_movie_list(movies)
+
+    system = (
+        "You are a puzzle designer for Marquee, a daily movie connections game. "
+        "Given a list of movies with their IDs, suggest ONE category of exactly 4 movies "
+        "that share a meaningful connection matching the user's theme. "
+        "Respond ONLY with valid JSON, no prose. Format:\n"
+        '{"title": "Category Name (≤60 chars)", "movie_ids": [id1, id2, id3, id4]}'
+    )
+    user = f"Theme: {theme}\n\nAvailable movies:\n{compact}"
+
+    raw = _call_claude(system, user)
+    if raw is None:
+        return jsonify({"error": "AI unavailable"}), 503
+
+    try:
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        result = json.loads(raw)
+        ids    = result.get("movie_ids", [])
+        if len(ids) != 4:
+            return jsonify({"error": "AI returned wrong number of movies"}), 500
+        result["movie_titles"] = [movies_by_id[i]["title"] for i in ids if i in movies_by_id]
+        return jsonify(result)
+    except (json.JSONDecodeError, KeyError) as e:
+        return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
+
+
+@app.post("/admin/ai/discover")
+@admin_required
+def admin_ai_discover():
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 503
+
+    data        = request.get_json(force=True)
+    exclude_ids = set(data.get("exclude_ids", []))
+    count       = min(int(data.get("count", 4)), 8)
+
+    movies       = [m for m in get_movies() if m["id"] not in exclude_ids]
+    movies_by_id = {m["id"]: m for m in get_movies()}
+    compact      = _compact_movie_list(movies)
+
+    system = (
+        "You are a puzzle designer for Marquee, a daily movie connections game. "
+        "Given a list of movies, discover interesting non-obvious category connections. "
+        "Look for: shared directors/actors/writers/cinematographers, shared genres or themes, "
+        "shared franchise/universe, award connections, or other creative links. "
+        "Avoid categories that are too easy (e.g. 'Tom Hanks movies' if actor is listed). "
+        "Respond ONLY with valid JSON, no prose. Format:\n"
+        '{"categories": [{"title": "...", "connection_type": "...", "movie_ids": [id1,id2,id3,id4]}, ...]}'
+    )
+    user = f"Find {count} interesting category connections from these movies:\n{compact}"
+
+    raw = _call_claude(system, user)
+    if raw is None:
+        return jsonify({"error": "AI unavailable"}), 503
+
+    try:
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        result = json.loads(raw)
+        cats   = result.get("categories", [])
+        for cat in cats:
+            ids = cat.get("movie_ids", [])
+            cat["movie_titles"] = [movies_by_id[i]["title"] for i in ids if i in movies_by_id]
+        return jsonify({"categories": cats})
+    except (json.JSONDecodeError, KeyError) as e:
+        return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────
