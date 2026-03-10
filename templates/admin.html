@@ -154,29 +154,65 @@
 .dataset-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 #dataset-status    { font-size: 12px; opacity: 0.5; margin-left: auto; }
 
-/* ── AI Assistant ───────────────────────────────────────────────── */
-.ai-panel          { background: var(--surface); border: var(--bw) solid var(--border);
-                     border-radius: 12px; box-shadow: var(--shadow); margin-top: 12px; overflow: hidden; }
-.ai-panel__header  { display: flex; align-items: center; justify-content: space-between;
-                     padding: 10px 14px; border-bottom: 1px solid #e5ddd5; cursor: pointer; }
-.ai-panel__header:hover { background: #faf4ef; }
-.ai-panel__title   { font-size: 13px; font-weight: 700; }
-.ai-panel__body    { padding: 12px 14px; display: none; }
-.ai-panel__body.open { display: block; }
-.ai-theme-row      { display: flex; gap: 6px; margin-bottom: 10px; }
-.ai-theme-input    { flex: 1; padding: 7px 10px; border: 1.5px solid #ccc; border-radius: 8px;
-                     font-family: inherit; font-size: 13px; }
-.ai-divider        { text-align: center; font-size: 11px; opacity: 0.4; margin: 8px 0; }
-.ai-results        { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.ai-result-card    { background: #f8f4f0; border: 1.5px solid #ddd; border-radius: 8px;
-                     padding: 10px 12px; }
-.ai-result-card__title  { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
-.ai-result-card__movies { font-size: 12px; color: var(--text2); margin-bottom: 8px; line-height: 1.5; }
+/* ── AI tab ─────────────────────────────────────────────────────── */
+.ai-wrap           { max-width: 860px; }
+.ai-section        { background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 12px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
+.ai-section h3     { margin: 0 0 14px; font-size: 15px; }
+.ai-theme-row      { display: flex; gap: 8px; margin-bottom: 12px; }
+.ai-theme-input    { flex: 1; padding: 9px 12px; border: 1.5px solid #ccc; border-radius: 8px;
+                     font-family: inherit; font-size: 14px; }
+.ai-divider        { text-align: center; font-size: 12px; opacity: 0.4; margin: 14px 0; border-top: 1px solid #e5ddd5; padding-top: 14px; }
+.ai-results        { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.ai-result-card    { background: #f8f4f0; border: 1.5px solid #ddd; border-radius: 10px; padding: 12px 14px; }
+.ai-result-card__title  { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.ai-result-card__movies { font-size: 13px; color: var(--text2); margin-bottom: 10px; line-height: 1.6; }
 .ai-result-card__footer { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .ai-conn-type      { font-size: 10px; font-weight: 700; text-transform: uppercase;
-                     letter-spacing: .04em; padding: 2px 7px; border-radius: 8px;
+                     letter-spacing: .04em; padding: 2px 8px; border-radius: 8px;
                      background: #e8d5ff; color: #4a0080; margin-right: auto; }
-.ai-spinner        { text-align: center; padding: 16px; font-size: 13px; opacity: 0.5; }
+.ai-spinner        { text-align: center; padding: 20px; font-size: 13px; opacity: 0.5; }
+
+/* ── Connections browser ────────────────────────────────────────── */
+.conn-layout       { display: grid; grid-template-columns: 240px 320px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .conn-layout { grid-template-columns: 220px 1fr; } }
+@media (max-width: 700px)  { .conn-layout { grid-template-columns: 1fr; } }
+
+.conn-index        { background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.conn-type-tabs    { display: flex; border-bottom: 1px solid #e5ddd5; }
+.conn-type-btn     { flex: 1; padding: 8px 4px; font-size: 11px; font-weight: 700; text-align: center;
+                     background: none; border: none; border-bottom: 2px solid transparent;
+                     margin-bottom: -1px; cursor: pointer; font-family: inherit; color: var(--text2);
+                     white-space: nowrap; }
+.conn-type-btn.active { color: var(--text); border-bottom-color: var(--border); }
+.conn-search       { width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 13px;
+                     border: none; border-bottom: 1px solid #e5ddd5; font-family: inherit;
+                     outline: none; }
+.conn-list         { max-height: 520px; overflow-y: auto; }
+.conn-item         { display: flex; align-items: center; justify-content: space-between;
+                     padding: 8px 12px; cursor: pointer; gap: 8px; }
+.conn-item:hover   { background: #f0ebe5; }
+.conn-item.active  { background: #f0ebe5; font-weight: 700; }
+.conn-item__name   { font-size: 13px; flex: 1; min-width: 0; overflow: hidden;
+                     text-overflow: ellipsis; white-space: nowrap; }
+.conn-item__count  { font-size: 11px; background: #e5ddd5; border-radius: 10px;
+                     padding: 1px 7px; flex-shrink: 0; font-weight: 700; }
+.conn-item__count.enough { background: #d4edda; color: #1a4d19; }
+
+.conn-movies-panel { background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.conn-movies-header{ padding: 12px 14px; border-bottom: 1px solid #e5ddd5; }
+.conn-movies-title { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.conn-movies-sub   { font-size: 12px; opacity: 0.5; }
+.conn-movie-list   { max-height: 380px; overflow-y: auto; padding: 6px; }
+.conn-movie-row    { display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+                     border-radius: 6px; font-size: 13px; cursor: pointer; }
+.conn-movie-row:hover { background: #f0ebe5; }
+.conn-movie-row input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+.conn-movie-row.in-use { opacity: 0.35; }
+.conn-movies-footer{ padding: 12px 14px; border-top: 1px solid #e5ddd5; }
+.conn-empty        { padding: 24px; text-align: center; font-size: 13px; opacity: 0.4; }
 
 </style>
 {% endblock %}
@@ -201,6 +237,7 @@
   <div class="admin-tabs">
     <button class="admin-tab active" data-tab="builder">Puzzle Builder</button>
     <button class="admin-tab" data-tab="categories">Categories</button>
+    <button class="admin-tab" data-tab="ai">✦ AI Assistant</button>
     <button class="admin-tab" data-tab="submissions">Submissions{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</button>
     <button class="admin-tab" data-tab="published">Published</button>
   </div>
@@ -218,7 +255,7 @@
 
     <div class="split-layout">
 
-      <!-- Left: Movie Pool + AI Assistant -->
+      <!-- Left: Movie Pool -->
       <div>
         <div class="admin-card">
           <div class="pool-header">
@@ -231,25 +268,6 @@
           </div>
           <div class="pool-list" id="pool-list">
             <div style="padding:20px;text-align:center;opacity:0.5;font-size:13px;">Loading…</div>
-          </div>
-        </div>
-
-        <!-- AI Assistant panel -->
-        <div class="ai-panel" id="ai-panel">
-          <div class="ai-panel__header" id="ai-panel-toggle">
-            <span class="ai-panel__title">✦ AI Assistant</span>
-            <span style="font-size:12px;opacity:0.5;">▼</span>
-          </div>
-          <div class="ai-panel__body" id="ai-panel-body">
-            <!-- Theme suggest -->
-            <div class="ai-theme-row">
-              <input class="ai-theme-input" id="ai-theme-input" type="text"
-                     placeholder="Theme: e.g. heist movies, Coen Brothers…" autocomplete="off">
-              <button class="btn btn--sm" id="btn-ai-suggest">Suggest</button>
-            </div>
-            <div class="ai-divider">── or ──</div>
-            <button class="btn btn--ghost btn--sm" id="btn-ai-discover" style="width:100%;">Discover Connections</button>
-            <div id="ai-results" class="ai-results"></div>
           </div>
         </div>
       </div>
@@ -292,38 +310,43 @@
 
   <!-- ══════════════ CATEGORIES TAB ══════════════ -->
   <div class="admin-panel" id="panel-categories">
-    <div class="split-layout">
+    <div class="conn-layout">
 
-      <!-- Left: Browse panel -->
-      <div>
-        <div class="admin-card">
-          <div class="pool-header">
-            <strong style="font-size:14px;display:block;margin-bottom:10px;">Browse Movies</strong>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
-              <button class="filter-btn active" data-filter="all">All</button>
-              <button class="filter-btn" data-filter="actor">Actor</button>
-              <button class="filter-btn" data-filter="director">Director</button>
-              <button class="filter-btn" data-filter="oscar">Won Oscar</button>
-            </div>
-            <input class="pool-search" id="browse-search" type="text"
-                   placeholder="Type name to filter…" autocomplete="off">
-          </div>
-          <div class="pool-list" id="browse-list" style="max-height:380px;">
-            <div style="padding:20px;text-align:center;opacity:0.5;font-size:13px;">Load movies first by visiting the Builder tab.</div>
-          </div>
-          <div style="padding:12px 16px;border-top:1px solid #e5ddd5;">
-            <input type="text" id="cat-lib-name" placeholder="Name this connection…" maxlength="80"
-                   style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:10px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-size:12px;opacity:0.5;" id="browse-selected-count">0/4 selected</span>
-              <button class="btn btn--ghost btn--sm" id="btn-load-to-builder" disabled style="margin-left:auto;">→ Builder</button>
-              <button class="btn btn--sm" id="btn-save-to-lib" disabled>★ Save</button>
-            </div>
+      <!-- Col 1: Connections Index -->
+      <div class="conn-index">
+        <div class="conn-type-tabs">
+          <button class="conn-type-btn active" data-conntype="director">Directors</button>
+          <button class="conn-type-btn" data-conntype="actor">Cast</button>
+          <button class="conn-type-btn" data-conntype="writer">Writers</button>
+          <button class="conn-type-btn" data-conntype="oscar">Oscars</button>
+        </div>
+        <input class="conn-search" id="conn-search" type="text" placeholder="Filter…" autocomplete="off">
+        <div class="conn-list" id="conn-list">
+          <div class="conn-empty">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Col 2: Movies for selected connection -->
+      <div class="conn-movies-panel">
+        <div class="conn-movies-header">
+          <div class="conn-movies-title" id="conn-movies-title">Select a name to see movies</div>
+          <div class="conn-movies-sub" id="conn-movies-sub">Click any name on the left</div>
+        </div>
+        <div class="conn-movie-list" id="conn-movie-list">
+          <div class="conn-empty">Choose a director, actor, writer, or Oscar category to see their films.</div>
+        </div>
+        <div class="conn-movies-footer">
+          <input type="text" id="cat-lib-name" placeholder="Name this connection…" maxlength="80"
+                 style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:12px;opacity:0.5;" id="browse-selected-count">0/4 selected</span>
+            <button class="btn btn--ghost btn--sm" id="btn-load-to-builder" disabled style="margin-left:auto;">→ Builder</button>
+            <button class="btn btn--sm" id="btn-save-to-lib" disabled>★ Save</button>
           </div>
         </div>
       </div>
 
-      <!-- Right: Library -->
+      <!-- Col 3: Library -->
       <div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
           <strong style="font-size:15px;">Category Library</strong>
@@ -334,6 +357,33 @@
         <div id="category-library-list">
           <div style="opacity:0.5;font-size:13px;">Loading…</div>
         </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════ AI ASSISTANT TAB ══════════════ -->
+  <div class="admin-panel" id="panel-ai">
+    <div class="ai-wrap">
+
+      <!-- Theme suggest -->
+      <div class="ai-section">
+        <h3>✦ Suggest a Category</h3>
+        <p style="font-size:13px;opacity:0.6;margin:0 0 14px;">Describe a theme or idea and Claude will find 4 matching movies from your active dataset.</p>
+        <div class="ai-theme-row">
+          <input class="ai-theme-input" id="ai-theme-input" type="text"
+                 placeholder="e.g. heist movies, Coen Brothers, time travel…" autocomplete="off">
+          <button class="btn btn--primary" id="btn-ai-suggest">Suggest ▶</button>
+        </div>
+        <div id="ai-suggest-results" class="ai-results"></div>
+      </div>
+
+      <!-- Discover connections -->
+      <div class="ai-section">
+        <h3>🔍 Discover Connections</h3>
+        <p style="font-size:13px;opacity:0.6;margin:0 0 14px;">Claude scans your movie pool and surfaces non-obvious groupings — shared cinematographers, franchise ties, award patterns, and more.</p>
+        <button class="btn btn--ghost" id="btn-ai-discover">Discover Connections ▶</button>
+        <div id="ai-discover-results" class="ai-results"></div>
       </div>
 
     </div>

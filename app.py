@@ -485,6 +485,37 @@ def admin_published_detail(puzzle_date: str):
     return jsonify({"date": puzzle_date, "categories": detail})
 
 
+# ── Connections Index ─────────────────────────────────────────────────────────
+@app.get("/admin/connections")
+@admin_required
+def admin_connections():
+    movies = get_movies()
+    index  = {}
+
+    def add(type_, name, movie):
+        key = (type_, name)
+        if key not in index:
+            index[key] = {"name": name, "type": type_, "movies": []}
+        index[key]["movies"].append({"id": movie["id"], "title": movie["title"], "year": movie.get("year", "")})
+
+    for m in movies:
+        for d in m.get("directors", []):
+            if d: add("director", d, m)
+        for a in (m.get("cast") or m.get("actors", [])):
+            if a: add("actor", a, m)
+        for w in m.get("writers", []):
+            if w: add("writer", w, m)
+        for c in m.get("oscar_categories", []):
+            # oscar_categories can be "Best Actor; Best Picture" strings
+            for part in str(c).split(";"):
+                part = part.strip()
+                if part: add("oscar", part, m)
+
+    result = [v for v in index.values() if len(v["movies"]) >= 4]
+    result.sort(key=lambda x: -len(x["movies"]))
+    return jsonify(result)
+
+
 # ── Settings ──────────────────────────────────────────────────────────────────
 @app.get("/admin/settings")
 @admin_required

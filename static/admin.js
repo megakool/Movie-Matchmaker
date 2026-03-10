@@ -20,11 +20,16 @@ const slots = COLOR_ORDER.map((color, i) => ({
 }));
 
 // ── Categories Tab State ───────────────────────────────────────────
-let catBrowseFilter   = 'all';
-let catBrowseQuery    = '';
 let catBrowseSelected = [];   // [{id, title, year}] — max 4
 let savedCategories   = [];
 let catLibraryQuery   = '';
+
+// ── Connections State ──────────────────────────────────────────────
+let connectionsData      = [];   // raw from /admin/connections
+let connectionsType      = 'director';
+let connectionsQuery     = '';
+let selectedConnection   = null; // {name, type, movies:[]}
+let connectionsLoaded    = false;
 
 // ── Published Tab State ────────────────────────────────────────────
 const publishedDetailCache = {};
@@ -32,6 +37,7 @@ const publishedDetailCache = {};
 // ── Tab Load Flags ─────────────────────────────────────────────────
 let submissionsLoaded = false;
 let categoriesLoaded  = false;
+let aiLoaded          = false;
 
 // ══════════════════════════════════════════════════════════════════
 // INIT
@@ -506,58 +512,88 @@ async function loadCategoryLibrary() {
   const res   = await fetch('/admin/categories');
   savedCategories = await res.json();
   renderCategoryLibrary();
-  if (allMovies.length) renderBrowsePanel();
 }
 
-/* ── Browse panel ── */
-function renderBrowsePanel() {
-  const $list = document.getElementById('browse-list');
-  const q     = catBrowseQuery.toLowerCase();
-  let filtered = allMovies;
+/* ── Connections Index ── */
+async function loadConnections() {
+  document.getElementById('conn-list').innerHTML = '<div class="conn-empty">Loading…</div>';
+  const res  = await fetch('/admin/connections');
+  connectionsData = await res.json();
+  renderConnectionsIndex();
+}
 
-  if (catBrowseFilter === 'actor' && q) {
-    filtered = allMovies.filter(m => (m.actors || []).some(a => a.toLowerCase().includes(q)));
-  } else if (catBrowseFilter === 'director' && q) {
-    filtered = allMovies.filter(m => (m.directors || []).some(d => d.toLowerCase().includes(q)));
-  } else if (catBrowseFilter === 'oscar') {
-    filtered = allMovies.filter(m => {
-      if (!(m.oscar_wins > 0) && !(m.oscar_categories || []).length) return false;
-      return !q || (m.oscar_categories || []).some(c => c.toLowerCase().includes(q));
-    });
-  } else if (q) {
-    filtered = allMovies.filter(m =>
-      m.title.toLowerCase().includes(q) ||
-      (m.actors    || []).some(a => a.toLowerCase().includes(q)) ||
-      (m.directors || []).some(d => d.toLowerCase().includes(q))
-    );
-  }
+function renderConnectionsIndex() {
+  const $list = document.getElementById('conn-list');
+  const q     = connectionsQuery.toLowerCase();
+  const items = connectionsData.filter(c =>
+    c.type === connectionsType &&
+    (!q || c.name.toLowerCase().includes(q))
+  );
 
   $list.innerHTML = '';
-  if (!filtered.length) {
-    $list.innerHTML = '<div style="padding:16px;text-align:center;opacity:0.5;font-size:13px;">No matches</div>';
+  if (!items.length) {
+    $list.innerHTML = `<div class="conn-empty">No ${connectionsType}s with 4+ movies${q ? ' matching "' + escHtml(q) + '"' : ''}.</div>`;
     return;
   }
 
-  filtered.slice(0, 120).forEach(m => {
+  items.forEach(conn => {
+    const div   = document.createElement('div');
+    const isActive = selectedConnection && selectedConnection.name === conn.name && selectedConnection.type === conn.type;
+    div.className = 'conn-item' + (isActive ? ' active' : '');
+    div.innerHTML = `
+      <span class="conn-item__name" title="${escHtml(conn.name)}">${escHtml(conn.name)}</span>
+      <span class="conn-item__count ${conn.movies.length >= 4 ? 'enough' : ''}">${conn.movies.length}</span>`;
+    div.addEventListener('click', () => onConnectionClick(conn));
+    $list.appendChild(div);
+  });
+}
+
+function onConnectionClick(conn) {
+  selectedConnection = conn;
+  catBrowseSelected  = [];
+  renderConnectionsIndex();   // refresh active highlight
+  renderConnectionMovies();
+  updateBrowseActions();
+  // Auto-fill name input
+  document.getElementById('cat-lib-name').value = conn.name;
+  updateBrowseActions();
+}
+
+function renderConnectionMovies() {
+  if (!selectedConnection) return;
+  const conn   = selectedConnection;
+  const usedIds = new Set(slots.flatMap(s => s.movies.map(m => m.id)));
+  const $title = document.getElementById('conn-movies-title');
+  const $sub   = document.getElementById('conn-movies-sub');
+  const $list  = document.getElementById('conn-movie-list');
+
+  $title.textContent = conn.name;
+  $sub.textContent   = `${conn.movies.length} movie${conn.movies.length !== 1 ? 's' : ''} · select up to 4`;
+  $list.innerHTML = '';
+
+  conn.movies.forEach(m => {
     const alreadySel = catBrowseSelected.some(s => s.id === m.id);
-    const row = document.createElement('div');
-    row.className = 'browse-movie-row';
-    row.innerHTML = `
-      <input type="checkbox" data-id="${m.id}" ${alreadySel ? 'checked' : ''}>
+    const inUse      = usedIds.has(m.id);
+    const row        = document.createElement('div');
+    row.className    = 'conn-movie-row' + (inUse ? ' in-use' : '');
+    row.innerHTML    = `
+      <input type="checkbox" data-id="${m.id}" ${alreadySel ? 'checked' : ''} ${inUse ? 'disabled' : ''}>
       <span style="flex:1;">${escHtml(m.title)}</span>
       <span style="font-size:11px;opacity:0.45;">${m.year || ''}</span>`;
-    const cb = row.querySelector('input');
-    const toggle = () => {
-      if (cb.checked) {
-        if (catBrowseSelected.length >= 4) { cb.checked = false; return; }
-        catBrowseSelected.push({ id: m.id, title: m.title, year: m.year || '' });
-      } else {
-        catBrowseSelected = catBrowseSelected.filter(s => s.id !== m.id);
-      }
-      updateBrowseActions();
-    };
-    cb.addEventListener('change', toggle);
-    row.addEventListener('click', e => { if (e.target !== cb) { cb.checked = !cb.checked; toggle(); } });
+    if (!inUse) {
+      const cb = row.querySelector('input');
+      const toggle = () => {
+        if (cb.checked) {
+          if (catBrowseSelected.length >= 4) { cb.checked = false; return; }
+          catBrowseSelected.push({ id: m.id, title: m.title, year: m.year || '' });
+        } else {
+          catBrowseSelected = catBrowseSelected.filter(s => s.id !== m.id);
+        }
+        updateBrowseActions();
+      };
+      cb.addEventListener('change', toggle);
+      row.addEventListener('click', e => { if (e.target !== cb) { cb.checked = !cb.checked; toggle(); } });
+    }
     $list.appendChild(row);
   });
 }
@@ -590,7 +626,7 @@ async function onSaveToLibrary() {
     catBrowseSelected = [];
     document.getElementById('cat-lib-name').value = '';
     updateBrowseActions();
-    renderBrowsePanel();
+    renderConnectionMovies();
     const btn = document.getElementById('btn-save-to-lib');
     btn.textContent = '✓ Saved!';
     setTimeout(() => { btn.textContent = '★ Save'; }, 2000);
@@ -618,7 +654,7 @@ function renderCategoryLibrary() {
   $list.innerHTML = '';
 
   if (!shown.length) {
-    $list.innerHTML = '<p style="opacity:0.5;font-size:13px;">No categories yet. Browse movies and save a group, or approve community submissions.</p>';
+    $list.innerHTML = '<p style="opacity:0.5;font-size:13px;">No categories yet. Browse the connections index and save a group.</p>';
     return;
   }
 
@@ -657,18 +693,25 @@ function renderCategoryLibrary() {
 }
 
 function bindCategoriesEvents() {
-  document.querySelectorAll('[data-filter]').forEach(btn => {
+  document.querySelectorAll('[data-conntype]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('[data-conntype]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      catBrowseFilter = btn.dataset.filter;
-      catBrowseQuery  = '';
-      document.getElementById('browse-search').value = '';
-      renderBrowsePanel();
+      connectionsType  = btn.dataset.conntype;
+      connectionsQuery = '';
+      document.getElementById('conn-search').value = '';
+      selectedConnection = null;
+      renderConnectionsIndex();
+      document.getElementById('conn-movie-list').innerHTML =
+        '<div class="conn-empty">Choose a name from the list.</div>';
+      document.getElementById('conn-movies-title').textContent = 'Select a name to see movies';
+      document.getElementById('conn-movies-sub').textContent   = 'Click any name on the left';
+      catBrowseSelected = [];
+      updateBrowseActions();
     });
   });
-  document.getElementById('browse-search').addEventListener('input', e => {
-    catBrowseQuery = e.target.value; renderBrowsePanel();
+  document.getElementById('conn-search').addEventListener('input', e => {
+    connectionsQuery = e.target.value; renderConnectionsIndex();
   });
   document.getElementById('cat-lib-name').addEventListener('input', updateBrowseActions);
   document.getElementById('btn-save-to-lib').addEventListener('click', onSaveToLibrary);
@@ -900,14 +943,6 @@ function bindDatasetEvents() {
 // ══════════════════════════════════════════════════════════════════
 
 function bindAIEvents() {
-  // Toggle panel open/close
-  document.getElementById('ai-panel-toggle').addEventListener('click', () => {
-    const body    = document.getElementById('ai-panel-body');
-    const chevron = document.querySelector('#ai-panel-toggle span:last-child');
-    const open    = body.classList.toggle('open');
-    chevron.textContent = open ? '▲' : '▼';
-  });
-
   document.getElementById('btn-ai-suggest').addEventListener('click', onAISuggest);
   document.getElementById('ai-theme-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') onAISuggest();
@@ -922,7 +957,7 @@ function getExcludeIds() {
 async function onAISuggest() {
   const theme = document.getElementById('ai-theme-input').value.trim();
   if (!theme) return;
-  const $results = document.getElementById('ai-results');
+  const $results = document.getElementById('ai-suggest-results');
   $results.innerHTML = '<div class="ai-spinner">✦ Thinking…</div>';
   try {
     const res  = await fetch('/admin/ai/suggest', {
@@ -941,9 +976,10 @@ async function onAISuggest() {
   }
 }
 
+
 async function onAIDiscover() {
   const btn      = document.getElementById('btn-ai-discover');
-  const $results = document.getElementById('ai-results');
+  const $results = document.getElementById('ai-discover-results');
   btn.disabled   = true;
   $results.innerHTML = '<div class="ai-spinner">✦ Discovering connections…</div>';
   try {
@@ -964,6 +1000,7 @@ async function onAIDiscover() {
     btn.disabled = false;
   }
 }
+
 
 function renderAICard(cat) {
   const card = document.createElement('div');
@@ -1050,7 +1087,7 @@ function bindTabs() {
       if (tabId === 'categories' && !categoriesLoaded) {
         categoriesLoaded = true;
         loadCategoryLibrary();
-        if (allMovies.length) renderBrowsePanel();
+        loadConnections();
       }
     });
   });
