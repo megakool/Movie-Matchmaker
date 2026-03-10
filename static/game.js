@@ -45,6 +45,7 @@ function init() {
   renderGrid();
   renderSolvedBanners();
   renderLives();
+  updateSubmitBtn();
   bindEvents();
 
   // If game was already finished (from localStorage), show result immediately
@@ -101,6 +102,7 @@ function renderSolvedBanners() {
 
 function updateSubmitBtn() {
   $submit.disabled = (state.selected.size !== 4 || state.gameOver);
+  $shuffle.disabled = (state.selected.size === 0 || state.gameOver);
 }
 
 /* ── Tile Interaction ── */

@@ -478,7 +478,10 @@
     <div class="sub-panel" id="sub-random">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
         <p style="font-size:13px;opacity:0.55;margin:0;">Pick 4 from 8 random movies that share a connection, then name and save it.</p>
-        <button class="btn btn--ghost btn--sm" id="btn-random-refresh" style="margin-left:auto;">New 8 Movies ↺</button>
+        <div style="display:flex;gap:8px;margin-left:auto;">
+          <button class="btn btn--ghost btn--sm" id="btn-random-refresh-unselected" disabled>Refresh Unselected ↺</button>
+          <button class="btn btn--ghost btn--sm" id="btn-random-refresh">New 8 Movies ↺</button>
+        </div>
       </div>
       <div id="random-pick-grid" class="random-pick-grid"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap;">
@@ -551,8 +554,9 @@
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
           <strong style="font-size:15px;">Category Library</strong>
           <span id="lib-count" style="font-size:12px;opacity:0.5;"></span>
+          <button class="btn btn--ghost btn--sm" id="btn-lib-hide-used" style="margin-left:auto;">Hide Used</button>
           <input type="text" id="lib-search" placeholder="Search library…"
-                 style="margin-left:auto;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;width:180px;">
+                 style="padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;width:160px;">
         </div>
         <div id="category-library-list">
           <div style="opacity:0.5;font-size:13px;">Loading…</div>
@@ -561,7 +565,10 @@
 
       <!-- Right: Published Puzzles -->
       <div>
-        <div style="margin-bottom:16px;"><strong style="font-size:15px;">Published Puzzles</strong></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+          <strong style="font-size:15px;">Published Puzzles</strong>
+          <button class="btn btn--ghost btn--sm" id="btn-renumber-all" style="margin-left:auto;font-size:11px;">Renumber All</button>
+        </div>
         {% if puzzle_dates %}
         <div style="background:var(--surface);border:var(--bw) solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
           {% for d in puzzle_dates | reverse %}
@@ -569,8 +576,12 @@
             <div class="pub-row__summary">
               <strong>{{ d }}</strong>
               <span style="font-size:12px;opacity:0.5;">#{{ loop.revindex }}</span>
+              {% if d > today %}<span style="font-size:10px;font-weight:700;color:#7B61FF;background:#F0EDFF;padding:2px 6px;border-radius:20px;">SCHEDULED</span>{% endif %}
               <a href="/puzzle/{{ d }}" class="btn btn--ghost btn--sm" target="_blank"
                  onclick="event.stopPropagation()">Play ↗</a>
+              <button class="btn btn--ghost btn--sm pub-delete-btn" data-date="{{ d }}"
+                      onclick="event.stopPropagation()"
+                      style="color:#cc2200;border-color:#cc2200;font-size:11px;">Delete</button>
               <span class="pub-row__expand">▶ Expand</span>
             </div>
             <div class="pub-row__detail" id="detail-{{ d }}">

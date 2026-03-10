@@ -20,9 +20,10 @@ const slots = COLOR_ORDER.map((color, i) => ({
 }));
 
 // ── Categories Tab State ───────────────────────────────────────────
-let catBrowseSelected = [];   // [{id, title, year}] — max 4
-let savedCategories   = [];
-let catLibraryQuery   = '';
+let catBrowseSelected    = [];   // [{id, title, year}] — max 4
+let savedCategories      = [];
+let catLibraryQuery      = '';
+let catLibraryHideUsed   = false;
 
 // ── Connections State ──────────────────────────────────────────────
 let connectionsData      = [];   // raw from /admin/connections
@@ -652,9 +653,8 @@ function onLoadBrowseToBuilder() {
 function renderCategoryLibrary() {
   const $list = document.getElementById('category-library-list');
   const q     = catLibraryQuery.toLowerCase();
-  const shown = q
-    ? savedCategories.filter(c => c.title.toLowerCase().includes(q))
-    : savedCategories;
+  let shown   = q ? savedCategories.filter(c => c.title.toLowerCase().includes(q)) : savedCategories;
+  if (catLibraryHideUsed) shown = shown.filter(c => !c.times_used || c.times_used === 0);
 
   document.getElementById('lib-count').textContent = `${shown.length} saved`;
   $list.innerHTML = '';
@@ -725,6 +725,38 @@ function bindCategoriesEvents() {
   document.getElementById('lib-search').addEventListener('input', e => {
     catLibraryQuery = e.target.value; renderCategoryLibrary();
   });
+  document.getElementById('btn-lib-hide-used').addEventListener('click', function() {
+    catLibraryHideUsed = !catLibraryHideUsed;
+    this.textContent   = catLibraryHideUsed ? 'Show All' : 'Hide Used';
+    this.style.background = catLibraryHideUsed ? '#2a2a2a' : '';
+    this.style.color      = catLibraryHideUsed ? '#fff' : '';
+    renderCategoryLibrary();
+  });
+}
+
+async function deletePuzzle(puzzleDate) {
+  if (!confirm(`Delete puzzle for ${puzzleDate}? This cannot be undone.`)) return;
+  const res = await fetch(`/admin/puzzles/${puzzleDate}`, { method: 'DELETE' });
+  if (res.ok) {
+    document.querySelector(`.pub-row[data-date="${puzzleDate}"]`)?.remove();
+  } else {
+    alert('Delete failed.');
+  }
+}
+
+async function renumberAll() {
+  if (!confirm('Renumber all puzzles chronologically (#1 = oldest)? This updates every puzzle file.')) return;
+  const btn = document.getElementById('btn-renumber-all');
+  btn.disabled = true;
+  const res  = await fetch('/admin/puzzles/renumber', { method: 'POST' });
+  const data = await res.json();
+  btn.disabled = false;
+  if (data.ok) {
+    alert(`Renumbered ${data.total} puzzles. Reload to see updated numbers.`);
+    location.reload();
+  } else {
+    alert('Renumber failed.');
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -935,16 +967,35 @@ function renderRandomPick() {
   });
 }
 
+function refreshUnselected() {
+  if (!allMovies.length) return;
+  const selectedIds = new Set(
+    randomPickMovies.filter(m => randomPickSelected.has(m.id)).map(m => m.id)
+  );
+  const selectedMovies = randomPickMovies.filter(m => selectedIds.has(m.id));
+  const needed = 8 - selectedMovies.length;
+  const pool = allMovies.filter(m => !selectedIds.has(m.id));
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  randomPickMovies = [...selectedMovies, ...pool.slice(0, needed)];
+  renderRandomPick();
+  updateRandomActions();
+}
+
 function updateRandomActions() {
   const count = randomPickSelected.size;
   document.getElementById('random-sel-count').textContent = `${count}/4 selected`;
   const ready = count === 4;
   document.getElementById('btn-random-save').disabled = !ready;
   document.getElementById('btn-random-load').disabled = !ready;
+  document.getElementById('btn-random-refresh-unselected').disabled = count === 0;
 }
 
 function bindRandomDiscoveryEvents() {
   document.getElementById('btn-random-refresh').addEventListener('click', pickRandomMovies);
+  document.getElementById('btn-random-refresh-unselected').addEventListener('click', refreshUnselected);
 
   document.getElementById('btn-random-save').addEventListener('click', async () => {
     const name = document.getElementById('random-cat-name').value.trim();
@@ -1101,6 +1152,13 @@ function bindPublishedEvents() {
       renderPublishedDetail(detail, data);
     });
   });
+
+  document.querySelectorAll('.pub-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => deletePuzzle(btn.dataset.date));
+  });
+
+  const renumberBtn = document.getElementById('btn-renumber-all');
+  if (renumberBtn) renumberBtn.addEventListener('click', renumberAll);
 }
 
 function renderPublishedDetail(container, data) {

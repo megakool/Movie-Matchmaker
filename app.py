@@ -168,6 +168,10 @@ def play_puzzle(puzzle_date: str):
     puzzle = get_puzzle(puzzle_date)
     today = date.today().isoformat()
 
+    # Block access to future puzzles
+    if puzzle_date > today:
+        return redirect(url_for("play_puzzle", puzzle_date=today)) if get_puzzle(today) else redirect(url_for("index"))
+
     if puzzle is None:
         all_dates = get_all_puzzle_dates()
         if all_dates:
@@ -346,6 +350,7 @@ def admin_dashboard():
         "admin.html",
         puzzle_dates=all_dates,
         pending_count=len(pending),
+        today=date.today().isoformat(),
     )
 
 @app.get("/admin/movies")
@@ -378,7 +383,43 @@ def admin_publish():
     path = PUZZLES_DIR / f"{puzzle_date}.json"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(puzzle, f, indent=2, ensure_ascii=False)
+
+    # Mark matching saved categories as used
+    pub_movie_id_sets = [frozenset(cat["movie_ids"]) for cat in data.get("categories", [])]
+    saved_cats = get_saved_categories()
+    changed = False
+    for cat in saved_cats:
+        if frozenset(cat.get("movie_ids", [])) in pub_movie_id_sets:
+            cat["times_used"] = cat.get("times_used", 0) + 1
+            changed = True
+    if changed:
+        save_saved_categories(saved_cats)
+
     return jsonify({"ok": True, "puzzle_number": puzzle_number})
+
+
+@app.delete("/admin/puzzles/<puzzle_date>")
+@admin_required
+def admin_delete_puzzle(puzzle_date: str):
+    path = PUZZLES_DIR / f"{puzzle_date}.json"
+    if not path.exists():
+        return jsonify({"error": "not found"}), 404
+    path.unlink()
+    return jsonify({"ok": True})
+
+
+@app.post("/admin/puzzles/renumber")
+@admin_required
+def admin_renumber_puzzles():
+    all_dates = sorted(p.stem for p in PUZZLES_DIR.glob("*.json"))
+    for i, d in enumerate(all_dates, start=1):
+        path = PUZZLES_DIR / f"{d}.json"
+        with open(path, "r", encoding="utf-8") as f:
+            puzzle = json.load(f)
+        puzzle["puzzle_number"] = i
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(puzzle, f, indent=2, ensure_ascii=False)
+    return jsonify({"ok": True, "total": len(all_dates)})
 
 @app.get("/admin/submissions")
 @admin_required
