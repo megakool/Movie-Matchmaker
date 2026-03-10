@@ -1122,6 +1122,11 @@ async function loadSubmissions() {
 
 function bindSubmissionsEvents() {
   document.getElementById('btn-reload-subs').addEventListener('click', loadSubmissions);
+  document.getElementById('btn-clear-subs').addEventListener('click', async () => {
+    if (!confirm('Clear all submissions? This cannot be undone.')) return;
+    await fetch('/admin/submissions', { method: 'DELETE' });
+    await loadSubmissions();
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════

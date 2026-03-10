@@ -538,7 +538,10 @@
   <div class="admin-panel" id="panel-submissions">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <strong>Community Submissions</strong>
-      <button class="btn btn--ghost btn--sm" id="btn-reload-subs">Refresh</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn--ghost btn--sm" id="btn-reload-subs">Refresh</button>
+        <button class="btn btn--ghost btn--sm" id="btn-clear-subs" style="color:#cc2200;border-color:#cc2200;">Clear All</button>
+      </div>
     </div>
     <div id="subs-table-wrap">
       <div style="opacity:0.5;font-size:13px;">Loading…</div>

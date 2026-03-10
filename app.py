@@ -450,6 +450,12 @@ def admin_renumber_puzzles():
 def admin_get_submissions():
     return jsonify(get_submissions())
 
+@app.delete("/admin/submissions")
+@admin_required
+def admin_clear_submissions():
+    save_submissions([])
+    return jsonify({"ok": True})
+
 @app.post("/admin/submissions/<sub_id>/use")
 @admin_required
 def admin_use_submission(sub_id: str):
