@@ -49,10 +49,12 @@ async function init() {
   bindDatasetEvents();
   bindAIEvents();
   bindCategoriesEvents();
+  bindRandomDiscoveryEvents();
   bindSubmissionsEvents();
   bindPublishedEvents();
   await initDataset();
   await loadMovies();
+  pickRandomMovies();
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -720,6 +722,104 @@ function bindCategoriesEvents() {
   document.getElementById('btn-load-to-builder').addEventListener('click', onLoadBrowseToBuilder);
   document.getElementById('lib-search').addEventListener('input', e => {
     catLibraryQuery = e.target.value; renderCategoryLibrary();
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RANDOM DISCOVERY
+// ══════════════════════════════════════════════════════════════════
+
+let randomPickMovies  = [];   // current 8 movies shown
+let randomPickSelected = new Set();  // selected movie ids
+
+function pickRandomMovies() {
+  if (!allMovies.length) return;
+  const pool = [...allMovies];
+  // Fisher-Yates shuffle, take first 8
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  randomPickMovies   = pool.slice(0, 8);
+  randomPickSelected = new Set();
+  renderRandomPick();
+  updateRandomActions();
+}
+
+function renderRandomPick() {
+  const $grid = document.getElementById('random-pick-grid');
+  $grid.innerHTML = '';
+  randomPickMovies.forEach(m => {
+    const card = document.createElement('div');
+    const isSel = randomPickSelected.has(m.id);
+    card.className = 'random-pick-card' + (isSel ? ' selected' : '');
+    card.innerHTML = `${escHtml(m.title)}<span class="random-pick-card__year">${m.year || ''}</span>`;
+    card.addEventListener('click', () => {
+      if (randomPickSelected.has(m.id)) {
+        randomPickSelected.delete(m.id);
+        card.classList.remove('selected');
+      } else {
+        if (randomPickSelected.size >= 4) return;
+        randomPickSelected.add(m.id);
+        card.classList.add('selected');
+      }
+      // Grey out remaining unselected cards when 4 are picked
+      $grid.querySelectorAll('.random-pick-card').forEach(c => {
+        const cid = randomPickMovies[Array.from($grid.children).indexOf(c)]?.id;
+        if (!randomPickSelected.has(cid) && randomPickSelected.size >= 4) {
+          c.classList.add('disabled-card');
+        } else {
+          c.classList.remove('disabled-card');
+        }
+      });
+      updateRandomActions();
+    });
+    $grid.appendChild(card);
+  });
+}
+
+function updateRandomActions() {
+  const count = randomPickSelected.size;
+  document.getElementById('random-sel-count').textContent = `${count}/4 selected`;
+  const ready = count === 4;
+  document.getElementById('btn-random-save').disabled = !ready;
+  document.getElementById('btn-random-load').disabled = !ready;
+}
+
+function bindRandomDiscoveryEvents() {
+  document.getElementById('btn-random-refresh').addEventListener('click', pickRandomMovies);
+
+  document.getElementById('btn-random-save').addEventListener('click', async () => {
+    const name = document.getElementById('random-cat-name').value.trim();
+    if (!name || randomPickSelected.size !== 4) return;
+    const selectedMovies = randomPickMovies.filter(m => randomPickSelected.has(m.id));
+    const btn = document.getElementById('btn-random-save');
+    btn.disabled = true;
+    await fetch('/admin/categories', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title:        name,
+        movie_ids:    selectedMovies.map(m => m.id),
+        movie_titles: selectedMovies.map(m => m.title),
+        source:       'manual',
+      }),
+    });
+    await loadCategoryLibrary();
+    btn.textContent = '✓ Saved!';
+    setTimeout(() => { btn.textContent = '★ Save'; btn.disabled = false; }, 2000);
+    document.getElementById('random-cat-name').value = '';
+    randomPickSelected = new Set();
+    renderRandomPick();
+    updateRandomActions();
+  });
+
+  document.getElementById('btn-random-load').addEventListener('click', () => {
+    const name = document.getElementById('random-cat-name').value.trim();
+    const selectedMovies = randomPickMovies.filter(m => randomPickSelected.has(m.id));
+    slots[activeSlot].title  = name;
+    slots[activeSlot].movies = selectedMovies.map(m => ({ id: m.id, title: m.title, year: m.year || '' }));
+    switchToTab('builder');
+    renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
   });
 }
 

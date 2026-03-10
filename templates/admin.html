@@ -214,6 +214,38 @@
 .conn-movies-footer{ padding: 12px 14px; border-top: 1px solid #e5ddd5; }
 .conn-empty        { padding: 24px; text-align: center; font-size: 13px; opacity: 0.4; }
 
+/* Random Discovery */
+.random-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+@media (max-width: 900px) { .random-pick-grid { grid-template-columns: repeat(2, 1fr); } }
+.random-pick-card {
+  border: 2px solid #ccc;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s, border-color 0.1s, opacity 0.15s;
+  background: var(--surface);
+  line-height: 1.3;
+}
+.random-pick-card:hover { background: #f0ebe5; border-color: #999; }
+.random-pick-card.selected {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+.random-pick-card.disabled-card {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+.random-pick-card__year { font-size: 11px; opacity: 0.5; font-weight: 400; display: block; margin-top: 2px; }
+
 </style>
 {% endblock %}
 
@@ -360,6 +392,24 @@
       </div>
 
     </div>
+
+    <!-- Random Discovery -->
+    <div style="margin-top:24px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+        <strong style="font-size:15px;">🎲 Random Discovery</strong>
+        <span style="font-size:13px;opacity:0.55;">Pick 4 from 8 random movies that share a connection</span>
+        <button class="btn btn--ghost btn--sm" id="btn-random-refresh" style="margin-left:auto;">New 8 Movies ↺</button>
+      </div>
+      <div id="random-pick-grid" class="random-pick-grid"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;">
+        <span style="font-size:12px;opacity:0.5;" id="random-sel-count">0/4 selected</span>
+        <input type="text" id="random-cat-name" placeholder="Name this connection…" maxlength="80"
+               style="flex:1;min-width:180px;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;">
+        <button class="btn btn--ghost btn--sm" id="btn-random-load" disabled>→ Builder</button>
+        <button class="btn btn--sm" id="btn-random-save" disabled>★ Save</button>
+      </div>
+    </div>
+
   </div>
 
   <!-- ══════════════ AI ASSISTANT TAB ══════════════ -->
