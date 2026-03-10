@@ -98,8 +98,8 @@ function renderGrid() {
 
 function togglePosterMode() {
   state.posterMode = !state.posterMode;
-  $posterBtn.textContent = state.posterMode ? '🔤 Text' : '🎬 Posters';
   $posterBtn.classList.toggle('btn--active', state.posterMode);
+  $posterBtn.title = state.posterMode ? 'Switch to text' : 'Switch to posters';
   renderGrid();
 }
 
