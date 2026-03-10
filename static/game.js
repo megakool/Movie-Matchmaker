@@ -62,9 +62,26 @@ function renderGrid() {
     .filter(tile => !solvedIds.has(tile.id))
     .forEach(tile => {
       const div = document.createElement('div');
-      div.className = 'tile';
-      div.textContent = tile.title;
+      div.className = 'tile tile--poster';
       div.dataset.id = tile.id;
+
+      if (tile.poster_url) {
+        const img = document.createElement('img');
+        img.className = 'tile__poster-img';
+        img.src = tile.poster_url;
+        img.alt = tile.title;
+        img.draggable = false;
+        div.appendChild(img);
+      } else {
+        // Fallback: no poster, show title as before
+        div.classList.add('tile--no-poster');
+      }
+
+      // Title overlay (always present, visible on select)
+      const overlay = document.createElement('div');
+      overlay.className = 'tile__overlay';
+      overlay.textContent = tile.title;
+      div.appendChild(overlay);
 
       if (state.selected.has(tile.id)) {
         div.classList.add('tile--selected');

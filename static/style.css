@@ -286,6 +286,70 @@ button { font-family: inherit; cursor: pointer; }
   transform: translate(1px, 1px);
   box-shadow: var(--shadow-xs);
 }
+
+/* ── Poster Tiles ── */
+.tile--poster {
+  position: relative;
+  padding: 0;
+  min-height: 130px;
+  overflow: hidden;
+}
+.tile__poster-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+  transition: filter 0.15s ease;
+  border-radius: calc(var(--radius) - 2px);
+}
+.tile__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 6px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  text-align: center;
+  color: #fff;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 60%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  border-radius: calc(var(--radius) - 2px);
+  word-break: break-word;
+}
+/* Show title + darken poster on selection */
+.tile--poster.tile--selected .tile__poster-img {
+  filter: brightness(0.45);
+}
+.tile--poster.tile--selected .tile__overlay {
+  opacity: 1;
+  background: rgba(0,0,0,0.35);
+  align-items: center;
+  padding: 8px;
+}
+/* Hover: subtle hint that it's interactive */
+.tile--poster:hover:not(.tile--selected):not(.tile--solved):not(.tile--wrong) .tile__poster-img {
+  filter: brightness(0.85);
+}
+.tile--poster:hover:not(.tile--selected):not(.tile--solved):not(.tile--wrong) .tile__overlay {
+  opacity: 1;
+}
+/* Solved poster tiles show color tint */
+.tile--poster.tile--solved .tile__poster-img { filter: brightness(0.3) saturate(0); }
+.tile--poster.tile--solved .tile__overlay { opacity: 1; align-items: center; padding: 8px; }
+
+/* No-poster fallback keeps original tile style */
+.tile--no-poster {
+  padding: 10px 6px;
+  min-height: 72px;
+}
 .tile--popping {
   animation: tilePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -997,10 +1061,13 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Mobile ── */
 @media (max-width: 600px) {
-  .tile, .create-tile {
+  .tile:not(.tile--poster), .create-tile {
     font-size: 10px;
     min-height: 64px;
     padding: 8px 4px;
+  }
+  .tile--poster {
+    min-height: 100px;
   }
   .game-title { font-size: 30px; }
   .action-row .btn { min-width: 100px; font-size: 13px; }
