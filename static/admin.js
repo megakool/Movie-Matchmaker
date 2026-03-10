@@ -49,6 +49,7 @@ async function init() {
   bindDatasetEvents();
   bindAIEvents();
   bindCategoriesEvents();
+  bindSubTabs();
   bindRandomDiscoveryEvents();
   bindSubmissionsEvents();
   bindPublishedEvents();
@@ -753,19 +754,39 @@ function renderRandomPick() {
     const card = document.createElement('div');
     const isSel = randomPickSelected.has(m.id);
     card.className = 'random-pick-card' + (isSel ? ' selected' : '');
-    card.innerHTML = `${escHtml(m.title)}<span class="random-pick-card__year">${m.year || ''}</span>`;
+
+    if (m.poster_url) {
+      const img = document.createElement('img');
+      img.className = 'random-poster-img';
+      img.src = m.poster_url;
+      img.alt = m.title;
+      img.draggable = false;
+      card.appendChild(img);
+    } else {
+      const ph = document.createElement('div');
+      ph.className = 'random-poster-placeholder';
+      ph.textContent = '🎬';
+      card.appendChild(ph);
+    }
+
+    const label = document.createElement('div');
+    label.className = 'random-card-label';
+    label.innerHTML = `${escHtml(m.title)}<span class="random-pick-card__year">${m.year || ''}</span>`;
+    card.appendChild(label);
+
     card.addEventListener('click', () => {
       if (randomPickSelected.has(m.id)) {
         randomPickSelected.delete(m.id);
         card.classList.remove('selected');
+        card.querySelector('.random-card-label').style.cssText = '';
       } else {
         if (randomPickSelected.size >= 4) return;
         randomPickSelected.add(m.id);
         card.classList.add('selected');
       }
-      // Grey out remaining unselected cards when 4 are picked
-      $grid.querySelectorAll('.random-pick-card').forEach(c => {
-        const cid = randomPickMovies[Array.from($grid.children).indexOf(c)]?.id;
+      // Grey out unselected cards when 4 are picked
+      $grid.querySelectorAll('.random-pick-card').forEach((c, idx) => {
+        const cid = randomPickMovies[idx]?.id;
         if (!randomPickSelected.has(cid) && randomPickSelected.size >= 4) {
           c.classList.add('disabled-card');
         } else {
@@ -1308,12 +1329,30 @@ function bindTabs() {
       if (tabId === 'submissions' && !submissionsLoaded) {
         submissionsLoaded = true; loadSubmissions();
       }
-      if (tabId === 'categories' && !categoriesLoaded) {
+      if (tabId === 'create' && !categoriesLoaded) {
+        categoriesLoaded = true;
+        loadCategoryLibrary();
+        loadConnections();
+      }
+      if (tabId === 'library' && !categoriesLoaded) {
         categoriesLoaded = true;
         loadCategoryLibrary();
         loadConnections();
       }
     });
+  });
+}
+
+function switchToSubTab(name) {
+  document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.sub-tab[data-subtab="${name}"]`)?.classList.add('active');
+  document.getElementById(`sub-${name}`)?.classList.add('active');
+}
+
+function bindSubTabs() {
+  document.querySelectorAll('.sub-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchToSubTab(tab.dataset.subtab));
   });
 }
 
