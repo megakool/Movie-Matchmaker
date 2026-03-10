@@ -49,6 +49,7 @@ async function init() {
   bindDatasetEvents();
   bindAIEvents();
   bindCategoriesEvents();
+  bindCatSearchEvents();
   bindSubTabs();
   bindRandomDiscoveryEvents();
   bindSubmissionsEvents();
@@ -723,6 +724,141 @@ function bindCategoriesEvents() {
   document.getElementById('btn-load-to-builder').addEventListener('click', onLoadBrowseToBuilder);
   document.getElementById('lib-search').addEventListener('input', e => {
     catLibraryQuery = e.target.value; renderCategoryLibrary();
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CATEGORY MOVIE SEARCH
+// ══════════════════════════════════════════════════════════════════
+
+let catSearchSelected = [];  // [{id, title, year}]
+
+function renderCatMovieSearch(query) {
+  const $list = document.getElementById('cat-movie-results');
+  if (!query.trim()) {
+    $list.innerHTML = '<div class="conn-empty">Type to search movies</div>';
+    return;
+  }
+  const q = query.toLowerCase();
+  const matches = allMovies.filter(m =>
+    m.title.toLowerCase().includes(q) ||
+    String(m.year).includes(q) ||
+    (m.directors || []).some(d => d.toLowerCase().includes(q)) ||
+    (m.cast || m.actors || []).some(a => a.toLowerCase().includes(q)) ||
+    (m.writers || []).some(w => w.toLowerCase().includes(q)) ||
+    (m.genres || []).some(g => g.toLowerCase().includes(q))
+  ).slice(0, 60);
+
+  if (!matches.length) {
+    $list.innerHTML = '<div class="conn-empty">No movies found</div>';
+    return;
+  }
+  $list.innerHTML = '';
+  matches.forEach(m => {
+    const alreadySel = catSearchSelected.some(s => s.id === m.id);
+    const row = document.createElement('div');
+    row.className = 'conn-movie-row' + (alreadySel ? ' in-use' : '');
+    row.innerHTML = `
+      <input type="checkbox" data-id="${m.id}" ${alreadySel ? 'checked disabled' : ''}>
+      <span style="flex:1;">${escHtml(m.title)}</span>
+      <span style="font-size:11px;opacity:0.45;">${m.year || ''}</span>`;
+    if (!alreadySel) {
+      const cb = row.querySelector('input');
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          if (catSearchSelected.length >= 4) { cb.checked = false; return; }
+          catSearchSelected.push({ id: m.id, title: m.title, year: m.year || '' });
+        } else {
+          catSearchSelected = catSearchSelected.filter(s => s.id !== m.id);
+        }
+        updateCatSearchActions();
+        renderCatSearchSelected();
+        // Re-render results to grey out already-selected
+        renderCatMovieSearch(document.getElementById('cat-movie-search').value);
+      });
+    }
+    $list.appendChild(row);
+  });
+}
+
+function renderCatSearchSelected() {
+  const $panel = document.getElementById('cat-search-selected');
+  if (!catSearchSelected.length) {
+    $panel.innerHTML = '<div class="conn-empty">Select movies from the search results.</div>';
+    return;
+  }
+  $panel.innerHTML = '';
+  catSearchSelected.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'conn-movie-row';
+    row.innerHTML = `
+      <span style="flex:1;">${escHtml(m.title)}</span>
+      <span style="font-size:11px;opacity:0.45;">${m.year || ''}</span>
+      <button style="background:none;border:none;cursor:pointer;font-size:14px;opacity:0.5;padding:0;line-height:1;"
+              title="Remove">✕</button>`;
+    row.querySelector('button').addEventListener('click', () => {
+      catSearchSelected = catSearchSelected.filter(s => s.id !== m.id);
+      updateCatSearchActions();
+      renderCatSearchSelected();
+      renderCatMovieSearch(document.getElementById('cat-movie-search').value);
+    });
+    $panel.appendChild(row);
+  });
+}
+
+function updateCatSearchActions() {
+  const count = catSearchSelected.length;
+  document.getElementById('cat-search-sub').textContent = `${count}/4 selected`;
+  const ready = count >= 1;
+  document.getElementById('btn-cat-search-save').disabled = count !== 4;
+  document.getElementById('btn-cat-search-load').disabled = !ready;
+}
+
+function bindCatSearchEvents() {
+  document.getElementById('cat-movie-search').addEventListener('input', e => {
+    renderCatMovieSearch(e.target.value);
+  });
+
+  document.getElementById('btn-cat-search-clear').addEventListener('click', () => {
+    catSearchSelected = [];
+    document.getElementById('cat-movie-search').value = '';
+    document.getElementById('cat-search-name').value = '';
+    renderCatMovieSearch('');
+    renderCatSearchSelected();
+    updateCatSearchActions();
+  });
+
+  document.getElementById('btn-cat-search-save').addEventListener('click', async () => {
+    const name = document.getElementById('cat-search-name').value.trim();
+    if (!name || catSearchSelected.length !== 4) return;
+    const btn = document.getElementById('btn-cat-search-save');
+    btn.disabled = true;
+    await fetch('/admin/categories', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title:        name,
+        movie_ids:    catSearchSelected.map(m => m.id),
+        movie_titles: catSearchSelected.map(m => m.title),
+        source:       'manual',
+      }),
+    });
+    await loadCategoryLibrary();
+    btn.textContent = '✓ Saved!';
+    setTimeout(() => { btn.textContent = '★ Save'; btn.disabled = false; }, 2000);
+    catSearchSelected = [];
+    document.getElementById('cat-search-name').value = '';
+    document.getElementById('cat-movie-search').value = '';
+    renderCatMovieSearch('');
+    renderCatSearchSelected();
+    updateCatSearchActions();
+  });
+
+  document.getElementById('btn-cat-search-load').addEventListener('click', () => {
+    const name = document.getElementById('cat-search-name').value.trim();
+    slots[activeSlot].title  = name;
+    slots[activeSlot].movies = catSearchSelected.map(m => ({ id: m.id, title: m.title, year: m.year || '' }));
+    switchToTab('builder');
+    renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
   });
 }
 

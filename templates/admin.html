@@ -434,6 +434,44 @@
         </div>
 
       </div>
+
+      <!-- Movie Search -->
+      <div style="margin-top:20px;border-top:1px solid #e5ddd5;padding-top:20px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+          <strong style="font-size:14px;">Movie Search</strong>
+          <span style="font-size:12px;opacity:0.5;">Search by title, director, actor, writer, genre — select up to 4</span>
+        </div>
+        <div class="conn-layout-2col">
+          <!-- Search + results -->
+          <div class="conn-index">
+            <input class="conn-search" id="cat-movie-search" type="text"
+                   placeholder="Search movies…" autocomplete="off">
+            <div class="conn-list" id="cat-movie-results" style="max-height:380px;">
+              <div class="conn-empty">Type to search movies</div>
+            </div>
+          </div>
+          <!-- Selected + save -->
+          <div class="conn-movies-panel">
+            <div class="conn-movies-header">
+              <div class="conn-movies-title" id="cat-search-title">Selected movies</div>
+              <div class="conn-movies-sub" id="cat-search-sub">0/4 selected</div>
+            </div>
+            <div class="conn-movie-list" id="cat-search-selected">
+              <div class="conn-empty">Select movies from the search results.</div>
+            </div>
+            <div class="conn-movies-footer">
+              <input type="text" id="cat-search-name" placeholder="Name this connection…" maxlength="80"
+                     style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button class="btn btn--ghost btn--sm" id="btn-cat-search-clear" style="color:#cc2200;border-color:#cc2200;">Clear</button>
+                <button class="btn btn--ghost btn--sm" id="btn-cat-search-load" disabled style="margin-left:auto;">→ Builder</button>
+                <button class="btn btn--sm" id="btn-cat-search-save" disabled>★ Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ── Random sub-panel ── -->
