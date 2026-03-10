@@ -20,12 +20,41 @@ from flask import (
 BASE_DIR          = Path(__file__).parent
 MOVIES_PATH       = BASE_DIR / "movies.json"
 MOVIES_FULL_PATH  = BASE_DIR / "movies_full.json"
-PUZZLES_DIR       = BASE_DIR / "puzzles"
-DATA_DIR          = BASE_DIR / "data"
+
+# If DATA_DIR env var is set (e.g. Render persistent disk at /data), use that.
+# Otherwise fall back to the local data/ folder so local dev is unchanged.
+_env_data_dir = os.environ.get("DATA_DIR", "")
+DATA_DIR      = Path(_env_data_dir) if _env_data_dir else BASE_DIR / "data"
+PUZZLES_DIR   = DATA_DIR / "puzzles"
+
 SUBMISSIONS_PATH  = DATA_DIR / "community_submissions.json"
 CATEGORIES_PATH   = DATA_DIR / "saved_categories.json"
 DRAFTS_PATH       = DATA_DIR / "drafts.json"
 SETTINGS_PATH     = DATA_DIR / "settings.json"
+
+
+def _init_persistent_disk() -> None:
+    """On first boot with a fresh persistent disk, seed it from the repo's data/ and puzzles/."""
+    if not _env_data_dir:
+        return  # local dev — nothing to do
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
+    repo_data    = BASE_DIR / "data"
+    repo_puzzles = BASE_DIR / "puzzles"
+    import shutil
+    # Copy data files only if they don't already exist on the disk
+    for src in repo_data.glob("*.json"):
+        dst = DATA_DIR / src.name
+        if not dst.exists():
+            shutil.copy2(src, dst)
+    # Copy puzzle files only if they don't already exist on the disk
+    for src in repo_puzzles.glob("*.json"):
+        dst = PUZZLES_DIR / src.name
+        if not dst.exists():
+            shutil.copy2(src, dst)
+
+
+_init_persistent_disk()
 
 ADMIN_PASSWORD    = os.environ.get("MARQUEE_ADMIN_PASSWORD", "marquee-admin-2026")
 DEV_MODE          = os.environ.get("MARQUEE_DEV_MODE", "0") == "1"
