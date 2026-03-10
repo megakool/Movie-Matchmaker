@@ -637,6 +637,20 @@ def _compact_movie_list(movies: list) -> str:
         lines.append(f'id={m["id"]} "{m["title"]}" ({m["year"]}) — {extra}')
     return "\n".join(lines)
 
+def _extract_json(raw: str) -> str:
+    """Strip markdown fences and extract the first JSON object or array from a string."""
+    import re
+    raw = raw.strip()
+    # Remove ```json ... ``` or ``` ... ``` fences
+    raw = re.sub(r'^```(?:json)?\s*', '', raw)
+    raw = re.sub(r'\s*```$', '', raw.strip())
+    raw = raw.strip()
+    # If still not starting with { or [, find first occurrence
+    m = re.search(r'(\{|\[)', raw)
+    if m:
+        raw = raw[m.start():]
+    return raw
+
 def _call_claude(system: str, user: str, max_tokens: int = 1024) -> str | None:
     """Call Claude API and return the text response, or None on failure."""
     if not ANTHROPIC_API_KEY:
@@ -682,16 +696,11 @@ def admin_ai_suggest():
     user = f"Theme: {theme}\n\nAvailable movies:\n{compact}"
 
     raw = _call_claude(system, user)
-    if raw is None:
+    if not raw:
         return jsonify({"error": "AI unavailable"}), 503
 
     try:
-        raw = raw.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        result = json.loads(raw)
+        result = json.loads(_extract_json(raw))
         ids    = result.get("movie_ids", [])
         if len(ids) != 4:
             return jsonify({"error": "AI returned wrong number of movies"}), 500
@@ -727,16 +736,11 @@ def admin_ai_discover():
     user = f"Find {count} interesting category connections from these movies:\n{compact}"
 
     raw = _call_claude(system, user)
-    if raw is None:
+    if not raw:
         return jsonify({"error": "AI unavailable"}), 503
 
     try:
-        raw = raw.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        result = json.loads(raw)
+        result = json.loads(_extract_json(raw))
         cats   = result.get("categories", [])
         for cat in cats:
             ids = cat.get("movie_ids", [])
@@ -778,16 +782,11 @@ def admin_ai_puzzle():
     user = f"{theme_line}\n\nAvailable movies:\n{compact}"
 
     raw = _call_claude(system, user, max_tokens=2048)
-    if raw is None:
+    if not raw:
         return jsonify({"error": "AI unavailable"}), 503
 
     try:
-        raw = raw.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        result = json.loads(raw)
+        result = json.loads(_extract_json(raw))
         cats   = result.get("puzzle", [])
         if len(cats) != 4:
             return jsonify({"error": f"AI returned {len(cats)} categories, expected 4"}), 500
