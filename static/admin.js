@@ -943,6 +943,10 @@ function bindDatasetEvents() {
 // ══════════════════════════════════════════════════════════════════
 
 function bindAIEvents() {
+  document.getElementById('btn-ai-puzzle').addEventListener('click', onAIPuzzle);
+  document.getElementById('ai-puzzle-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') onAIPuzzle();
+  });
   document.getElementById('btn-ai-suggest').addEventListener('click', onAISuggest);
   document.getElementById('ai-theme-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') onAISuggest();
@@ -999,6 +1003,93 @@ async function onAIDiscover() {
   } finally {
     btn.disabled = false;
   }
+}
+
+
+async function onAIPuzzle() {
+  const theme    = document.getElementById('ai-puzzle-input').value.trim();
+  const btn      = document.getElementById('btn-ai-puzzle');
+  const $results = document.getElementById('ai-puzzle-results');
+  btn.disabled   = true;
+  $results.innerHTML = '<div class="ai-spinner">✦ Building your puzzle… this may take a moment.</div>';
+  try {
+    const res  = await fetch('/admin/ai/puzzle', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme, exclude_ids: getExcludeIds() }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Error: ${escHtml(data.error)}</div>`;
+      return;
+    }
+    $results.innerHTML = '';
+    $results.appendChild(renderAIPuzzleResult(data.puzzle || []));
+  } catch (e) {
+    $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Request failed.</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderAIPuzzleResult(cats) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'border:1.5px solid #ddd;border-radius:10px;padding:14px;background:#faf7f4;margin-top:4px;';
+
+  cats.forEach((cat, i) => {
+    const color = COLOR_ORDER[i] || 'yellow';
+    const hex   = COLOR_HEX[color];
+    const text  = COLOR_TEXT[color];
+    const card  = document.createElement('div');
+    card.style.cssText = `background:${hex};color:${text};border-radius:8px;padding:10px 12px;margin-bottom:8px;`;
+    card.innerHTML = `
+      <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${escHtml(cat.title)}</div>
+      <div style="font-size:12px;opacity:0.8;line-height:1.5;">${(cat.movie_titles || []).map(t => escHtml(t)).join(' · ')}</div>
+      ${cat.connection_type ? `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;opacity:0.6;">${escHtml(cat.connection_type)}</div>` : ''}`;
+    wrap.appendChild(card);
+  });
+
+  const footer = document.createElement('div');
+  footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;';
+
+  const loadAllBtn = document.createElement('button');
+  loadAllBtn.className   = 'btn btn--primary';
+  loadAllBtn.textContent = '→ Load All into Builder';
+  loadAllBtn.addEventListener('click', () => {
+    cats.forEach((cat, i) => {
+      if (i >= slots.length) return;
+      slots[i].title  = cat.title;
+      slots[i].movies = (cat.movie_ids || []).map((id, j) => ({
+        id, title: cat.movie_titles?.[j] || String(id), year: '',
+      }));
+    });
+    activeSlot = 0;
+    switchToTab('builder');
+    renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
+  });
+  footer.appendChild(loadAllBtn);
+
+  const saveAllBtn = document.createElement('button');
+  saveAllBtn.className   = 'btn btn--ghost';
+  saveAllBtn.textContent = '★ Save All to Library';
+  saveAllBtn.addEventListener('click', async () => {
+    saveAllBtn.disabled = true;
+    for (const cat of cats) {
+      await fetch('/admin/categories', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title:        cat.title,
+          movie_ids:    cat.movie_ids,
+          movie_titles: cat.movie_titles,
+          source:       'ai',
+        }),
+      });
+    }
+    saveAllBtn.textContent = '✓ Saved!';
+  });
+  footer.appendChild(saveAllBtn);
+
+  wrap.appendChild(footer);
+  return wrap;
 }
 
 

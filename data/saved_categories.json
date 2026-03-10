@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "id": "e5862fe5",
+    "title": "Movies Where the Director Also Wrote the Script AND Stars in the Film",
+    "movie_ids": [
+      128,
+      269,
+      473,
+      565
+    ],
+    "movie_titles": [
+      "This Is the End",
+      "Jojo Rabbit",
+      "Into the Wild",
+      "Licorice Pizza"
+    ],
+    "source": "ai",
+    "created_at": "2026-03-09T20:54:42",
+    "times_used": 0
+  }
+]

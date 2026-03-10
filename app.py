@@ -565,7 +565,7 @@ def _compact_movie_list(movies: list) -> str:
         lines.append(f'id={m["id"]} "{m["title"]}" ({m["year"]}) — {extra}')
     return "\n".join(lines)
 
-def _call_claude(system: str, user: str) -> str | None:
+def _call_claude(system: str, user: str, max_tokens: int = 1024) -> str | None:
     """Call Claude API and return the text response, or None on failure."""
     if not ANTHROPIC_API_KEY:
         return None
@@ -574,7 +574,7 @@ def _call_claude(system: str, user: str) -> str | None:
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         msg = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=1024,
+            max_tokens=max_tokens,
             system=system,
             messages=[{"role": "user", "content": user}],
         )
@@ -670,6 +670,63 @@ def admin_ai_discover():
             ids = cat.get("movie_ids", [])
             cat["movie_titles"] = [movies_by_id[i]["title"] for i in ids if i in movies_by_id]
         return jsonify({"categories": cats})
+    except (json.JSONDecodeError, KeyError) as e:
+        return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
+
+
+@app.post("/admin/ai/puzzle")
+@admin_required
+def admin_ai_puzzle():
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 503
+
+    data        = request.get_json(force=True)
+    theme       = (data.get("theme") or "").strip()[:200]
+    exclude_ids = set(data.get("exclude_ids", []))
+
+    movies       = [m for m in get_movies() if m["id"] not in exclude_ids]
+    movies_by_id = {m["id"]: m for m in get_movies()}
+    compact      = _compact_movie_list(movies)
+
+    theme_line = f"Direction from the puzzle maker: {theme}" if theme else "Create a diverse, surprising puzzle with varied connection types."
+
+    system = (
+        "You are a puzzle designer for Marquee, a daily movie connections game similar to NYT Connections. "
+        "Generate a complete daily puzzle: exactly 4 categories, each containing exactly 4 movies. "
+        "Rules:\n"
+        "- Every movie ID must come from the provided list\n"
+        "- No movie may appear in more than one category (16 unique movies total)\n"
+        "- Vary difficulty from straightforward to cleverly non-obvious\n"
+        "- Vary connection types (shared director, actor, theme, genre, award, franchise, decade, etc.)\n"
+        "- Category names should be concise and punchy (≤60 chars)\n"
+        "Respond ONLY with valid JSON, no prose. Format:\n"
+        '{"puzzle": [{"title": "Category Name", "connection_type": "director|actor|theme|award|other", '
+        '"movie_ids": [id1, id2, id3, id4]}, ...]}'
+    )
+    user = f"{theme_line}\n\nAvailable movies:\n{compact}"
+
+    raw = _call_claude(system, user, max_tokens=2048)
+    if raw is None:
+        return jsonify({"error": "AI unavailable"}), 503
+
+    try:
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        result = json.loads(raw)
+        cats   = result.get("puzzle", [])
+        if len(cats) != 4:
+            return jsonify({"error": f"AI returned {len(cats)} categories, expected 4"}), 500
+        all_ids = [i for cat in cats for i in cat.get("movie_ids", [])]
+        if len(all_ids) != len(set(all_ids)):
+            return jsonify({"error": "AI returned duplicate movies across categories"}), 500
+        for cat in cats:
+            if len(cat.get("movie_ids", [])) != 4:
+                return jsonify({"error": f"Category '{cat.get('title')}' has wrong movie count"}), 500
+            cat["movie_titles"] = [movies_by_id[i]["title"] for i in cat["movie_ids"] if i in movies_by_id]
+        return jsonify({"puzzle": cats})
     except (json.JSONDecodeError, KeyError) as e:
         return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
 

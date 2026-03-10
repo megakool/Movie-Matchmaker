@@ -366,6 +366,18 @@
   <div class="admin-panel" id="panel-ai">
     <div class="ai-wrap">
 
+      <!-- Create entire puzzle -->
+      <div class="ai-section">
+        <h3>🎬 Create Entire Puzzle</h3>
+        <p style="font-size:13px;opacity:0.6;margin:0 0 14px;">Generate a complete 4-category puzzle in one shot. Optionally give Claude a direction, or leave blank for a surprise.</p>
+        <div class="ai-theme-row">
+          <input class="ai-theme-input" id="ai-puzzle-input" type="text"
+                 placeholder="Optional: 80s films, Oscars night, a specific director… or leave blank" autocomplete="off">
+          <button class="btn btn--primary" id="btn-ai-puzzle">Generate Puzzle ▶</button>
+        </div>
+        <div id="ai-puzzle-results" class="ai-results"></div>
+      </div>
+
       <!-- Theme suggest -->
       <div class="ai-section">
         <h3>✦ Suggest a Category</h3>
