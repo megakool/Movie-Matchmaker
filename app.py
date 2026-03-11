@@ -660,22 +660,44 @@ def admin_update_settings():
 
 
 # ── AI Puzzle Builder ──────────────────────────────────────────────────────────
-def _compact_movie_list(movies: list) -> str:
-    """Build a compact text representation of movies for Claude prompts."""
-    lines = []
+def _titles_only_list(movies: list) -> str:
+    """Compact title+year list — lets Claude use its own knowledge of each film."""
+    return "\n".join(f'"{m["title"]}" ({m["year"]})' for m in movies)
+
+def _stratified_sample(movies: list, n: int) -> list:
+    """Sample n movies spread proportionally across decades for variety."""
+    buckets: dict[int, list] = {}
     for m in movies:
-        genres     = ", ".join(m.get("genres", []))
-        directors  = ", ".join(m.get("directors", []))
-        actors     = ", ".join((m.get("cast") or m.get("actors", []))[:5])
-        writers    = ", ".join(m.get("writers", [])[:3])
-        extra = " | ".join(filter(None, [
-            f"genres: {genres}" if genres else "",
-            f"dir: {directors}" if directors else "",
-            f"cast: {actors}" if actors else "",
-            f"written by: {writers}" if writers else "",
-        ]))
-        lines.append(f'id={m["id"]} "{m["title"]}" ({m["year"]}) — {extra}')
-    return "\n".join(lines)
+        decade = (int(m.get("year", 2000)) // 10) * 10
+        buckets.setdefault(decade, []).append(m)
+    result = []
+    total  = len(movies)
+    for decade in sorted(buckets):
+        bucket = buckets[decade]
+        target = max(1, round(n * len(bucket) / total))
+        result.extend(random.sample(bucket, min(target, len(bucket))))
+    # top up / trim to exactly n
+    if len(result) < n:
+        remaining = [m for m in movies if m not in result]
+        result.extend(random.sample(remaining, min(n - len(result), len(remaining))))
+    return result[:n]
+
+def _match_titles_to_ids(titles: list, movies_by_title: dict) -> list:
+    """Match movie title strings back to IDs using exact → case-insensitive → article-stripped fallback."""
+    import re
+    ids = []
+    def normalise(t):
+        t = t.lower().strip()
+        t = re.sub(r'^(the|a|an)\s+', '', t)
+        return t
+    norm_map = {normalise(k): v for k, v in movies_by_title.items()}
+    for title in titles:
+        tl = title.lower().strip()
+        if tl in movies_by_title:
+            ids.append(movies_by_title[tl]["id"])
+        elif normalise(title) in norm_map:
+            ids.append(norm_map[normalise(title)]["id"])
+    return ids
 
 def _extract_json(raw: str) -> str:
     """Strip markdown fences and extract the first JSON object or array from a string."""
@@ -722,30 +744,40 @@ def admin_ai_suggest():
     if not theme:
         return jsonify({"error": "theme required"}), 400
 
-    movies  = [m for m in get_movies() if m["id"] not in exclude_ids]
-    movies_by_id = {m["id"]: m for m in get_movies()}
-    compact = _compact_movie_list(movies)
+    all_movies     = get_movies()
+    pool           = [m for m in all_movies if m["id"] not in exclude_ids]
+    movies_by_title = {m["title"].lower(): m for m in all_movies}
+    movies_by_id   = {m["id"]: m for m in all_movies}
+    sample         = _stratified_sample(pool, min(400, len(pool)))
+    titles_list    = _titles_only_list(sample)
 
     system = (
         "You are a puzzle designer for Marquee, a daily movie connections game. "
-        "Given a list of movies with their IDs, suggest ONE category of exactly 4 movies "
-        "that share a meaningful connection matching the user's theme. "
-        "Respond ONLY with valid JSON, no prose. Format:\n"
-        '{"title": "Category Name (≤60 chars)", "movie_ids": [id1, id2, id3, id4]}'
+        "You have expert knowledge of film history, plots, settings, themes, and real-world facts about these movies. "
+        "Given a list of movie titles, find exactly 4 that share the user's theme — "
+        "using your knowledge of what actually happens in these films, where they are set, "
+        "who stars in them, narrative outcomes, tone, or any other meaningful connection. "
+        "The connection must be specific and verifiable, not vague. "
+        "Respond ONLY with valid JSON, no prose:\n"
+        '{"title": "Category Name (≤60 chars)", "movies": ["Exact Title A", "Exact Title B", "Exact Title C", "Exact Title D"]}'
     )
-    user = f"Theme: {theme}\n\nAvailable movies:\n{compact}"
+    user = f"Theme: {theme}\n\nMovies to choose from:\n{titles_list}"
 
     raw = _call_claude(system, user)
     if not raw:
         return jsonify({"error": "AI unavailable"}), 503
 
     try:
-        result = json.loads(_extract_json(raw))
-        ids    = result.get("movie_ids", [])
-        if len(ids) != 4:
-            return jsonify({"error": "AI returned wrong number of movies"}), 500
-        result["movie_titles"] = [movies_by_id[i]["title"] for i in ids if i in movies_by_id]
-        return jsonify(result)
+        result      = json.loads(_extract_json(raw))
+        matched_ids = _match_titles_to_ids(result.get("movies", []), movies_by_title)
+        if len(matched_ids) < 4:
+            return jsonify({"error": f"Only matched {len(matched_ids)}/4 movies — try a different theme", "raw": raw}), 500
+        matched_ids = matched_ids[:4]
+        return jsonify({
+            "title":        result.get("title", ""),
+            "movie_ids":    matched_ids,
+            "movie_titles": [movies_by_id[i]["title"] for i in matched_ids if i in movies_by_id],
+        })
     except (json.JSONDecodeError, KeyError) as e:
         return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
 
@@ -758,34 +790,65 @@ def admin_ai_discover():
 
     data        = request.get_json(force=True)
     exclude_ids = set(data.get("exclude_ids", []))
-    count       = min(int(data.get("count", 4)), 8)
+    count       = min(int(data.get("count", 5)), 8)
 
-    movies       = [m for m in get_movies() if m["id"] not in exclude_ids]
-    movies_by_id = {m["id"]: m for m in get_movies()}
-    compact      = _compact_movie_list(movies)
+    all_movies      = get_movies()
+    pool            = [m for m in all_movies if m["id"] not in exclude_ids]
+    movies_by_title = {m["title"].lower(): m for m in all_movies}
+    movies_by_id    = {m["id"]: m for m in all_movies}
+    sample          = _stratified_sample(pool, min(300, len(pool)))
+    titles_list     = _titles_only_list(sample)
+    n               = len(all_movies)
 
-    system = (
-        "You are a puzzle designer for Marquee, a daily movie connections game. "
-        "Given a list of movies, discover interesting non-obvious category connections. "
-        "Look for: shared directors/actors/writers/cinematographers, shared genres or themes, "
-        "shared franchise/universe, award connections, or other creative links. "
-        "Avoid categories that are too easy (e.g. 'Tom Hanks movies' if actor is listed). "
-        "Respond ONLY with valid JSON, no prose. Format:\n"
-        '{"categories": [{"title": "...", "connection_type": "...", "movie_ids": [id1,id2,id3,id4]}, ...]}'
+    # Call 1: brainstorm creative themes (no movie list needed — cheap)
+    themes_raw = _call_claude(
+        "You are a creative puzzle designer for Marquee, a daily movie connections game.",
+        f"I have a dataset of {n} popular films spanning the 1950s–2020s.\n"
+        f"Suggest {count + 3} creative thematic category ideas for a movie connections puzzle.\n"
+        "Focus on narrative, setting, character type, tone, or real-world facts — NOT obvious genre/director groups.\n"
+        "Examples of good themes: 'movies set in Japan', 'protagonist dies at the end', "
+        "'musician turned actor in the cast', 'post-apocalyptic survival', 'heist gone wrong', "
+        "'one man vs. an army', 'they don\\'t end up together', 'based on a true crime'.\n"
+        'Respond ONLY with valid JSON: {"themes": ["theme 1", "theme 2", ...]}',
+        max_tokens=512,
     )
-    user = f"Find {count} interesting category connections from these movies:\n{compact}"
+    if not themes_raw:
+        return jsonify({"error": "AI unavailable"}), 503
+    try:
+        themes = json.loads(_extract_json(themes_raw)).get("themes", [])[:count + 3]
+    except Exception:
+        themes = []
+    if not themes:
+        return jsonify({"error": "Could not brainstorm themes"}), 500
 
-    raw = _call_claude(system, user)
+    # Call 2: find movies from the sample for each theme
+    themes_block = "\n".join(f"{i+1}. {t}" for i, t in enumerate(themes))
+    raw = _call_claude(
+        "You are an expert on film history with deep knowledge of movie plots, settings, and themes.",
+        f"For each theme below, find exactly 4 movies from the provided list that genuinely fit — "
+        f"using your knowledge of what actually happens in these films.\n"
+        f"Only use titles from the list. Skip a theme if you can't find 4 confident matches.\n\n"
+        f"Themes:\n{themes_block}\n\nMovies:\n{titles_list}\n\n"
+        'Respond ONLY with valid JSON: {"categories": [{"title": "punchy puzzle category name ≤60 chars", '
+        '"movies": ["Title A", "Title B", "Title C", "Title D"]}, ...]}',
+        max_tokens=1024,
+    )
     if not raw:
         return jsonify({"error": "AI unavailable"}), 503
 
     try:
-        result = json.loads(_extract_json(raw))
-        cats   = result.get("categories", [])
+        cats = json.loads(_extract_json(raw)).get("categories", [])
+        out  = []
         for cat in cats:
-            ids = cat.get("movie_ids", [])
-            cat["movie_titles"] = [movies_by_id[i]["title"] for i in ids if i in movies_by_id]
-        return jsonify({"categories": cats})
+            ids = _match_titles_to_ids(cat.get("movies", []), movies_by_title)
+            if len(ids) < 4:
+                continue
+            out.append({
+                "title":        cat.get("title", ""),
+                "movie_ids":    ids[:4],
+                "movie_titles": [movies_by_id[i]["title"] for i in ids[:4] if i in movies_by_id],
+            })
+        return jsonify({"categories": out})
     except (json.JSONDecodeError, KeyError) as e:
         return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
 
@@ -800,44 +863,73 @@ def admin_ai_puzzle():
     theme       = (data.get("theme") or "").strip()[:200]
     exclude_ids = set(data.get("exclude_ids", []))
 
-    movies       = [m for m in get_movies() if m["id"] not in exclude_ids]
-    movies_by_id = {m["id"]: m for m in get_movies()}
-    compact      = _compact_movie_list(movies)
+    all_movies      = get_movies()
+    pool            = [m for m in all_movies if m["id"] not in exclude_ids]
+    movies_by_title = {m["title"].lower(): m for m in all_movies}
+    movies_by_id    = {m["id"]: m for m in all_movies}
+    sample          = _stratified_sample(pool, min(300, len(pool)))
+    titles_list     = _titles_only_list(sample)
+    n               = len(all_movies)
 
-    theme_line = f"Direction from the puzzle maker: {theme}" if theme else "Create a diverse, surprising puzzle with varied connection types."
+    theme_hint = f"The puzzle maker wants the puzzle to feel like: {theme}." if theme else ""
 
-    system = (
-        "You are a puzzle designer for Marquee, a daily movie connections game similar to NYT Connections. "
-        "Generate a complete daily puzzle: exactly 4 categories, each containing exactly 4 movies. "
-        "Rules:\n"
-        "- Every movie ID must come from the provided list\n"
-        "- No movie may appear in more than one category (16 unique movies total)\n"
-        "- Vary difficulty from straightforward to cleverly non-obvious\n"
-        "- Vary connection types (shared director, actor, theme, genre, award, franchise, decade, etc.)\n"
-        "- Category names should be concise and punchy (≤60 chars)\n"
-        "Respond ONLY with valid JSON, no prose. Format:\n"
-        '{"puzzle": [{"title": "Category Name", "connection_type": "director|actor|theme|award|other", '
-        '"movie_ids": [id1, id2, id3, id4]}, ...]}'
+    # Call 1: brainstorm 6 theme ideas for this puzzle
+    themes_raw = _call_claude(
+        "You are a creative puzzle designer for Marquee, a daily movie connections game.",
+        f"I have a dataset of {n} popular films spanning the 1950s–2020s. {theme_hint}\n"
+        "Suggest 6 creative thematic category ideas for a single daily puzzle — varied difficulty.\n"
+        "One should be fairly easy, two medium, and one or two tricky/clever.\n"
+        "Focus on narrative, setting, character type, tone, or real-world facts — not obvious genre/director groups.\n"
+        "The 6 categories will use 24 movies total (4 each) but the puzzle only needs 4, so include extras.\n"
+        'Respond ONLY with valid JSON: {"themes": [{"idea": "...", "difficulty": "easy|medium|hard"}, ...]}',
+        max_tokens=512,
     )
-    user = f"{theme_line}\n\nAvailable movies:\n{compact}"
+    if not themes_raw:
+        return jsonify({"error": "AI unavailable"}), 503
+    try:
+        theme_items = json.loads(_extract_json(themes_raw)).get("themes", [])
+        theme_ideas = [t.get("idea", "") for t in theme_items if t.get("idea")]
+    except Exception:
+        theme_ideas = []
+    if not theme_ideas:
+        return jsonify({"error": "Could not brainstorm puzzle themes"}), 500
 
-    raw = _call_claude(system, user, max_tokens=2048)
+    # Call 2: find exactly 4 movies per theme, no overlaps
+    themes_block = "\n".join(f"{i+1}. {t}" for i, t in enumerate(theme_ideas))
+    raw = _call_claude(
+        "You are an expert on film history with deep knowledge of movie plots, settings, and themes.",
+        f"For each theme below, find exactly 4 movies from the provided list that genuinely fit — "
+        f"using your knowledge of these films. No movie may appear in more than one theme.\n"
+        f"Only use titles from the list. Skip themes where you can't find 4 confident, non-overlapping matches.\n\n"
+        f"Themes:\n{themes_block}\n\nMovies:\n{titles_list}\n\n"
+        'Respond ONLY with valid JSON: {"puzzle": [{"title": "punchy category name ≤60 chars", '
+        '"movies": ["Title A","Title B","Title C","Title D"]}, ...]}',
+        max_tokens=2048,
+    )
     if not raw:
         return jsonify({"error": "AI unavailable"}), 503
 
     try:
-        result = json.loads(_extract_json(raw))
-        cats   = result.get("puzzle", [])
-        if len(cats) != 4:
-            return jsonify({"error": f"AI returned {len(cats)} categories, expected 4"}), 500
-        all_ids = [i for cat in cats for i in cat.get("movie_ids", [])]
-        if len(all_ids) != len(set(all_ids)):
-            return jsonify({"error": "AI returned duplicate movies across categories"}), 500
+        cats    = json.loads(_extract_json(raw)).get("puzzle", [])
+        out     = []
+        used    = set()
         for cat in cats:
-            if len(cat.get("movie_ids", [])) != 4:
-                return jsonify({"error": f"Category '{cat.get('title')}' has wrong movie count"}), 500
-            cat["movie_titles"] = [movies_by_id[i]["title"] for i in cat["movie_ids"] if i in movies_by_id]
-        return jsonify({"puzzle": cats})
+            ids = _match_titles_to_ids(cat.get("movies", []), movies_by_title)
+            ids = [i for i in ids if i not in used]
+            if len(ids) < 4:
+                continue
+            ids = ids[:4]
+            used.update(ids)
+            out.append({
+                "title":        cat.get("title", ""),
+                "movie_ids":    ids,
+                "movie_titles": [movies_by_id[i]["title"] for i in ids if i in movies_by_id],
+            })
+            if len(out) == 4:
+                break
+        if len(out) < 4:
+            return jsonify({"error": f"Only built {len(out)}/4 categories — try again or add a theme"}), 500
+        return jsonify({"puzzle": out})
     except (json.JSONDecodeError, KeyError) as e:
         return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
 
