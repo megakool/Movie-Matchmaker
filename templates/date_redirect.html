@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Marquee{% endblock %}
+
+{% block content %}
+<script>
+  (function () {
+    var d = new Date();
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    var localDate = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    window.location.replace('/puzzle/' + localDate);
+  })();
+</script>
+<p style="text-align:center;padding:40px;color:var(--text2);">Loading today's puzzle…</p>
+{% endblock %}

@@ -113,7 +113,7 @@ function renderSolvedBanners() {
 
 function updateSubmitBtn() {
   $submit.disabled  = (state.selected.size !== 4 || state.gameOver);
-  $shuffle.disabled = (state.selected.size === 0 || state.gameOver);
+  $shuffle.disabled = state.gameOver;
 }
 
 /* ── Tile Interaction ── */
@@ -217,9 +217,9 @@ function onWrongGuess(guessIds, oneAway) {
 
   renderLives();
 
-  // One-away toast
+  // One-away message
   if (oneAway) {
-    showToast('One away…');
+    showOneAway();
   }
 
   if (state.mistakes >= MAX_MISTAKES) {
@@ -328,6 +328,15 @@ function onShare() {
     // Fallback: show text in a prompt
     prompt('Copy this result:', text);
   });
+}
+
+/* ── One Away ── */
+function showOneAway() {
+  const el = document.getElementById('one-away-msg');
+  if (!el) return;
+  el.classList.remove('hidden');
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => el.classList.add('hidden'), 1500);
 }
 
 /* ── Toast ── */

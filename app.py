@@ -7,7 +7,7 @@ import os
 import random
 import hashlib
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from functools import wraps
 
@@ -156,23 +156,17 @@ def admin_required(f):
 # ── Public Routes ─────────────────────────────────────────────────────────────
 @app.get("/")
 def index():
-    today = date.today().isoformat()
-    # Try today's puzzle; fall back to most recent
-    if get_puzzle(today):
-        return redirect(url_for("play_puzzle", puzzle_date=today))
-    past_dates = [d for d in get_all_puzzle_dates() if d <= today]
-    if past_dates:
-        return redirect(url_for("play_puzzle", puzzle_date=past_dates[-1]))
-    return render_template("no_puzzle.html", puzzle_date=today)
+    return render_template("date_redirect.html")
 
 
 @app.get("/puzzle/<puzzle_date>")
 def play_puzzle(puzzle_date: str):
     puzzle = get_puzzle(puzzle_date)
     today = date.today().isoformat()
+    max_allowed = (date.today() + timedelta(days=1)).isoformat()
 
-    # Block access to future puzzles
-    if puzzle_date > today:
+    # Block access to puzzles more than 1 day in the future (timezone tolerance)
+    if puzzle_date > max_allowed:
         return redirect(url_for("play_puzzle", puzzle_date=today)) if get_puzzle(today) else redirect(url_for("index"))
 
     if puzzle is None:
