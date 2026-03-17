@@ -100,7 +100,7 @@ async function onSubmit() {
   const movieIds = [...state.selected];
 
   try {
-    const res = await fetch('/create/submit', {
+    const res = await fetch('/marquee/create/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ movie_ids: movieIds, category_name: categoryName }),

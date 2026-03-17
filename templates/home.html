@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spiker Games — Daily Puzzles</title>
+  <meta name="description" content="Daily puzzle games crafted for curious minds. Play Marquee and more.">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='faviconV2.ico') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,900;1,9..144,900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ── Tokens ── */
+    :root {
+      --bg:       #faf4ef;
+      --surface:  #ffffff;
+      --text:     #1a1205;
+      --text2:    #6b5c4e;
+      --muted:    #a0907e;
+      --border:   #111111;
+      --bw:       2.5px;
+      --yellow:   #f9df6d;
+      --green:    #6abf69;
+      --blue:     #6ab0d4;
+      --purple:   #b07ecf;
+      --shadow:   5px 5px 0 var(--border);
+      --shadow-lg: 7px 7px 0 var(--border);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    /* Dot-grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(26,18,5,0.07) 1px, transparent 1px);
+      background-size: 24px 24px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ── */
+    .hub-header {
+      position: relative;
+      z-index: 10;
+      border-bottom: var(--bw) solid var(--border);
+      background: var(--surface);
+      padding: 0 24px;
+    }
+    .hub-header__inner {
+      max-width: 900px;
+      margin: 0 auto;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .hub-wordmark {
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 900;
+      font-style: italic;
+      font-size: 22px;
+      letter-spacing: -0.3px;
+      color: var(--text);
+      line-height: 1;
+    }
+    .hub-tagline-header {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Games section ── */
+    .hub-games {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+    .hub-games__label {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      animation: fadeUp 0.4s ease 0.05s forwards;
+    }
+    .hub-games__label::after {
+      content: '';
+      flex: 1;
+      height: var(--bw);
+      background: rgba(17,17,17,0.12);
+    }
+    .hub-games__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    /* ── Game Card ── */
+    .game-card {
+      background: var(--surface);
+      border: var(--bw) solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      animation: fadeUp 0.4s ease forwards;
+    }
+    .game-card--active {
+      text-decoration: none;
+      color: var(--text);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      cursor: pointer;
+    }
+    .game-card--active:hover {
+      transform: translate(-3px, -3px);
+      box-shadow: var(--shadow-lg);
+    }
+    .game-card--active:active {
+      transform: translate(4px, 4px);
+      box-shadow: none;
+    }
+    .game-card--inactive {
+      cursor: default;
+    }
+
+    /* Card swatch top */
+    .card-swatch {
+      position: relative;
+      height: 130px;
+      overflow: hidden;
+      border-bottom: var(--bw) solid var(--border);
+    }
+    .card-swatch__grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      height: 100%;
+    }
+    .card-swatch__cell--y  { background: var(--yellow); }
+    .card-swatch__cell--g  { background: var(--green); }
+    .card-swatch__cell--b  { background: var(--blue); }
+    .card-swatch__cell--p  { background: var(--purple); }
+    .card-swatch__cell--ghost {
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(17,17,17,0.06) 0px,
+        rgba(17,17,17,0.06) 1px,
+        var(--bg) 1px,
+        var(--bg) 10px
+      );
+    }
+    .card-swatch__badge {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card-swatch__badge-inner {
+      background: var(--surface);
+      border: var(--bw) solid var(--border);
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text);
+      box-shadow: 3px 3px 0 var(--border);
+    }
+    .card-swatch__question {
+      background: var(--surface);
+      border: var(--bw) solid rgba(17,17,17,0.2);
+      border-radius: 999px;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 900;
+      font-style: italic;
+      font-size: 26px;
+      color: var(--muted);
+    }
+
+    /* Card body */
+    .card-body {
+      padding: 20px 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+    }
+    .card-body__type {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .card-body__name {
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 900;
+      font-style: italic;
+      font-size: 36px;
+      line-height: 1;
+      letter-spacing: -1.5px;
+      color: var(--text);
+    }
+    .card-body__desc {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text2);
+      line-height: 1.55;
+      margin-top: 4px;
+    }
+    .card-body__cta {
+      margin-top: 16px;
+    }
+    .cta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--text);
+      color: var(--bg);
+      border: var(--bw) solid var(--border);
+      border-radius: 999px;
+      padding: 7px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 3px 3px 0 var(--border);
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+    .game-card--active:hover .cta-pill {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0 var(--border);
+    }
+    .cta-arrow {
+      transition: transform 0.15s ease;
+    }
+    .game-card--active:hover .cta-arrow {
+      transform: translateX(3px);
+    }
+    .coming-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg);
+      border: var(--bw) solid rgba(17,17,17,0.2);
+      border-radius: 999px;
+      padding: 7px 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .coming-pill::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--muted);
+      opacity: 0.5;
+    }
+
+    /* ── Ticker ── */
+    .hub-ticker {
+      position: relative;
+      z-index: 1;
+      border-top: var(--bw) solid var(--border);
+      border-bottom: var(--bw) solid var(--border);
+      background: var(--text);
+      overflow: hidden;
+      padding: 9px 0;
+    }
+    .ticker-track {
+      display: flex;
+      width: max-content;
+      animation: tickerScroll 20s linear infinite;
+    }
+    .ticker-item {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 0 28px;
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 900;
+      font-style: italic;
+      font-size: 14px;
+      color: rgba(250,244,239,0.6);
+      white-space: nowrap;
+    }
+    .ticker-dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(250,244,239,0.3);
+      flex-shrink: 0;
+    }
+
+    /* ── Footer ── */
+    .hub-footer {
+      position: relative;
+      z-index: 1;
+      border-top: var(--bw) solid var(--border);
+      background: var(--surface);
+      padding: 18px 24px;
+      text-align: center;
+    }
+    .hub-footer__text {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes tickerScroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 600px) {
+      .hub-games { padding: 28px 16px 60px; }
+      .hub-games__grid { grid-template-columns: 1fr; }
+      .card-swatch { height: 100px; }
+      .card-body__name { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="hub-header">
+    <div class="hub-header__inner">
+      <span class="hub-wordmark">Spiker Games</span>
+      <span class="hub-tagline-header">Daily Puzzles</span>
+    </div>
+  </header>
+
+  <main class="hub-games">
+    <div class="hub-games__label">Games</div>
+    <div class="hub-games__grid">
+
+      <!-- Marquee -->
+      <a href="/marquee" class="game-card game-card--active" style="animation-delay: 0.15s;">
+        <div class="card-swatch">
+          <div class="card-swatch__grid">
+            <div class="card-swatch__cell card-swatch__cell--y"></div>
+            <div class="card-swatch__cell card-swatch__cell--g"></div>
+            <div class="card-swatch__cell card-swatch__cell--b"></div>
+            <div class="card-swatch__cell card-swatch__cell--p"></div>
+          </div>
+          <div class="card-swatch__badge">
+            <div class="card-swatch__badge-inner">Movie Puzzle</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-body__type">Daily · 16 tiles</div>
+          <div class="card-body__name">Marquee</div>
+          <p class="card-body__desc">Group 16 movies into 4 hidden categories. A fresh puzzle every day.</p>
+          <div class="card-body__cta">
+            <div class="cta-pill">Play today <span class="cta-arrow">→</span></div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Trivia -->
+      <div class="game-card game-card--inactive" style="animation-delay: 0.25s; opacity: 0;">
+        <div class="card-swatch" style="background: var(--bg);">
+          <div class="card-swatch__grid">
+            <div class="card-swatch__cell card-swatch__cell--ghost"></div>
+            <div class="card-swatch__cell card-swatch__cell--ghost"></div>
+            <div class="card-swatch__cell card-swatch__cell--ghost"></div>
+            <div class="card-swatch__cell card-swatch__cell--ghost"></div>
+          </div>
+          <div class="card-swatch__badge">
+            <div class="card-swatch__question">?</div>
+          </div>
+        </div>
+        <div class="card-body" style="opacity: 0.4;">
+          <div class="card-body__type">Daily · Coming soon</div>
+          <div class="card-body__name">Trivia</div>
+          <p class="card-body__desc">A brand-new daily trivia game. Something to test what you really know.</p>
+          <div class="card-body__cta">
+            <div class="coming-pill">Coming soon</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <div class="hub-ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <div class="ticker-item">Marquee<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Daily Movie Puzzle<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Spiker Games<span class="ticker-dot"></span></div>
+      <div class="ticker-item">One puzzle, every day<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Trivia<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Marquee<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Daily Movie Puzzle<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Spiker Games<span class="ticker-dot"></span></div>
+      <div class="ticker-item">One puzzle, every day<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Trivia<span class="ticker-dot"></span></div>
+      <!-- duplicate for seamless loop -->
+      <div class="ticker-item">Marquee<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Daily Movie Puzzle<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Spiker Games<span class="ticker-dot"></span></div>
+      <div class="ticker-item">One puzzle, every day<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Trivia<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Marquee<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Daily Movie Puzzle<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Spiker Games<span class="ticker-dot"></span></div>
+      <div class="ticker-item">One puzzle, every day<span class="ticker-dot"></span></div>
+      <div class="ticker-item">Trivia<span class="ticker-dot"></span></div>
+    </div>
+  </div>
+
+  <footer class="hub-footer">
+    <div class="hub-footer__text">Spiker Games &mdash; Daily Puzzles</div>
+  </footer>
+
+</body>
+</html>

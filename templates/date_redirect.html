@@ -7,7 +7,7 @@
     var d = new Date();
     var pad = function (n) { return String(n).padStart(2, '0'); };
     var localDate = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-    window.location.replace('/puzzle/' + localDate);
+    window.location.replace('/marquee/' + localDate);
   })();
 </script>
 <p style="text-align:center;padding:40px;color:var(--text2);">Loading today's puzzle…</p>

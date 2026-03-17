@@ -3,26 +3,254 @@
 
 {% block head %}
 <style>
-/* ── Layout ─────────────────────────────────────────────────────── */
-.admin-wrap        { max-width: 1280px; margin: 0 auto; padding: 24px 16px 80px; }
-.admin-tabs        { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 24px; flex-wrap: wrap; }
-.admin-tab         { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
-                     padding: 10px 18px; font-family: inherit; font-size: 14px; font-weight: 700;
-                     cursor: pointer; color: var(--text2); white-space: nowrap; }
-.admin-tab.active  { color: var(--text); border-bottom-color: var(--border); }
-.admin-panel       { display: none; }
-.admin-panel.active{ display: block; }
+/* ── Header Override ────────────────────────────────────────────── */
+.site-header { background: #1a1205; border-bottom-color: #111; }
+.site-logo   { color: #faf4ef; }
+.nav-burger__line { background: #faf4ef; }
+.nav-burger:hover { background: rgba(255,255,255,0.08); }
 
-/* ── Shared card ────────────────────────────────────────────────── */
-.admin-card        { background: var(--surface); border: var(--bw) solid var(--border);
-                     border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+/* ── Admin Layout ───────────────────────────────────────────────── */
+.admin-body {
+  display: flex;
+  align-items: stretch;
+  min-height: calc(100vh - 56px);
+}
+
+/* ── Sidebar ────────────────────────────────────────────────────── */
+.admin-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: #ede5dc;
+  border-right: var(--bw) solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow-y: auto;
+}
+.sidebar-top {
+  padding: 14px 12px;
+  border-bottom: 1.5px solid rgba(17,17,17,0.12);
+}
+.game-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 3px 3px 0 var(--border);
+  padding: 10px 12px;
+}
+.game-pill__swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: var(--bw) solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.swatch-y { background: var(--yellow); }
+.swatch-g { background: var(--green); }
+.swatch-b { background: var(--blue); }
+.swatch-p { background: var(--purple); }
+.game-pill__info { flex: 1; min-width: 0; }
+.game-pill__name {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1;
+  display: block;
+}
+.game-pill__sub {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-top: 2px;
+}
+.game-pill__badge {
+  font-size: 10px;
+  font-weight: 700;
+  background: #1a1205;
+  color: #faf4ef;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+}
+.game-upcoming {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  border-radius: 8px;
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.game-upcoming__swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 2px solid #aaa;
+  background: repeating-linear-gradient(
+    45deg, rgba(17,17,17,0.08) 0, rgba(17,17,17,0.08) 1px, transparent 1px, transparent 6px
+  );
+  flex-shrink: 0;
+}
+.game-upcoming__name {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1;
+  display: block;
+}
+.game-upcoming__sub {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-top: 1px;
+}
+
+/* ── Nav ────────────────────────────────────────────────────────── */
+.admin-nav {
+  padding: 12px 10px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.nav-section { margin-bottom: 18px; }
+.nav-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 4px 10px 6px;
+  display: block;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+  background: none;
+  border: 2px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s, color 0.1s;
+  line-height: 1.2;
+}
+.nav-item:hover { background: rgba(17,17,17,0.06); color: var(--text); }
+.nav-item.active {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: 2px 2px 0 var(--border);
+  font-weight: 700;
+}
+.nav-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+
+/* ── Sidebar footer ─────────────────────────────────────────────── */
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1.5px solid rgba(17,17,17,0.12);
+}
+.sidebar-logout {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 7px;
+  transition: background 0.1s, color 0.1s;
+}
+.sidebar-logout:hover { background: rgba(17,17,17,0.06); color: var(--text); }
+
+/* ── Main ───────────────────────────────────────────────────────── */
+.admin-main {
+  flex: 1;
+  min-width: 0;
+  padding: 28px 28px 80px;
+}
+.admin-panel { display: none; }
+.admin-panel.active { display: block; }
+
+/* ── Panel header ───────────────────────────────────────────────── */
+.panel-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.panel-hd__title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 26px;
+  line-height: 1;
+  margin: 0;
+}
+.panel-hd__actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ── Shared admin-card ──────────────────────────────────────────── */
+.admin-card {
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* ── Builder ────────────────────────────────────────────────────── */
+.slot-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: 10px;
+}
+.slot-bar__label { font-size: 12px; font-weight: 700; opacity: 0.6; white-space: nowrap; }
+.slot-bar__actions { margin-left: auto; display: flex; gap: 8px; }
 
 /* ── Split layout ───────────────────────────────────────────────── */
-.split-layout      { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
-@media (max-width: 860px) { .split-layout { grid-template-columns: 1fr; } }
+.split-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 960px) { .split-layout { grid-template-columns: 1fr; } }
 
 /* ── Movie pool ─────────────────────────────────────────────────── */
 .pool-header       { padding: 12px 14px; border-bottom: 1px solid #e5ddd5; }
+.pool-header__top  { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.pool-header__name { font-size: 14px; font-weight: 700; }
+.pool-header__count{ font-size: 12px; opacity: 0.5; }
 .pool-search       { width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 13px;
                      border: 1.5px solid #ccc; border-radius: 8px; font-family: inherit; }
 .pool-list         { max-height: 480px; overflow-y: auto; padding: 6px; }
@@ -32,7 +260,7 @@
 .pool-movie__year  { font-size: 11px; opacity: 0.45; flex-shrink: 0; }
 .pool-movie.in-use { opacity: 0.3; pointer-events: none; }
 
-/* ── Active-slot selector ───────────────────────────────────────── */
+/* ── Slot selector ──────────────────────────────────────────────── */
 .slot-selector     { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .slot-dot          { width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid var(--border);
                      cursor: pointer; transition: transform .1s, box-shadow .1s; flex-shrink: 0; }
@@ -54,8 +282,7 @@
 .cat-difficulty    { font-size: 11px; opacity: 0.5; white-space: nowrap; flex-shrink: 0; }
 .cat-slot__actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 .slot-reorder-btn  { background: none; border: 1.5px solid #ccc; border-radius: 5px;
-                     padding: 2px 6px; font-size: 13px; cursor: pointer; color: var(--text2);
-                     line-height: 1.2; }
+                     padding: 2px 6px; font-size: 13px; cursor: pointer; color: var(--text2); line-height: 1.2; }
 .slot-reorder-btn:hover   { background: #f0ebe5; border-color: #999; }
 .slot-reorder-btn:disabled{ opacity: 0.2; pointer-events: none; }
 .cat-slot__movies  { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px; min-height: 46px; }
@@ -76,8 +303,8 @@
                      display: flex; align-items: center; gap: 10px; opacity: 0.35; transition: opacity .2s; }
 .preview-cat.filled{ opacity: 1; }
 .preview-cat--yellow { background: var(--yellow); color: var(--yellow-text); }
-.preview-cat--green  { background: var(--green);  color: var(--green-text);  }
-.preview-cat--blue   { background: var(--blue);   color: var(--blue-text);   }
+.preview-cat--green  { background: var(--green);  color: var(--green-text); }
+.preview-cat--blue   { background: var(--blue);   color: var(--blue-text); }
 .preview-cat--purple { background: var(--purple); color: var(--purple-text); }
 
 /* ── Publish bar ────────────────────────────────────────────────── */
@@ -96,7 +323,9 @@
                      border-radius: 8px; padding: 10px 14px; font-size: 13px; font-weight: 700;
                      color: #cc2200; margin-top: 10px; }
 
-/* ── Category library ───────────────────────────────────────────── */
+/* ── Category Library ───────────────────────────────────────────── */
+.lib-search-input  { padding: 6px 10px; border: 1.5px solid #ccc; border-radius: 8px;
+                     font-family: inherit; font-size: 13px; width: 180px; }
 .cat-library-card  { background: var(--surface); border: var(--bw) solid var(--border);
                      border-radius: 10px; box-shadow: var(--shadow-xs); padding: 12px 14px; margin-bottom: 10px; }
 .cat-library-card__title  { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
@@ -108,31 +337,8 @@
 .source-badge--submission { background: #fff3cd; color: #7a5c00; }
 .source-badge--ai         { background: #e8d5ff; color: #4a0080; }
 
-/* ── Browse panel ───────────────────────────────────────────────── */
-.browse-movie-row  { display: flex; align-items: center; gap: 10px; padding: 7px 10px;
-                     border-radius: 6px; font-size: 13px; cursor: pointer; }
-.browse-movie-row:hover { background: #f0ebe5; }
-.browse-movie-row input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
-.filter-btn        { padding: 4px 10px; font-size: 12px; font-weight: 700; border-radius: 6px;
-                     border: 1.5px solid #ccc; background: none; cursor: pointer; font-family: inherit; }
-.filter-btn.active { background: #111; color: #fff; border-color: #111; }
-.filter-btn:hover:not(.active) { background: #f0ebe5; }
-
-/* ── Submissions ────────────────────────────────────────────────── */
-.sub-table         { width: 100%; border-collapse: collapse; font-size: 13px; }
-.sub-table th      { text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--border);
-                     font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
-.sub-table td      { padding: 10px 12px; border-bottom: 1px solid #e5ddd5; vertical-align: top; }
-.sub-table tr:hover td { background: #faf4ef; }
-.sub-actions       { display: flex; gap: 6px; flex-wrap: wrap; }
-.sub-badge         { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
-.sub-badge--pending    { background: #fff3cd; color: #7a5c00; }
-.sub-badge--used       { background: #d4edda; color: #1a4d19; }
-.sub-badge--saved      { background: #dce5ff; color: #1a3580; }
-.sub-badge--dismissed  { background: #f0ebe5; color: #888; }
-
-/* ── Published expand ───────────────────────────────────────────── */
-.pub-row__summary  { display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+/* ── Published panel ────────────────────────────────────────────── */
+.pub-row__summary  { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
                      cursor: pointer; border-bottom: 1px solid #e5ddd5; }
 .pub-row__summary:hover { background: #faf4ef; }
 .pub-row__expand   { margin-left: auto; font-size: 12px; color: var(--text2); user-select: none; }
@@ -141,54 +347,36 @@
 .pub-cat-detail    { border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
 .pub-cat-detail strong { display: block; font-size: 12px; font-weight: 700; margin-bottom: 2px; }
 
-/* ── Dataset toggle ─────────────────────────────────────────────── */
-.dataset-bar       { display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
-                     padding: 8px 14px; background: var(--surface); border: var(--bw) solid var(--border);
-                     border-radius: 10px; box-shadow: var(--shadow-xs); flex-wrap: wrap; }
-.dataset-bar label { font-size: 12px; font-weight: 700; opacity: 0.6; white-space: nowrap; }
-.dataset-btn       { padding: 4px 12px; font-size: 12px; font-weight: 700; border-radius: 6px;
+/* ── Settings panel ─────────────────────────────────────────────── */
+.settings-card     { background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 12px; box-shadow: var(--shadow); padding: 20px 22px;
+                     margin-bottom: 16px; max-width: 580px; }
+.settings-card h3  { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
+.settings-card p   { font-size: 13px; color: var(--text2); margin: 0 0 14px; line-height: 1.5; }
+.dataset-btn       { padding: 7px 14px; font-size: 13px; font-weight: 700; border-radius: 8px;
                      border: 1.5px solid #ccc; background: none; cursor: pointer; font-family: inherit;
                      color: var(--text2); transition: all .15s; }
 .dataset-btn:hover:not(.active) { background: #f0ebe5; }
 .dataset-btn.active{ background: #111; color: #fff; border-color: #111; }
 .dataset-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-#dataset-status    { font-size: 12px; opacity: 0.5; margin-left: auto; }
+#dataset-status    { font-size: 12px; opacity: 0.5; margin-left: 8px; }
+.danger-card       { background: var(--surface); border: 2px solid #cc2200;
+                     border-radius: 12px; padding: 20px 22px; max-width: 580px; }
+.danger-card h3    { font-size: 15px; font-weight: 700; color: #cc2200; margin: 0 0 4px; }
+.danger-card p     { font-size: 13px; color: var(--text2); margin: 0 0 14px; line-height: 1.5; }
 
-/* ── AI tab ─────────────────────────────────────────────────────── */
-.ai-wrap           { max-width: 860px; }
-.ai-section        { background: var(--surface); border: var(--bw) solid var(--border);
-                     border-radius: 12px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
-.ai-section h3     { margin: 0 0 14px; font-size: 15px; }
-.ai-theme-row      { display: flex; gap: 8px; margin-bottom: 12px; }
-.ai-theme-input    { flex: 1; padding: 9px 12px; border: 1.5px solid #ccc; border-radius: 8px;
-                     font-family: inherit; font-size: 14px; }
-.ai-divider        { text-align: center; font-size: 12px; opacity: 0.4; margin: 14px 0; border-top: 1px solid #e5ddd5; padding-top: 14px; }
-.ai-results        { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
-.ai-result-card    { background: #f8f4f0; border: 1.5px solid #ddd; border-radius: 10px; padding: 12px 14px; }
-.ai-result-card__title  { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-.ai-result-card__movies { font-size: 13px; color: var(--text2); margin-bottom: 10px; line-height: 1.6; }
-.ai-result-card__footer { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.ai-conn-type      { font-size: 10px; font-weight: 700; text-transform: uppercase;
-                     letter-spacing: .04em; padding: 2px 8px; border-radius: 8px;
-                     background: #e8d5ff; color: #4a0080; margin-right: auto; }
-.ai-spinner        { text-align: center; padding: 20px; font-size: 13px; opacity: 0.5; }
-
-/* ── Connections browser ────────────────────────────────────────── */
-.conn-layout       { display: grid; grid-template-columns: 240px 320px 1fr; gap: 16px; align-items: start; }
-@media (max-width: 1100px) { .conn-layout { grid-template-columns: 220px 1fr; } }
-@media (max-width: 700px)  { .conn-layout { grid-template-columns: 1fr; } }
-
+/* ── Browse panel ───────────────────────────────────────────────── */
+.conn-layout-2col  { display: grid; grid-template-columns: 240px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 700px) { .conn-layout-2col { grid-template-columns: 1fr; } }
 .conn-index        { background: var(--surface); border: var(--bw) solid var(--border);
                      border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
 .conn-type-tabs    { display: flex; border-bottom: 1px solid #e5ddd5; }
 .conn-type-btn     { flex: 1; padding: 8px 4px; font-size: 11px; font-weight: 700; text-align: center;
                      background: none; border: none; border-bottom: 2px solid transparent;
-                     margin-bottom: -1px; cursor: pointer; font-family: inherit; color: var(--text2);
-                     white-space: nowrap; }
+                     margin-bottom: -1px; cursor: pointer; font-family: inherit; color: var(--text2); white-space: nowrap; }
 .conn-type-btn.active { color: var(--text); border-bottom-color: var(--border); }
 .conn-search       { width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 13px;
-                     border: none; border-bottom: 1px solid #e5ddd5; font-family: inherit;
-                     outline: none; }
+                     border: none; border-bottom: 1px solid #e5ddd5; font-family: inherit; outline: none; }
 .conn-list         { max-height: 520px; overflow-y: auto; }
 .conn-item         { display: flex; align-items: center; justify-content: space-between;
                      padding: 8px 12px; cursor: pointer; gap: 8px; }
@@ -199,7 +387,6 @@
 .conn-item__count  { font-size: 11px; background: #e5ddd5; border-radius: 10px;
                      padding: 1px 7px; flex-shrink: 0; font-weight: 700; }
 .conn-item__count.enough { background: #d4edda; color: #1a4d19; }
-
 .conn-movies-panel { background: var(--surface); border: var(--bw) solid var(--border);
                      border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
 .conn-movies-header{ padding: 12px 14px; border-bottom: 1px solid #e5ddd5; }
@@ -214,27 +401,41 @@
 .conn-movies-footer{ padding: 12px 14px; border-top: 1px solid #e5ddd5; }
 .conn-empty        { padding: 24px; text-align: center; font-size: 13px; opacity: 0.4; }
 
-/* ── Sub-tabs (inside Create Category) ─────────────────────────── */
-.sub-tabs        { display: flex; gap: 0; border: var(--bw) solid var(--border);
-                   border-radius: var(--radius); overflow: hidden; margin-bottom: 20px;
-                   width: fit-content; }
-.sub-tab         { padding: 8px 20px; font-weight: 700; font-size: 13px; cursor: pointer;
-                   background: var(--surface); border: none;
-                   border-right: var(--bw) solid var(--border); font-family: inherit;
-                   color: var(--text2); white-space: nowrap; transition: background .1s; }
+/* ── Sub-tabs ───────────────────────────────────────────────────── */
+.sub-tabs  { display: flex; gap: 0; border: var(--bw) solid var(--border);
+             border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; width: fit-content; }
+.sub-tab   { padding: 8px 20px; font-weight: 700; font-size: 13px; cursor: pointer;
+             background: var(--surface); border: none; border-right: var(--bw) solid var(--border);
+             font-family: inherit; color: var(--text2); white-space: nowrap; transition: background .1s; }
 .sub-tab:last-child { border-right: none; }
 .sub-tab.active  { background: var(--text); color: var(--bg); }
 .sub-tab:hover:not(.active) { background: var(--bg); }
-.sub-panel       { display: none; }
-.sub-panel.active{ display: block; }
+.sub-panel { display: none; }
+.sub-panel.active { display: block; }
 
-/* ── 2-col connections layout (Browse sub-panel) ────────────────── */
-.conn-layout-2col { display: grid; grid-template-columns: 240px 1fr; gap: 16px; align-items: start; }
-@media (max-width: 700px) { .conn-layout-2col { grid-template-columns: 1fr; } }
-
-/* ── Library tab layout ─────────────────────────────────────────── */
-.library-layout  { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
-@media (max-width: 860px) { .library-layout { grid-template-columns: 1fr; } }
+/* ── AI panel ───────────────────────────────────────────────────── */
+.ai-wrap           { max-width: 860px; }
+.ai-section        { background: var(--surface); border: var(--bw) solid var(--border);
+                     border-radius: 12px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
+.ai-section h3     { margin: 0 0 6px; font-size: 15px; }
+.ai-section .ai-desc { font-size: 13px; opacity: 0.6; margin: 0 0 14px; }
+.ai-results        { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.ai-result-card    { background: #f8f4f0; border: 1.5px solid #ddd; border-radius: 10px; padding: 12px 14px; }
+.ai-result-card__title  { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.ai-result-card__movies { font-size: 13px; color: var(--text2); margin-bottom: 6px; line-height: 1.6; }
+.ai-result-card__reasoning { font-size: 12px; color: var(--text2); font-style: italic; margin-bottom: 10px; line-height: 1.5; }
+.ai-result-card__footer { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ai-conn-type      { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+                     padding: 2px 8px; border-radius: 8px; background: #e8d5ff; color: #4a0080; }
+.ai-difficulty     { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 8px;
+                     background: #f0ebe5; color: #555; margin-right: auto; }
+.ai-spinner        { text-align: center; padding: 20px; font-size: 13px; opacity: 0.5; }
+.conn-type-toggles { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.toggle-btn        { padding: 5px 12px; font-size: 12px; font-weight: 700; border-radius: 20px;
+                     border: 1.5px solid #ccc; background: none; cursor: pointer;
+                     font-family: inherit; color: var(--text2); transition: all .12s; }
+.toggle-btn.active { background: #111; color: #fff; border-color: #111; }
+.toggle-btn:hover:not(.active) { background: #f0ebe5; border-color: #999; }
 
 /* ── Random Discovery ───────────────────────────────────────────── */
 .random-pick-grid {
@@ -242,372 +443,379 @@
   grid-template-columns: repeat(8, 1fr);
   gap: 10px;
 }
-@media (max-width: 1000px) { .random-pick-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 1100px) { .random-pick-grid { grid-template-columns: repeat(4, 1fr); } }
 @media (max-width: 600px)  { .random-pick-grid { grid-template-columns: repeat(2, 1fr); } }
-.random-pick-card {
-  border: 2px solid #ccc;
-  border-radius: 10px;
-  overflow: hidden;
-  cursor: pointer;
-  user-select: none;
-  transition: border-color 0.12s, opacity 0.15s, box-shadow 0.12s;
-  background: var(--surface);
-  position: relative;
-}
+.random-pick-card  { border: 2px solid #ccc; border-radius: 10px; overflow: hidden; cursor: pointer;
+                     user-select: none; transition: border-color 0.12s, opacity 0.15s, box-shadow 0.12s;
+                     background: var(--surface); }
 .random-pick-card:hover { border-color: #999; box-shadow: 2px 2px 0 #333; }
 .random-pick-card.selected { border-color: var(--text); box-shadow: 3px 3px 0 var(--text); }
 .random-pick-card.disabled-card { opacity: 0.35; cursor: default; pointer-events: none; }
-.random-poster-img {
-  width: 100%;
-  aspect-ratio: 2/3;
-  object-fit: cover;
-  display: block;
-}
-.random-poster-placeholder {
-  width: 100%;
-  aspect-ratio: 2/3;
-  background: #e5ddd5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  color: #aaa;
-}
-.random-card-label {
-  padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.3;
-  transition: background 0.12s, color 0.12s;
-}
-.random-pick-card.selected .random-card-label {
-  background: var(--text);
-  color: var(--bg);
-}
-.random-pick-card__year {
-  font-size: 10px;
-  opacity: 0.5;
-  font-weight: 400;
-  display: block;
-  margin-top: 1px;
+.random-poster-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; }
+.random-poster-placeholder { width: 100%; aspect-ratio: 2/3; background: #e5ddd5;
+                              display: flex; align-items: center; justify-content: center;
+                              font-size: 22px; color: #aaa; }
+.random-card-label { padding: 8px 10px; font-size: 12px; font-weight: 700; line-height: 1.3;
+                     transition: background 0.12s, color 0.12s; }
+.random-pick-card.selected .random-card-label { background: var(--text); color: var(--bg); }
+.random-pick-card__year { font-size: 10px; opacity: 0.5; font-weight: 400; display: block; margin-top: 1px; }
+
+/* ── Mobile sidebar ─────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .admin-body { flex-direction: column; }
+  .admin-sidebar { width: 100%; height: auto; position: static; flex-direction: row; overflow-x: auto; }
+  .sidebar-top { display: none; }
+  .admin-nav { flex-direction: row; flex-wrap: nowrap; padding: 6px 8px; overflow-x: auto; gap: 0; }
+  .nav-section { display: flex; gap: 4px; margin-bottom: 0; margin-right: 8px; flex-shrink: 0; }
+  .nav-label { display: none; }
+  .nav-item { white-space: nowrap; }
+  .sidebar-footer { display: none; }
+  .admin-main { padding: 16px 16px 60px; }
 }
 
+/* ── Loading/empty states ───────────────────────────────────────── */
+.loading-state { padding: 20px; text-align: center; opacity: 0.5; font-size: 13px; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="admin-wrap">
+<div class="admin-body">
 
-  <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-    <h1 style="margin:0;font-size:1.8rem;">Admin</h1>
-    <div style="display:flex;align-items:center;gap:12px;">
-      {% if pending_count > 0 %}
-      <span style="background:#f9df6d;border:1.5px solid var(--border);border-radius:12px;padding:3px 10px;font-size:12px;font-weight:700;">
-        {{ pending_count }} pending
-      </span>
-      {% endif %}
-      <a href="/admin/logout" class="btn btn--ghost btn--sm">Log out</a>
-    </div>
-  </div>
+  <!-- ══════════ SIDEBAR ══════════ -->
+  <aside class="admin-sidebar">
 
-  <!-- Tabs -->
-  <div class="admin-tabs">
-    <button class="admin-tab active" data-tab="builder">Puzzle Builder</button>
-    <button class="admin-tab" data-tab="create">Create Category</button>
-    <button class="admin-tab" data-tab="library">Library</button>
-    <button class="admin-tab" data-tab="submissions">Submissions{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</button>
-  </div>
-
-  <!-- ══════════════ BUILDER TAB ══════════════ -->
-  <div class="admin-panel active" id="panel-builder">
-
-    <!-- Dataset toggle -->
-    <div class="dataset-bar">
-      <label>Dataset:</label>
-      <button class="dataset-btn active" data-dataset="curated" id="btn-dataset-curated">Curated</button>
-      <button class="dataset-btn" data-dataset="full" id="btn-dataset-full">Full</button>
-      <span id="dataset-status">Loading…</span>
+    <div class="sidebar-top">
+      <!-- Active game pill -->
+      <div class="game-pill">
+        <div class="game-pill__swatch">
+          <div class="swatch-y"></div>
+          <div class="swatch-g"></div>
+          <div class="swatch-b"></div>
+          <div class="swatch-p"></div>
+        </div>
+        <div class="game-pill__info">
+          <span class="game-pill__name">Marquee</span>
+          <span class="game-pill__sub">Movie Puzzle</span>
+        </div>
+        <span class="game-pill__badge">Active</span>
+      </div>
+      <!-- Upcoming game -->
+      <div class="game-upcoming">
+        <div class="game-upcoming__swatch"></div>
+        <div>
+          <span class="game-upcoming__name">Trivia</span>
+          <span class="game-upcoming__sub">Coming soon</span>
+        </div>
+      </div>
     </div>
 
-    <div class="split-layout">
+    <nav class="admin-nav">
+      <div class="nav-section">
+        <span class="nav-label">Marquee</span>
+        <button class="nav-item active" data-panel="builder">
+          <span class="nav-icon">⬛</span> Puzzle Builder
+        </button>
+        <button class="nav-item" data-panel="create">
+          <span class="nav-icon">✦</span> Create Category
+        </button>
+        <button class="nav-item" data-panel="library">
+          <span class="nav-icon">★</span> Category Library
+        </button>
+        <button class="nav-item" data-panel="published">
+          <span class="nav-icon">📋</span> Published Puzzles
+        </button>
+      </div>
+      <div class="nav-section">
+        <span class="nav-label">System</span>
+        <button class="nav-item" data-panel="settings">
+          <span class="nav-icon">⚙</span> Settings
+        </button>
+      </div>
+    </nav>
 
-      <!-- Left: Movie Pool -->
-      <div>
+    <div class="sidebar-footer">
+      <a href="/admin/logout" class="sidebar-logout">← Log out</a>
+    </div>
+
+  </aside>
+
+  <!-- ══════════ MAIN CONTENT ══════════ -->
+  <main class="admin-main">
+
+    <!-- ══════════════ BUILDER PANEL ══════════════ -->
+    <div class="admin-panel active" id="panel-builder">
+
+      <div class="panel-hd">
+        <h1 class="panel-hd__title">Puzzle Builder</h1>
+        <div class="panel-hd__actions">
+          <button class="btn btn--ghost btn--sm" id="btn-load-draft">Load Draft ▾</button>
+          <button class="btn btn--ghost btn--sm" id="btn-clear-builder">Clear All</button>
+        </div>
+      </div>
+
+      <!-- Slot selector bar -->
+      <div class="slot-bar">
+        <span class="slot-bar__label">Adding to:</span>
+        <div class="slot-selector" id="slot-selector"></div>
+      </div>
+
+      <div class="split-layout">
+
+        <!-- Left: Movie Pool -->
         <div class="admin-card">
           <div class="pool-header">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-              <strong style="font-size:14px;">Movie Pool</strong>
-              <span id="pool-count" style="font-size:12px;opacity:0.5;"></span>
+            <div class="pool-header__top">
+              <span class="pool-header__name">Movie Pool</span>
+              <span class="pool-header__count" id="pool-count"></span>
             </div>
             <input class="pool-search" id="pool-search" type="text"
-                   placeholder="Search by title, actor, director, genre…" autocomplete="off">
+                   placeholder="Search title, actor, director, genre…" autocomplete="off">
           </div>
           <div class="pool-list" id="pool-list">
-            <div style="padding:20px;text-align:center;opacity:0.5;font-size:13px;">Loading…</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right: Slots + Preview + Publish -->
-      <div>
-        <!-- Active slot selector -->
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-          <span style="font-size:12px;font-weight:700;opacity:0.6;">Adding to:</span>
-          <div class="slot-selector" id="slot-selector"></div>
-          <div style="margin-left:auto;display:flex;gap:8px;">
-            <button class="btn btn--ghost btn--sm" id="btn-load-draft">Load Draft ▾</button>
-            <button class="btn btn--ghost btn--sm" id="btn-clear-builder">Clear All</button>
+            <div class="loading-state">Loading…</div>
           </div>
         </div>
 
-        <!-- Category slots -->
-        <div class="categories-area" id="categories-area"></div>
-        <div id="validation-msg"></div>
+        <!-- Right: Slots + Preview + Publish -->
+        <div>
+          <div class="categories-area" id="categories-area"></div>
+          <div id="validation-msg"></div>
 
-        <!-- Live preview -->
-        <div class="preview-panel">
-          <div class="preview-label">Live Preview</div>
-          <div id="preview-cats"></div>
+          <div class="preview-panel">
+            <div class="preview-label">Live Preview</div>
+            <div id="preview-cats"></div>
+          </div>
+
+          <div class="publish-bar">
+            <label for="pub-date">Date</label>
+            <input type="date" id="pub-date">
+            <input type="text" id="pub-note" class="pub-note-input" placeholder="Author note (optional)">
+            <button class="btn btn--ghost btn--sm" id="btn-save-draft">Save Draft</button>
+            <button class="btn btn--primary" id="btn-publish">Publish Puzzle</button>
+            <span class="publish-msg" id="publish-msg"></span>
+          </div>
         </div>
 
-        <!-- Publish / Draft bar -->
-        <div class="publish-bar">
-          <label for="pub-date">Date</label>
-          <input type="date" id="pub-date">
-          <input type="text" id="pub-note" class="pub-note-input" placeholder="Author note (optional)">
-          <button class="btn btn--ghost" id="btn-save-draft">Save Draft</button>
-          <button class="btn btn--primary" id="btn-publish">Publish</button>
-          <span class="publish-msg" id="publish-msg"></span>
-        </div>
       </div>
-
-    </div>
-  </div>
-
-  <!-- ══════════════ CREATE CATEGORY TAB ══════════════ -->
-  <div class="admin-panel" id="panel-create">
-
-    <!-- Sub-tab nav -->
-    <div class="sub-tabs">
-      <button class="sub-tab active" data-subtab="browse">Browse</button>
-      <button class="sub-tab" data-subtab="random">🎲 Random</button>
-      <button class="sub-tab" data-subtab="ai">✦ AI</button>
     </div>
 
-    <!-- ── Browse sub-panel ── -->
-    <div class="sub-panel active" id="sub-browse">
-      <div class="conn-layout-2col">
+    <!-- ══════════════ CREATE CATEGORY PANEL ══════════════ -->
+    <div class="admin-panel" id="panel-create">
 
-        <!-- Col 1: Connections Index -->
-        <div class="conn-index">
-          <div class="conn-type-tabs">
-            <button class="conn-type-btn active" data-conntype="director">Directors</button>
-            <button class="conn-type-btn" data-conntype="actor">Cast</button>
-            <button class="conn-type-btn" data-conntype="writer">Writers</button>
-            <button class="conn-type-btn" data-conntype="oscar">Oscars</button>
-          </div>
-          <input class="conn-search" id="conn-search" type="text" placeholder="Filter…" autocomplete="off">
-          <div class="conn-list" id="conn-list">
-            <div class="conn-empty">Loading…</div>
-          </div>
-        </div>
-
-        <!-- Col 2: Movies for selected connection -->
-        <div class="conn-movies-panel">
-          <div class="conn-movies-header">
-            <div class="conn-movies-title" id="conn-movies-title">Select a name to see movies</div>
-            <div class="conn-movies-sub" id="conn-movies-sub">Click any name on the left</div>
-          </div>
-          <div class="conn-movie-list" id="conn-movie-list">
-            <div class="conn-empty">Choose a director, actor, writer, or Oscar category to see their films.</div>
-          </div>
-          <div class="conn-movies-footer">
-            <input type="text" id="cat-lib-name" placeholder="Name this connection…" maxlength="80"
-                   style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:10px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-size:12px;opacity:0.5;" id="browse-selected-count">0/4 selected</span>
-              <button class="btn btn--ghost btn--sm" id="btn-load-to-builder" disabled style="margin-left:auto;">→ Builder</button>
-              <button class="btn btn--sm" id="btn-save-to-lib" disabled>★ Save</button>
-            </div>
-          </div>
-        </div>
-
+      <div class="panel-hd">
+        <h1 class="panel-hd__title">Create Category</h1>
       </div>
 
-      <!-- Movie Search -->
-      <div style="margin-top:20px;border-top:1px solid #e5ddd5;padding-top:20px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-          <strong style="font-size:14px;">Movie Search</strong>
-          <span style="font-size:12px;opacity:0.5;">Search by title, director, actor, writer, genre — select up to 4</span>
-        </div>
+      <div class="sub-tabs">
+        <button class="sub-tab active" data-subtab="browse">Browse</button>
+        <button class="sub-tab" data-subtab="random">🎲 Random</button>
+        <button class="sub-tab" data-subtab="ai">✦ AI</button>
+      </div>
+
+      <!-- ── Browse sub-panel ── -->
+      <div class="sub-panel active" id="sub-browse">
         <div class="conn-layout-2col">
-          <!-- Search + results -->
+
+          <!-- Connections Index -->
           <div class="conn-index">
-            <input class="conn-search" id="cat-movie-search" type="text"
-                   placeholder="Search movies…" autocomplete="off">
-            <div class="conn-list" id="cat-movie-results" style="max-height:380px;">
-              <div class="conn-empty">Type to search movies</div>
+            <div class="conn-type-tabs">
+              <button class="conn-type-btn active" data-conntype="director">Directors</button>
+              <button class="conn-type-btn" data-conntype="actor">Cast</button>
+              <button class="conn-type-btn" data-conntype="writer">Writers</button>
+              <button class="conn-type-btn" data-conntype="oscar">Oscars</button>
+            </div>
+            <input class="conn-search" id="conn-search" type="text" placeholder="Filter…" autocomplete="off">
+            <div class="conn-list" id="conn-list">
+              <div class="conn-empty">Loading…</div>
             </div>
           </div>
-          <!-- Selected + save -->
+
+          <!-- Movies for selected connection -->
           <div class="conn-movies-panel">
             <div class="conn-movies-header">
-              <div class="conn-movies-title" id="cat-search-title">Selected movies</div>
-              <div class="conn-movies-sub" id="cat-search-sub">0/4 selected</div>
+              <div class="conn-movies-title" id="conn-movies-title">Select a name to see movies</div>
+              <div class="conn-movies-sub" id="conn-movies-sub">Click any name on the left</div>
             </div>
-            <div class="conn-movie-list" id="cat-search-selected">
-              <div class="conn-empty">Select movies from the search results.</div>
+            <div class="conn-movie-list" id="conn-movie-list">
+              <div class="conn-empty">Choose a director, actor, writer, or Oscar category to see their films.</div>
             </div>
             <div class="conn-movies-footer">
-              <input type="text" id="cat-search-name" placeholder="Name this connection…" maxlength="80"
+              <input type="text" id="cat-lib-name" placeholder="Name this connection…" maxlength="80"
                      style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:10px;">
               <div style="display:flex;align-items:center;gap:8px;">
-                <button class="btn btn--ghost btn--sm" id="btn-cat-search-clear" style="color:#cc2200;border-color:#cc2200;">Clear</button>
-                <button class="btn btn--ghost btn--sm" id="btn-cat-search-load" disabled style="margin-left:auto;">→ Builder</button>
-                <button class="btn btn--sm" id="btn-cat-search-save" disabled>★ Save</button>
+                <span style="font-size:12px;opacity:0.5;" id="browse-selected-count">0/4 selected</span>
+                <button class="btn btn--ghost btn--sm" id="btn-load-to-builder" disabled style="margin-left:auto;">→ Builder</button>
+                <button class="btn btn--sm" id="btn-save-to-lib" disabled>★ Save</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Movie Search -->
+        <div style="margin-top:20px;border-top:1px solid #e5ddd5;padding-top:20px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+            <strong style="font-size:14px;">Movie Search</strong>
+            <span style="font-size:12px;opacity:0.5;">Search by title, director, actor, writer, genre — select up to 4</span>
+          </div>
+          <div class="conn-layout-2col">
+            <div class="conn-index">
+              <input class="conn-search" id="cat-movie-search" type="text"
+                     placeholder="Search movies…" autocomplete="off">
+              <div class="conn-list" id="cat-movie-results" style="max-height:380px;">
+                <div class="conn-empty">Type to search movies</div>
+              </div>
+            </div>
+            <div class="conn-movies-panel">
+              <div class="conn-movies-header">
+                <div class="conn-movies-title" id="cat-search-title">Selected movies</div>
+                <div class="conn-movies-sub" id="cat-search-sub">0/4 selected</div>
+              </div>
+              <div class="conn-movie-list" id="cat-search-selected">
+                <div class="conn-empty">Select movies from the search results.</div>
+              </div>
+              <div class="conn-movies-footer">
+                <input type="text" id="cat-search-name" placeholder="Name this connection…" maxlength="80"
+                       style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <button class="btn btn--ghost btn--sm" id="btn-cat-search-clear" style="color:#cc2200;border-color:#cc2200;">Clear</button>
+                  <button class="btn btn--ghost btn--sm" id="btn-cat-search-load" disabled style="margin-left:auto;">→ Builder</button>
+                  <button class="btn btn--sm" id="btn-cat-search-save" disabled>★ Save</button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-    </div>
-
-    <!-- ── Random sub-panel ── -->
-    <div class="sub-panel" id="sub-random">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-        <p style="font-size:13px;opacity:0.55;margin:0;">Pick 4 from 8 random movies that share a connection, then name and save it.</p>
-        <div style="display:flex;gap:8px;margin-left:auto;">
-          <button class="btn btn--ghost btn--sm" id="btn-random-refresh-unselected" disabled>Refresh Unselected ↺</button>
-          <button class="btn btn--ghost btn--sm" id="btn-random-refresh">New 8 Movies ↺</button>
-        </div>
-      </div>
-      <div id="random-pick-grid" class="random-pick-grid"></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap;">
-        <span style="font-size:12px;opacity:0.5;" id="random-sel-count">0/4 selected</span>
-        <input type="text" id="random-cat-name" placeholder="Name this connection…" maxlength="80"
-               style="flex:1;min-width:180px;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;">
-        <button class="btn btn--ghost btn--sm" id="btn-random-load" disabled>→ Builder</button>
-        <button class="btn btn--sm" id="btn-random-save" disabled>★ Save</button>
-      </div>
-    </div>
-
-    <!-- ── AI sub-panel ── -->
-    <div class="sub-panel" id="sub-ai">
-      <div class="ai-wrap">
-
-        <!-- Create entire puzzle -->
-        <div class="ai-section">
-          <h3>🎬 Create Entire Puzzle</h3>
-          <p style="font-size:13px;opacity:0.6;margin:0 0 14px;">Generate a complete 4-category puzzle in one shot. Optionally give Claude a direction, or leave blank for a surprise.</p>
-          <div class="ai-theme-row">
-            <input class="ai-theme-input" id="ai-puzzle-input" type="text"
-                   placeholder="Optional: 80s films, Oscars night, a specific director… or leave blank" autocomplete="off">
-            <button class="btn btn--primary" id="btn-ai-puzzle">Generate Puzzle ▶</button>
-          </div>
-          <div id="ai-puzzle-results" class="ai-results"></div>
-        </div>
-
-        <!-- Theme suggest -->
-        <div class="ai-section">
-          <h3>✦ Suggest a Category</h3>
-          <p style="font-size:13px;opacity:0.6;margin:0 0 14px;">Describe a theme or idea and Claude will find 4 matching movies from your active dataset.</p>
-          <div class="ai-theme-row">
-            <input class="ai-theme-input" id="ai-theme-input" type="text"
-                   placeholder="e.g. heist movies, Coen Brothers, time travel…" autocomplete="off">
-            <button class="btn btn--primary" id="btn-ai-suggest">Suggest ▶</button>
-          </div>
-          <div id="ai-suggest-results" class="ai-results"></div>
-        </div>
-
-        <!-- Discover connections -->
-        <div class="ai-section">
-          <h3>🔍 Discover Connections</h3>
-          <p style="font-size:13px;opacity:0.6;margin:0 0 14px;">Claude scans your movie pool and surfaces non-obvious groupings — shared cinematographers, franchise ties, award patterns, and more.</p>
-          <button class="btn btn--ghost" id="btn-ai-discover">Discover Connections ▶</button>
-          <div id="ai-discover-results" class="ai-results"></div>
-        </div>
-
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ══════════════ SUBMISSIONS TAB ══════════════ -->
-  <div class="admin-panel" id="panel-submissions">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <strong>Community Submissions</strong>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn--ghost btn--sm" id="btn-reload-subs">Refresh</button>
-        <button class="btn btn--ghost btn--sm" id="btn-clear-subs" style="color:#cc2200;border-color:#cc2200;">Clear All</button>
-      </div>
-    </div>
-    <div id="subs-table-wrap">
-      <div style="opacity:0.5;font-size:13px;">Loading…</div>
-    </div>
-  </div>
-
-  <!-- ══════════════ LIBRARY TAB ══════════════ -->
-  <div class="admin-panel" id="panel-library">
-    <div class="library-layout">
-
-      <!-- Left: Category Library -->
-      <div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
-          <strong style="font-size:15px;">Category Library</strong>
-          <span id="lib-count" style="font-size:12px;opacity:0.5;"></span>
-          <button class="btn btn--ghost btn--sm" id="btn-lib-hide-used" style="margin-left:auto;">Hide Used</button>
-          <input type="text" id="lib-search" placeholder="Search library…"
-                 style="padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;width:160px;">
-        </div>
-        <div id="category-library-list">
-          <div style="opacity:0.5;font-size:13px;">Loading…</div>
-        </div>
-      </div>
-
-      <!-- Right: Published Puzzles -->
-      <div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-          <strong style="font-size:15px;">Published Puzzles</strong>
+      <!-- ── Random sub-panel ── -->
+      <div class="sub-panel" id="sub-random">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <p style="font-size:13px;opacity:0.55;margin:0;">Pick 4 from 8 random movies that share a connection, then name and save it.</p>
           <div style="display:flex;gap:8px;margin-left:auto;">
-            <button class="btn btn--ghost btn--sm" id="btn-reset-progress" style="font-size:11px;color:#cc6600;border-color:#cc6600;">Reset All Player Progress</button>
-            <button class="btn btn--ghost btn--sm" id="btn-renumber-all" style="font-size:11px;">Renumber All</button>
+            <button class="btn btn--ghost btn--sm" id="btn-random-refresh-unselected" disabled>Refresh Unselected ↺</button>
+            <button class="btn btn--ghost btn--sm" id="btn-random-refresh">New 8 Movies ↺</button>
           </div>
         </div>
-        {% if puzzle_dates %}
-        <div style="background:var(--surface);border:var(--bw) solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
-          {% for d in puzzle_dates | reverse %}
-          <div class="pub-row" data-date="{{ d }}">
-            <div class="pub-row__summary">
-              <strong>{{ d }}</strong>
-              <span style="font-size:12px;opacity:0.5;">#{{ loop.revindex }}</span>
-              {% if d > today %}<span style="font-size:10px;font-weight:700;color:#7B61FF;background:#F0EDFF;padding:2px 6px;border-radius:20px;">SCHEDULED</span>{% endif %}
-              <a href="/puzzle/{{ d }}" class="btn btn--ghost btn--sm" target="_blank"
-                 onclick="event.stopPropagation()">Play ↗</a>
-              <button class="btn btn--ghost btn--sm pub-redate-btn" data-date="{{ d }}"
-                      onclick="event.stopPropagation()"
-                      style="font-size:11px;">Change Date</button>
-              <button class="btn btn--ghost btn--sm pub-delete-btn" data-date="{{ d }}"
-                      onclick="event.stopPropagation()"
-                      style="color:#cc2200;border-color:#cc2200;font-size:11px;">Delete</button>
-              <span class="pub-row__expand">▶ Expand</span>
-            </div>
-            <div class="pub-row__detail" id="detail-{{ d }}">
-              <div style="opacity:0.5;font-size:12px;padding:8px 0;">Click to load details…</div>
-            </div>
-          </div>
-          {% endfor %}
+        <div id="random-pick-grid" class="random-pick-grid"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap;">
+          <span style="font-size:12px;opacity:0.5;" id="random-sel-count">0/4 selected</span>
+          <input type="text" id="random-cat-name" placeholder="Name this connection…" maxlength="80"
+                 style="flex:1;min-width:180px;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;">
+          <button class="btn btn--ghost btn--sm" id="btn-random-load" disabled>→ Builder</button>
+          <button class="btn btn--sm" id="btn-random-save" disabled>★ Save</button>
         </div>
-        {% else %}
-        <p style="opacity:0.5;font-size:13px;">No puzzles published yet.</p>
-        {% endif %}
+      </div>
+
+      <!-- ── AI sub-panel ── -->
+      <div class="sub-panel" id="sub-ai">
+        <div class="ai-wrap">
+          <div class="ai-section">
+            <h3>✦ Category Workshop</h3>
+            <p class="ai-desc">Generate 8 standalone category ideas to cherry-pick from. Toggle which connection types you want Claude to explore.</p>
+            <div class="conn-type-toggles" id="workshop-toggles">
+              <button class="toggle-btn active" data-type="plot">Plot-level</button>
+              <button class="toggle-btn active" data-type="meta">Meta</button>
+              <button class="toggle-btn active" data-type="tonal">Tonal / Vibe</button>
+              <button class="toggle-btn active" data-type="subverted">Subverted</button>
+              <button class="toggle-btn active" data-type="thematic">Thematic</button>
+            </div>
+            <button class="btn btn--primary" id="btn-ai-workshop">Generate 8 Categories ▶</button>
+            <div id="ai-workshop-results" class="ai-results"></div>
+          </div>
+        </div>
       </div>
 
     </div>
-  </div>
 
+    <!-- ══════════════ CATEGORY LIBRARY PANEL ══════════════ -->
+    <div class="admin-panel" id="panel-library">
 
+      <div class="panel-hd">
+        <h1 class="panel-hd__title">Category Library</h1>
+        <div class="panel-hd__actions">
+          <button class="btn btn--ghost btn--sm" id="btn-lib-hide-used">Show All</button>
+          <input type="text" id="lib-search" placeholder="Search library…" class="lib-search-input">
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span id="lib-count" style="font-size:13px;opacity:0.5;"></span>
+      </div>
+
+      <div id="category-library-list">
+        <div class="loading-state">Loading…</div>
+      </div>
+
+    </div>
+
+    <!-- ══════════════ PUBLISHED PUZZLES PANEL ══════════════ -->
+    <div class="admin-panel" id="panel-published">
+
+      <div class="panel-hd">
+        <h1 class="panel-hd__title">Published Puzzles</h1>
+        <div class="panel-hd__actions">
+          <button class="btn btn--ghost btn--sm" id="btn-renumber-all" style="font-size:11px;">Renumber All</button>
+          <button class="btn btn--ghost btn--sm" id="btn-reset-progress" style="font-size:11px;color:#cc6600;border-color:#cc6600;">Reset Player Progress</button>
+        </div>
+      </div>
+
+      {% if puzzle_dates %}
+      <div class="admin-card">
+        {% for d in puzzle_dates | reverse %}
+        <div class="pub-row" data-date="{{ d }}">
+          <div class="pub-row__summary">
+            <strong>{{ d }}</strong>
+            <span style="font-size:12px;opacity:0.5;">#{{ loop.revindex }}</span>
+            {% if d > today %}<span style="font-size:10px;font-weight:700;color:#7B61FF;background:#F0EDFF;padding:2px 6px;border-radius:20px;">SCHEDULED</span>{% endif %}
+            <a href="/marquee/{{ d }}" class="btn btn--ghost btn--sm" target="_blank"
+               onclick="event.stopPropagation()">Play ↗</a>
+            <button class="btn btn--ghost btn--sm pub-redate-btn" data-date="{{ d }}"
+                    onclick="event.stopPropagation()" style="font-size:11px;">Change Date</button>
+            <button class="btn btn--ghost btn--sm pub-delete-btn" data-date="{{ d }}"
+                    onclick="event.stopPropagation()"
+                    style="color:#cc2200;border-color:#cc2200;font-size:11px;">Delete</button>
+            <span class="pub-row__expand">▶ Expand</span>
+          </div>
+          <div class="pub-row__detail" id="detail-{{ d }}">
+            <div style="opacity:0.5;font-size:12px;padding:8px 0;">Click to load details…</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="opacity:0.5;font-size:13px;">No puzzles published yet.</p>
+      {% endif %}
+
+    </div>
+
+    <!-- ══════════════ SETTINGS PANEL ══════════════ -->
+    <div class="admin-panel" id="panel-settings">
+
+      <div class="panel-hd">
+        <h1 class="panel-hd__title">Settings</h1>
+      </div>
+
+      <div class="settings-card">
+        <h3>Movie Dataset</h3>
+        <p>Switch the active movie pool used in Puzzle Builder and Category tools. The full dataset includes ~600 films; curated is a hand-picked set of ~170.</p>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <button class="dataset-btn active" data-dataset="curated" id="btn-dataset-curated">Curated</button>
+          <button class="dataset-btn" data-dataset="full" id="btn-dataset-full">Full</button>
+          <span id="dataset-status"></span>
+        </div>
+      </div>
+
+      <div class="danger-card">
+        <h3>Reset All Player Progress</h3>
+        <p>Wipes every player's streak and history on their next visit. Use this after major puzzle corrections or if you need to clear corrupted client state. This cannot be undone.</p>
+        <button class="btn btn--ghost btn--sm" id="btn-reset-progress-settings"
+                style="color:#cc2200;border-color:#cc2200;">Reset All Player Progress</button>
+      </div>
+
+    </div>
+
+  </main>
 </div>
 {% endblock %}
 

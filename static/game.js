@@ -38,6 +38,7 @@ const $grid       = document.getElementById('tile-grid');
 const $solved     = document.getElementById('solved-list');
 const $submit     = document.getElementById('btn-submit');
 const $shuffle    = document.getElementById('btn-shuffle');
+const $deselect   = document.getElementById('btn-deselect');
 const $overlay    = document.getElementById('result-overlay');
 const $headline   = document.getElementById('result-headline');
 const $resultSub  = document.getElementById('result-sub');
@@ -75,6 +76,9 @@ function renderGrid() {
     .forEach(tile => {
       const div = document.createElement('div');
       div.className = 'tile';
+      const len = tile.title.length;
+      if (len > 28) div.classList.add('tile--vlong');
+      else if (len > 18) div.classList.add('tile--long');
       div.textContent = tile.title;
       div.dataset.id = tile.id;
 
@@ -112,8 +116,9 @@ function renderSolvedBanners() {
 }
 
 function updateSubmitBtn() {
-  $submit.disabled  = (state.selected.size !== 4 || state.gameOver);
-  $shuffle.disabled = state.gameOver;
+  $submit.disabled   = (state.selected.size !== 4 || state.gameOver);
+  $shuffle.disabled  = state.gameOver;
+  $deselect.disabled = (state.selected.size === 0 || state.gameOver);
 }
 
 /* ── Tile Interaction ── */
@@ -124,7 +129,14 @@ function onTileClick(movieId, el) {
     state.selected.delete(movieId);
     el.classList.remove('tile--selected');
   } else {
-    if (state.selected.size >= 4) return;
+    if (state.selected.size >= 4) {
+      // Pulse the submit button to signal the limit
+      $submit.classList.remove('btn--pulse');
+      void $submit.offsetWidth; // force reflow to restart animation
+      $submit.classList.add('btn--pulse');
+      setTimeout(() => $submit.classList.remove('btn--pulse'), 320);
+      return;
+    }
     state.selected.add(movieId);
     el.classList.add('tile--selected');
   }
@@ -256,6 +268,13 @@ function revealAll() {
   setTimeout(() => { saveProgress(); showResult(); }, unsolved.length * 500 + 600);
 }
 
+/* ── Deselect All ── */
+function onDeselect() {
+  state.selected.clear();
+  renderGrid();
+  updateSubmitBtn();
+}
+
 /* ── Shuffle ── */
 function onShuffle() {
   const solvedIds = new Set(state.solved.flatMap(c => c.movie_ids));
@@ -274,25 +293,34 @@ function onShuffle() {
 
 /* ── Result overlay ── */
 function showResult() {
-  // Build emoji grid
-  const emojiMap = { yellow: '🟨', green: '🟩', blue: '🟦', purple: '🟪', null: '⬜' };
+  // Build result grid — wrong-guess squares colored by actual category
   $resultGrid.innerHTML = '';
   state.guessHistory.forEach(guess => {
     const row = document.createElement('div');
     row.className = 'result-row';
-    guess.movie_ids.forEach(() => {
+    guess.movie_ids.forEach(id => {
       const sq = document.createElement('div');
-      sq.className = `result-square result-square--${guess.color || 'grey'}`;
-      if (!guess.color) sq.style.background = '#ddd';
+      if (guess.color) {
+        sq.className = `result-square result-square--${guess.color}`;
+      } else {
+        const actualCat = PUZZLE_DATA.categories.find(c => c.movie_ids.includes(id));
+        if (actualCat) {
+          sq.className = `result-square result-square--${actualCat.color}`;
+        } else {
+          sq.className = 'result-square';
+          sq.style.background = '#ddd';
+        }
+      }
       row.appendChild(sq);
     });
     $resultGrid.appendChild(row);
   });
 
   const stats = loadStats();
-  document.getElementById('stat-streak').textContent  = stats.streak;
+  document.getElementById('stat-streak').textContent   = stats.streak;
+  document.getElementById('stat-best').textContent     = stats.best;
   document.getElementById('stat-mistakes').textContent = state.mistakes;
-  document.getElementById('stat-played').textContent  = stats.played;
+  document.getElementById('stat-played').textContent   = stats.played;
 
   if (state.won) {
     $headline.textContent = state.mistakes === 0 ? 'Perfect!' : 'Nicely done!';
@@ -314,7 +342,11 @@ function buildShareText() {
     : `${state.mistakes} mistake${state.mistakes > 1 ? 's' : ''}`;
 
   const rows = state.guessHistory.map(guess => {
-    return guess.movie_ids.map(() => emojiMap[guess.color] || '⬜').join('');
+    return guess.movie_ids.map(id => {
+      if (guess.color) return emojiMap[guess.color];
+      const actualCat = PUZZLE_DATA.categories.find(c => c.movie_ids.includes(id));
+      return actualCat ? emojiMap[actualCat.color] : '⬜';
+    }).join('');
   }).join('\n');
 
   return `${header} — ${mistakeStr}\n\n${rows}`;
@@ -336,7 +368,7 @@ function showOneAway() {
   if (!el) return;
   el.classList.remove('hidden');
   clearTimeout(el._hideTimer);
-  el._hideTimer = setTimeout(() => el.classList.add('hidden'), 1500);
+  el._hideTimer = setTimeout(() => el.classList.add('hidden'), 2200);
 }
 
 /* ── Toast ── */
@@ -449,6 +481,7 @@ function updateStreak(won) {
 function bindEvents() {
   $submit.addEventListener('click', onSubmit);
   $shuffle.addEventListener('click', onShuffle);
+  $deselect.addEventListener('click', onDeselect);
   $share.addEventListener('click', onShare);
   $closeResult.addEventListener('click', () => {
     $overlay.style.display = 'none';

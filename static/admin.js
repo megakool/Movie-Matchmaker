@@ -35,17 +35,15 @@ let connectionsLoaded    = false;
 // ── Published Tab State ────────────────────────────────────────────
 const publishedDetailCache = {};
 
-// ── Tab Load Flags ─────────────────────────────────────────────────
-let submissionsLoaded = false;
+// ── Panel Load Flags ───────────────────────────────────────────────
 let categoriesLoaded  = false;
-let aiLoaded          = false;
 
 // ══════════════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════════════
 async function init() {
   document.getElementById('pub-date').value = new Date().toISOString().slice(0, 10);
-  bindTabs();
+  bindNav();
   bindBuilderEvents();
   bindDatasetEvents();
   bindAIEvents();
@@ -53,8 +51,8 @@ async function init() {
   bindCatSearchEvents();
   bindSubTabs();
   bindRandomDiscoveryEvents();
-  bindSubmissionsEvents();
   bindPublishedEvents();
+  bindSettingsEvents();
   await initDataset();
   await loadMovies();
   pickRandomMovies();
@@ -645,7 +643,7 @@ function onLoadBrowseToBuilder() {
   const name = document.getElementById('cat-lib-name').value.trim();
   slots[activeSlot].movies = [...catBrowseSelected];
   if (name) slots[activeSlot].title = name;
-  switchToTab('builder');
+  switchToPanel('builder');
   renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
 }
 
@@ -684,7 +682,7 @@ function renderCategoryLibrary() {
   $list.querySelectorAll('.load-lib-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const cat = savedCategories.find(c => c.id === btn.dataset.cat);
-      if (cat) { loadCategoryIntoSlot(cat, activeSlot); switchToTab('builder'); }
+      if (cat) { loadCategoryIntoSlot(cat, activeSlot); switchToPanel('builder'); }
     });
   });
 
@@ -894,7 +892,7 @@ function bindCatSearchEvents() {
     const name = document.getElementById('cat-search-name').value.trim();
     slots[activeSlot].title  = name;
     slots[activeSlot].movies = catSearchSelected.map(m => ({ id: m.id, title: m.title, year: m.year || '' }));
-    switchToTab('builder');
+    switchToPanel('builder');
     renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
   });
 }
@@ -1031,101 +1029,22 @@ function bindRandomDiscoveryEvents() {
     const selectedMovies = randomPickMovies.filter(m => randomPickSelected.has(m.id));
     slots[activeSlot].title  = name;
     slots[activeSlot].movies = selectedMovies.map(m => ({ id: m.id, title: m.title, year: m.year || '' }));
-    switchToTab('builder');
+    switchToPanel('builder');
     renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
   });
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SUBMISSIONS TAB
+// SETTINGS PANEL
 // ══════════════════════════════════════════════════════════════════
 
-async function loadSubmissions() {
-  const $wrap = document.getElementById('subs-table-wrap');
-  $wrap.innerHTML = '<div style="opacity:0.5;font-size:13px;">Loading…</div>';
-  const res  = await fetch('/admin/submissions');
-  const subs = await res.json();
-
-  if (!subs.length) {
-    $wrap.innerHTML = '<p style="opacity:0.5;font-size:13px;">No submissions yet.</p>';
-    return;
-  }
-
-  const sorted = [
-    ...subs.filter(s => s.status === 'pending'),
-    ...subs.filter(s => s.status !== 'pending'),
-  ];
-
-  const table = document.createElement('table');
-  table.className = 'sub-table';
-  table.innerHTML = `<thead><tr>
-    <th>Date</th><th>Category</th><th>Movies</th><th>Status</th><th>Actions</th>
-  </tr></thead>`;
-  const tbody = document.createElement('tbody');
-
-  sorted.forEach(sub => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="white-space:nowrap;font-size:12px;">${sub.submitted_at.slice(0, 10)}</td>
-      <td><strong>${escHtml(sub.category_name)}</strong></td>
-      <td style="font-size:12px;">${(sub.movie_titles || []).map(t => escHtml(t)).join('<br>')}</td>
-      <td><span class="sub-badge sub-badge--${sub.status}">${sub.status}</span></td>
-      <td>
-        <div class="sub-actions" id="sub-actions-${sub.id}">
-          ${sub.status === 'pending' ? `
-            <button class="btn btn--sm"        data-sub="${sub.id}" data-action="use">Use</button>
-            <button class="btn btn--ghost btn--sm" data-sub="${sub.id}" data-action="save-lib">★ Library</button>
-            <button class="btn btn--ghost btn--sm" data-sub="${sub.id}" data-action="dismiss">Dismiss</button>
-          ` : ''}
-        </div>
-      </td>`;
-    tbody.appendChild(tr);
-  });
-
-  table.appendChild(tbody);
-  $wrap.innerHTML = '';
-  $wrap.appendChild(table);
-
-  $wrap.querySelectorAll('[data-action]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id     = btn.dataset.sub;
-      const action = btn.dataset.action;
-      const sub    = subs.find(s => s.id === id);
-      btn.disabled = true;
-
-      if (action === 'save-lib') {
-        if (!sub) return;
-        const res2 = await fetch('/admin/categories', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title:        sub.category_name,
-            movie_ids:    sub.movie_ids,
-            movie_titles: sub.movie_titles || [],
-            source:       'submission',
-          }),
-        });
-        if (res2.ok) {
-          const data2 = await res2.json();
-          savedCategories.unshift(data2.category);
-          btn.textContent = '✓ Saved';
-        } else {
-          btn.disabled = false;
-        }
-        return;
-      }
-
-      await fetch(`/admin/submissions/${id}/${action}`, { method: 'POST' });
-      await loadSubmissions();
-    });
-  });
-}
-
-function bindSubmissionsEvents() {
-  document.getElementById('btn-reload-subs').addEventListener('click', loadSubmissions);
-  document.getElementById('btn-clear-subs').addEventListener('click', async () => {
-    if (!confirm('Clear all submissions? This cannot be undone.')) return;
-    await fetch('/admin/submissions', { method: 'DELETE' });
-    await loadSubmissions();
+function bindSettingsEvents() {
+  const btn = document.getElementById('btn-reset-progress-settings');
+  if (btn) btn.addEventListener('click', async () => {
+    if (!confirm('This will wipe ALL players\' progress and streaks on their next visit. Continue?')) return;
+    const res  = await fetch('/admin/reset-progress', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) alert(`Done. All players will start fresh (version ${data.progress_version}).`);
   });
 }
 
@@ -1173,6 +1092,7 @@ function bindPublishedEvents() {
   const renumberBtn = document.getElementById('btn-renumber-all');
   if (renumberBtn) renumberBtn.addEventListener('click', renumberAll);
 
+  // btn-reset-progress on the published panel (legacy button kept for compatibility)
   const resetBtn = document.getElementById('btn-reset-progress');
   if (resetBtn) resetBtn.addEventListener('click', async () => {
     if (!confirm('This will wipe ALL players\' progress and streaks on their next visit. Continue?')) return;
@@ -1224,7 +1144,7 @@ function renderPublishedDetail(container, data) {
       slots[i].title  = cat.title;
       slots[i].movies = cat.movies.map(m => ({ id: m.id, title: m.title, year: '' }));
     });
-    switchToTab('builder');
+    switchToPanel('builder');
     renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
   });
   row.appendChild(loadBtn);
@@ -1300,53 +1220,41 @@ function bindDatasetEvents() {
 // ══════════════════════════════════════════════════════════════════
 
 function bindAIEvents() {
-  document.getElementById('btn-ai-puzzle').addEventListener('click', onAIPuzzle);
-  document.getElementById('ai-puzzle-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') onAIPuzzle();
+  document.getElementById('btn-ai-workshop').addEventListener('click', onAIWorkshop);
+
+  // Connection-type toggle buttons
+  document.getElementById('workshop-toggles').addEventListener('click', e => {
+    const btn = e.target.closest('.toggle-btn');
+    if (btn) btn.classList.toggle('active');
   });
-  document.getElementById('btn-ai-suggest').addEventListener('click', onAISuggest);
-  document.getElementById('ai-theme-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') onAISuggest();
-  });
-  document.getElementById('btn-ai-discover').addEventListener('click', onAIDiscover);
 }
 
 function getExcludeIds() {
   return slots.flatMap(s => s.movies.map(m => m.id));
 }
 
-async function onAISuggest() {
-  const theme = document.getElementById('ai-theme-input').value.trim();
-  if (!theme) return;
-  const $results = document.getElementById('ai-suggest-results');
-  $results.innerHTML = '<div class="ai-spinner">✦ Thinking…</div>';
-  try {
-    const res  = await fetch('/admin/ai/suggest', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ theme, exclude_ids: getExcludeIds() }),
-    });
-    const data = await res.json();
-    if (data.error) {
-      $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Error: ${escHtml(data.error)}</div>`;
-      return;
-    }
-    $results.innerHTML = '';
-    $results.appendChild(renderAICard(data));
-  } catch (e) {
-    $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Request failed.</div>`;
-  }
+function getActiveConnectionTypes() {
+  return [...document.querySelectorAll('#workshop-toggles .toggle-btn.active')]
+    .map(b => b.dataset.type);
 }
 
 
-async function onAIDiscover() {
-  const btn      = document.getElementById('btn-ai-discover');
-  const $results = document.getElementById('ai-discover-results');
-  btn.disabled   = true;
-  $results.innerHTML = '<div class="ai-spinner">✦ Discovering connections…</div>';
+// ── Mode 1: Category Workshop ──────────────────────────────────────
+
+async function onAIWorkshop() {
+  const btn      = document.getElementById('btn-ai-workshop');
+  const $results = document.getElementById('ai-workshop-results');
+  const types    = getActiveConnectionTypes();
+  if (!types.length) {
+    $results.innerHTML = '<div style="color:#cc2200;font-size:13px;">Select at least one connection type.</div>';
+    return;
+  }
+  btn.disabled       = true;
+  $results.innerHTML = '<div class="ai-spinner">✦ Generating category ideas… this may take a moment.</div>';
   try {
-    const res  = await fetch('/admin/ai/discover', {
+    const res  = await fetch('/admin/ai/workshop', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ exclude_ids: getExcludeIds(), count: 5 }),
+      body: JSON.stringify({ connection_types: types, exclude_ids: getExcludeIds() }),
     });
     const data = await res.json();
     if (data.error) {
@@ -1354,134 +1262,20 @@ async function onAIDiscover() {
       return;
     }
     $results.innerHTML = '';
-    (data.categories || []).forEach(cat => $results.appendChild(renderAICard(cat)));
+    const cats = data.categories || [];
+    if (!cats.length) {
+      $results.innerHTML = '<div style="font-size:13px;opacity:0.5;">No categories returned — try different toggles.</div>';
+      return;
+    }
+    cats.forEach(cat => $results.appendChild(renderWorkshopCard(cat)));
   } catch (e) {
-    $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Request failed.</div>`;
+    $results.innerHTML = '<div style="color:#cc2200;font-size:13px;">Request failed.</div>';
   } finally {
     btn.disabled = false;
   }
 }
 
-
-async function onAIPuzzle() {
-  const theme    = document.getElementById('ai-puzzle-input').value.trim();
-  const btn      = document.getElementById('btn-ai-puzzle');
-  const $results = document.getElementById('ai-puzzle-results');
-  btn.disabled   = true;
-  $results.innerHTML = '<div class="ai-spinner">✦ Building your puzzle… this may take a moment.</div>';
-  try {
-    const res  = await fetch('/admin/ai/puzzle', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ theme, exclude_ids: getExcludeIds() }),
-    });
-    const data = await res.json();
-    if (data.error) {
-      $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Error: ${escHtml(data.error)}</div>`;
-      return;
-    }
-    $results.innerHTML = '';
-    $results.appendChild(renderAIPuzzleResult(data.puzzle || []));
-  } catch (e) {
-    $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Request failed.</div>`;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-function renderAIPuzzleResult(cats) {
-  const $results = document.getElementById('ai-puzzle-results');
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'border:1.5px solid #ddd;border-radius:10px;padding:14px;background:#faf7f4;margin-top:4px;';
-
-  // Track which categories are checked
-  const checked = cats.map(() => true);
-
-  cats.forEach((cat, i) => {
-    const color = COLOR_ORDER[i] || 'yellow';
-    const hex   = COLOR_HEX[color];
-    const text  = COLOR_TEXT[color];
-
-    const card = document.createElement('div');
-    card.style.cssText = `position:relative;background:${hex};color:${text};border-radius:8px;padding:10px 12px 10px 38px;margin-bottom:8px;transition:opacity 0.15s;`;
-
-    // Checkbox in top-left
-    const cb = document.createElement('input');
-    cb.type    = 'checkbox';
-    cb.checked = true;
-    cb.style.cssText = 'position:absolute;left:10px;top:12px;width:16px;height:16px;cursor:pointer;accent-color:#111;';
-    cb.addEventListener('change', () => {
-      checked[i] = cb.checked;
-      card.style.opacity = cb.checked ? '1' : '0.45';
-    });
-    card.appendChild(cb);
-
-    const body = document.createElement('div');
-    body.innerHTML = `
-      <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${escHtml(cat.title)}</div>
-      <div style="font-size:12px;opacity:0.8;line-height:1.5;">${(cat.movie_titles || []).map(t => escHtml(t)).join(' · ')}</div>
-      ${cat.connection_type ? `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;opacity:0.6;">${escHtml(cat.connection_type)}</div>` : ''}`;
-    card.appendChild(body);
-    wrap.appendChild(card);
-  });
-
-  const footer = document.createElement('div');
-  footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center;';
-
-  const loadBtn = document.createElement('button');
-  loadBtn.className   = 'btn btn--primary';
-  loadBtn.textContent = '→ Load Selected into Builder';
-  loadBtn.addEventListener('click', () => {
-    const selected = cats.filter((_, i) => checked[i]);
-    let slotIdx = 0;
-    selected.forEach(cat => {
-      if (slotIdx >= slots.length) return;
-      slots[slotIdx].title  = cat.title;
-      slots[slotIdx].movies = (cat.movie_ids || []).map((id, j) => ({
-        id, title: cat.movie_titles?.[j] || String(id), year: '',
-      }));
-      slotIdx++;
-    });
-    activeSlot = 0;
-    switchToTab('builder');
-    renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
-  });
-  footer.appendChild(loadBtn);
-
-  const saveBtn = document.createElement('button');
-  saveBtn.className   = 'btn btn--ghost';
-  saveBtn.textContent = '★ Save Selected to Library';
-  saveBtn.addEventListener('click', async () => {
-    const selected = cats.filter((_, i) => checked[i]);
-    if (!selected.length) return;
-    saveBtn.disabled = true;
-    for (const cat of selected) {
-      await fetch('/admin/categories', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title:        cat.title,
-          movie_ids:    cat.movie_ids,
-          movie_titles: cat.movie_titles,
-          source:       'ai',
-        }),
-      });
-    }
-    saveBtn.textContent = `✓ Saved ${selected.length}`;
-  });
-  footer.appendChild(saveBtn);
-
-  const discardBtn = document.createElement('button');
-  discardBtn.className   = 'btn btn--ghost';
-  discardBtn.style.cssText = 'margin-left:auto;color:#cc2200;border-color:#cc2200;';
-  discardBtn.textContent = '✕ Discard';
-  discardBtn.addEventListener('click', () => { $results.innerHTML = ''; });
-  footer.appendChild(discardBtn);
-
-  wrap.appendChild(footer);
-  return wrap;
-}
-
-
-function renderAICard(cat) {
+function renderWorkshopCard(cat) {
   const card = document.createElement('div');
   card.className = 'ai-result-card';
 
@@ -1495,15 +1289,32 @@ function renderAICard(cat) {
   moviesEl.textContent = (cat.movie_titles || []).join(' · ');
   card.appendChild(moviesEl);
 
+  if (cat.reasoning) {
+    const reasonEl = document.createElement('div');
+    reasonEl.className   = 'ai-result-card__reasoning';
+    reasonEl.textContent = cat.reasoning;
+    card.appendChild(reasonEl);
+  }
+
   const footer = document.createElement('div');
   footer.className = 'ai-result-card__footer';
 
+  // Badges
+  const metaRow = document.createElement('div');
+  metaRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-right:auto;flex-wrap:wrap;';
   if (cat.connection_type) {
-    const badge = document.createElement('span');
-    badge.className   = 'ai-conn-type';
-    badge.textContent = cat.connection_type;
-    footer.appendChild(badge);
+    const typeBadge = document.createElement('span');
+    typeBadge.className   = 'ai-conn-type';
+    typeBadge.textContent = cat.connection_type;
+    metaRow.appendChild(typeBadge);
   }
+  if (cat.difficulty) {
+    const diffBadge = document.createElement('span');
+    diffBadge.className   = 'ai-difficulty';
+    diffBadge.textContent = `Diff ${cat.difficulty}`;
+    metaRow.appendChild(diffBadge);
+  }
+  footer.appendChild(metaRow);
 
   // Load into slot buttons
   slots.forEach((slot, i) => {
@@ -1540,35 +1351,30 @@ function renderAICard(cat) {
     saveBtn.textContent = '✓ Saved';
   });
   footer.appendChild(saveBtn);
+
   card.appendChild(footer);
   return card;
 }
 
+
+
 // ══════════════════════════════════════════════════════════════════
-// TABS
+// NAV / PANELS
 // ══════════════════════════════════════════════════════════════════
 
-function switchToTab(tabId) {
-  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+function switchToPanel(panelId) {
+  document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
-  document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
-  document.getElementById(`panel-${tabId}`)?.classList.add('active');
+  document.querySelector(`.nav-item[data-panel="${panelId}"]`)?.classList.add('active');
+  document.getElementById(`panel-${panelId}`)?.classList.add('active');
 }
 
-function bindTabs() {
-  document.querySelectorAll('.admin-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const tabId = tab.dataset.tab;
-      switchToTab(tabId);
-      if (tabId === 'submissions' && !submissionsLoaded) {
-        submissionsLoaded = true; loadSubmissions();
-      }
-      if (tabId === 'create' && !categoriesLoaded) {
-        categoriesLoaded = true;
-        loadCategoryLibrary();
-        loadConnections();
-      }
-      if (tabId === 'library' && !categoriesLoaded) {
+function bindNav() {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const panelId = item.dataset.panel;
+      switchToPanel(panelId);
+      if ((panelId === 'create' || panelId === 'library') && !categoriesLoaded) {
         categoriesLoaded = true;
         loadCategoryLibrary();
         loadConnections();

@@ -1,0 +1,52 @@
+{
+  "date": "2026-03-15",
+  "puzzle_number": 2,
+  "categories": [
+    {
+      "color": "yellow",
+      "difficulty": 1,
+      "title": "Best Animated Movie",
+      "movie_ids": [
+        1311,
+        1517,
+        813,
+        1233
+      ]
+    },
+    {
+      "color": "green",
+      "difficulty": 2,
+      "title": "Best Actor",
+      "movie_ids": [
+        594,
+        270,
+        199,
+        149
+      ]
+    },
+    {
+      "color": "blue",
+      "difficulty": 3,
+      "title": "Best Actress",
+      "movie_ids": [
+        616,
+        8,
+        535,
+        236
+      ]
+    },
+    {
+      "color": "purple",
+      "difficulty": 4,
+      "title": "Best Director",
+      "movie_ids": [
+        234,
+        772,
+        109,
+        514
+      ]
+    }
+  ],
+  "created_at": "2026-03-09T22:51:55",
+  "author_note": ""
+}

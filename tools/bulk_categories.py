@@ -60,8 +60,9 @@ def load_movies(dataset_override: str | None = None) -> list:
     if not fpath.exists():
         fpath = MARQUEE / "movies.json"  # fallback
 
-    with open(fpath) as f:
-        movies = json.load(f)
+    with open(fpath, encoding="utf-8") as f:
+        data = json.load(f)
+    movies = data["movies"] if isinstance(data, dict) and "movies" in data else data
     print(f"Loaded {len(movies)} movies from {fpath.name}")
     return movies
 
@@ -70,7 +71,7 @@ def load_saved_categories() -> list:
     """Load existing saved categories."""
     cat_path = DATA_DIR / "saved_categories.json"
     try:
-        with open(cat_path) as f:
+        with open(cat_path, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return []
@@ -79,8 +80,8 @@ def load_saved_categories() -> list:
 def save_categories(cats: list, output_path: Path) -> None:
     """Atomic write: write to .tmp then rename."""
     tmp = output_path.with_suffix(".tmp")
-    with open(tmp, "w") as f:
-        json.dump(cats, f, indent=2)
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(cats, f, indent=2, ensure_ascii=False)
     tmp.replace(output_path)
     print(f"Saved {len(cats)} categories → {output_path}")
 

@@ -11,7 +11,7 @@
   {% if puzzles %}
     <div class="archive-grid">
       {% for p in puzzles %}
-        <a href="/puzzle/{{ p.date }}"
+        <a href="/marquee/{{ p.date }}"
            class="archive-card {% if p.is_today %}archive-card--today{% endif %}"
            data-date="{{ p.date }}">
           <div class="archive-card__num">#{{ p.puzzle_number }}</div>

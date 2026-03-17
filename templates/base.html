@@ -3,29 +3,129 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Marquee{% endblock %} — The Daily Movie Puzzle</title>
+  <title>{% block title %}Marquee{% endblock %} — Spiker Games</title>
   <meta name="description" content="Group 16 movies into 4 hidden categories. A new puzzle every day.">
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='faviconV2.ico') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   {% block head %}{% endblock %}
 </head>
 <body>
+
+  <!-- Header -->
   <header class="site-header">
     <div class="site-header__inner">
-      <a href="/" class="site-logo">
-        Marquee
-        <span>Daily Movie Puzzle</span>
-      </a>
-      <nav class="site-nav">
-        <a href="/archive" class="btn btn--ghost btn--sm">Archive</a>
-        <a href="/create" class="btn btn--ghost btn--sm">Create ★</a>
-      </nav>
+      <button class="nav-burger" id="nav-burger" aria-label="Open menu" aria-expanded="false" aria-controls="nav-drawer">
+        <span class="nav-burger__line"></span>
+        <span class="nav-burger__line"></span>
+        <span class="nav-burger__line"></span>
+      </button>
+      <a href="/marquee" class="site-logo">Marquee</a>
+      <!-- Spacer to keep logo visually centered -->
+      <div style="width:36px;"></div>
     </div>
   </header>
 
   {% block content %}{% endblock %}
 
   {% block scripts %}{% endblock %}
+
+  <!-- Drawer overlay -->
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <!-- Slide-out drawer -->
+  <nav class="nav-drawer" id="nav-drawer" aria-label="Site navigation" aria-hidden="true">
+
+    <div class="drawer-header">
+      <a href="/" class="drawer-site-link">
+        <span class="drawer-back-arrow">←</span>
+        <span class="drawer-site-name">Spiker Games</span>
+      </a>
+      <button class="drawer-close" id="drawer-close" aria-label="Close menu">✕</button>
+    </div>
+
+    <div class="drawer-body">
+
+      <!-- Games -->
+      <div>
+        <div class="drawer-section-label">Games</div>
+        <a href="/marquee" class="drawer-game drawer-game--active">
+          <div class="drawer-game__swatch">
+            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--y"></div>
+            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--g"></div>
+            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--b"></div>
+            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--p"></div>
+          </div>
+          <div class="drawer-game__info">
+            <div class="drawer-game__name">Marquee</div>
+            <div class="drawer-game__sub">Daily Movie Puzzle</div>
+          </div>
+          <div class="drawer-active-dot"></div>
+        </a>
+        <div class="drawer-game drawer-game--inactive" style="margin-top:6px;">
+          <div class="drawer-game__swatch">
+            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--ghost"></div>
+            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--ghost"></div>
+            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--ghost"></div>
+            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--ghost"></div>
+          </div>
+          <div class="drawer-game__info">
+            <div class="drawer-game__name">Trivia</div>
+            <div class="drawer-game__sub">Coming soon</div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="drawer-rule">
+
+      <!-- Marquee links -->
+      <div>
+        <div class="drawer-section-label">Marquee</div>
+        <div class="drawer-links">
+          <a href="/marquee" class="drawer-link">
+            <span class="drawer-link__icon">🎬</span> Today's Puzzle
+          </a>
+          <a href="/marquee/archive" class="drawer-link">
+            <span class="drawer-link__icon">📅</span> Archive
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </nav>
+
+  <script>
+    (function () {
+      var burger  = document.getElementById('nav-burger');
+      var overlay = document.getElementById('nav-overlay');
+      var drawer  = document.getElementById('nav-drawer');
+
+      function openDrawer() {
+        drawer.classList.add('is-open');
+        overlay.classList.add('is-open');
+        burger.setAttribute('aria-expanded', 'true');
+        drawer.setAttribute('aria-hidden', 'false');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeDrawer() {
+        drawer.classList.remove('is-open');
+        overlay.classList.remove('is-open');
+        burger.setAttribute('aria-expanded', 'false');
+        drawer.setAttribute('aria-hidden', 'true');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+
+      burger.addEventListener('click', openDrawer);
+      overlay.addEventListener('click', closeDrawer);
+      document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeDrawer();
+      });
+    })();
+  </script>
 
   {% if dev_mode %}
   <div style="position:fixed;bottom:14px;right:14px;z-index:9999;display:flex;gap:8px;align-items:center;">

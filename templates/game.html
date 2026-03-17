@@ -37,6 +37,7 @@
     <!-- Actions -->
     <div class="action-row">
       <button id="btn-shuffle" class="btn">Shuffle</button>
+      <button id="btn-deselect" class="btn btn--ghost" disabled>Deselect</button>
       <button id="btn-submit" class="btn btn--primary" disabled>Submit</button>
     </div>
 
@@ -57,6 +58,10 @@
         <div class="result-stat__lbl">Streak</div>
       </div>
       <div>
+        <div class="result-stat__val" id="stat-best">—</div>
+        <div class="result-stat__lbl">Best</div>
+      </div>
+      <div>
         <div class="result-stat__val" id="stat-mistakes">—</div>
         <div class="result-stat__lbl">Mistakes</div>
       </div>
@@ -68,8 +73,8 @@
 
     <div class="result-actions">
       <button id="btn-share" class="btn btn--primary" style="width:100%">Copy Result</button>
-      <a href="/archive" class="btn" style="width:100%">Archive</a>
-      <button id="btn-close-result" class="btn btn--ghost" style="width:100%">See Board</button>
+      <a href="/marquee/archive" class="btn" style="width:100%">Archive</a>
+      <button id="btn-close-result" class="btn btn--ghost" style="width:100%">Close</button>
     </div>
   </div>
 </div>
