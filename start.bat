@@ -1,6 +1,5 @@
 @echo off
 set MARQUEE_DEV_MODE=1
-set ANTHROPIC_API_KEY=your_anthropic_api_key_here
-set TMDB_API_KEY=your_tmdb_api_key_here
+for /f "usebackq tokens=1,* delims==" %%A in (".env") do set %%A=%%B
 cd /d "C:\Users\Eli Brooks\OneDrive\Documents\Movie Connections\marquee"
 python app.py
