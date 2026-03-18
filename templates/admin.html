@@ -654,6 +654,45 @@
   color: var(--muted); padding: 0; line-height: 1; flex-shrink: 0;
 }
 .trivia-slot__remove:hover { color: #cc2200; }
+.trivia-slot__edit-btn {
+  background: none; border: none; cursor: pointer; font-size: 14px;
+  color: var(--muted); padding: 0; line-height: 1; flex-shrink: 0;
+}
+.trivia-slot__edit-btn:hover { color: var(--text); }
+.trivia-slot--editing { align-items: flex-start; }
+.trivia-slot__edit-form { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.tslot-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 1px; }
+.tslot-input { width: 100%; padding: 5px 8px; border: 1.5px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 12px; background: var(--bg); }
+.tslot-input:focus { border-color: var(--border); outline: none; }
+.tslot-textarea { width: 100%; padding: 5px 8px; border: 1.5px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 12px; background: var(--bg); resize: vertical; min-height: 60px; }
+.tslot-textarea:focus { border-color: var(--border); outline: none; }
+.tslot-edit-footer { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+
+/* ── Accepted Answers Modal ── */
+.accepted-modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  z-index: 1000; align-items: center; justify-content: center;
+}
+.accepted-modal {
+  background: var(--surface); border: var(--bw) solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: 6px 6px 0 var(--border);
+  padding: 20px 24px; max-width: 440px; width: 90%; max-height: 80vh;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+}
+.accepted-modal__hd { display: flex; align-items: center; justify-content: space-between; }
+.accepted-modal__title { font-size: 16px; font-weight: 700; }
+.accepted-modal__close {
+  background: none; border: none; cursor: pointer; font-size: 20px;
+  color: var(--muted); line-height: 1; padding: 0;
+}
+.accepted-modal__close:hover { color: var(--text); }
+.accepted-modal__answer { font-size: 12px; color: var(--text2); background: var(--bg); padding: 7px 10px; border-radius: 7px; }
+.accepted-modal__section-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+.accepted-variant { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f0ebe5; font-size: 13px; }
+.accepted-variant:last-child { border-bottom: none; }
+.accepted-variant__check { color: #1a7a1a; font-weight: 700; flex-shrink: 0; }
+.accepted-modal__test-input { flex: 1; padding: 7px 10px; border: var(--bw) solid var(--border); border-radius: 8px; font-family: inherit; font-size: 13px; background: var(--bg); box-shadow: var(--shadow-xs); outline: none; }
+.accepted-modal__verdict { font-size: 13px; font-weight: 700; white-space: nowrap; min-width: 80px; }
 
 .trivia-builder-date-row {
   display: flex; align-items: center; gap: 10px;
@@ -1037,6 +1076,8 @@
             {% if d > today %}<span style="font-size:10px;font-weight:700;color:#7B61FF;background:#F0EDFF;padding:2px 6px;border-radius:20px;">SCHEDULED</span>{% endif %}
             <a href="/marquee/{{ d }}" class="btn btn--ghost btn--sm" target="_blank"
                onclick="event.stopPropagation()">Play ↗</a>
+            {% if d > today %}<button class="btn btn--ghost btn--sm" data-date="{{ d }}"
+                    onclick="event.stopPropagation();editUpcomingMarqueePuzzle('{{ d }}')" style="font-size:11px;">Edit</button>{% endif %}
             <button class="btn btn--ghost btn--sm pub-redate-btn" data-date="{{ d }}"
                     onclick="event.stopPropagation()" style="font-size:11px;">Change Date</button>
             <button class="btn btn--ghost btn--sm pub-delete-btn" data-date="{{ d }}"
@@ -1193,6 +1234,7 @@
 
       <div class="trivia-bank-hd">
         <h2>Question Bank</h2>
+        <button class="btn btn--ghost btn--sm" id="btn-trivia-hide-used">Show All</button>
         <input type="text" class="trivia-filter-input" id="trivia-search" placeholder="Search…" autocomplete="off">
         <select class="trivia-filter-select" id="trivia-cat-filter"><option value="">All Categories</option></select>
         <span class="trivia-count-badge" id="trivia-shown-count"></span>

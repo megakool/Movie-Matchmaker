@@ -401,27 +401,25 @@
       </a>
 
       <!-- Trivia -->
-      <div class="game-card game-card--inactive" style="animation-delay: 0.25s; opacity: 0;">
-        <div class="card-swatch" style="background: var(--bg);">
-          <div class="card-swatch__grid">
-            <div class="card-swatch__cell card-swatch__cell--ghost"></div>
-            <div class="card-swatch__cell card-swatch__cell--ghost"></div>
-            <div class="card-swatch__cell card-swatch__cell--ghost"></div>
-            <div class="card-swatch__cell card-swatch__cell--ghost"></div>
-          </div>
+      <a href="/trivia" class="game-card game-card--active" style="animation-delay: 0.25s;">
+        <div class="card-swatch" style="background:#d4890a;position:relative;overflow:hidden;">
+          <!-- floating ? marks -->
+          <span aria-hidden="true" style="position:absolute;font-family:'Fraunces',Georgia,serif;font-weight:900;font-style:italic;color:rgba(90,40,0,0.18);font-size:120px;line-height:1;top:-20px;left:-10px;user-select:none;pointer-events:none;">?</span>
+          <span aria-hidden="true" style="position:absolute;font-family:'Fraunces',Georgia,serif;font-weight:900;font-style:italic;color:rgba(90,40,0,0.12);font-size:72px;line-height:1;bottom:-8px;right:16px;user-select:none;pointer-events:none;">?</span>
+          <span aria-hidden="true" style="position:absolute;font-family:'Fraunces',Georgia,serif;font-weight:900;font-style:italic;color:rgba(90,40,0,0.08);font-size:46px;line-height:1;top:28px;right:70px;user-select:none;pointer-events:none;">?</span>
           <div class="card-swatch__badge">
-            <div class="card-swatch__question">?</div>
+            <div class="card-swatch__badge-inner">Daily Quiz</div>
           </div>
         </div>
-        <div class="card-body" style="opacity: 0.4;">
-          <div class="card-body__type">Daily · Coming soon</div>
+        <div class="card-body">
+          <div class="card-body__type">Daily · 3 Questions</div>
           <div class="card-body__name">Trivia</div>
-          <p class="card-body__desc">A brand-new daily trivia game. Something to test what you really know.</p>
+          <p class="card-body__desc">Three new questions every day across every topic imaginable. Type your answer — no multiple choice.</p>
           <div class="card-body__cta">
-            <div class="coming-pill">Coming soon</div>
+            <div class="cta-pill">Play today <span class="cta-arrow">→</span></div>
           </div>
         </div>
-      </div>
+      </a>
 
     </div>
   </main>

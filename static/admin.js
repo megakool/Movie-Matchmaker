@@ -42,9 +42,14 @@ let categoriesLoaded  = false;
 let triviaBuilderSlots   = [null, null, null];  // each: question object or null
 let triviaBuilderLoaded  = false;
 let triviaBankQuery      = '';
+let triviaSlotEditing    = [false, false, false];
 
 // ── Trivia Published State ─────────────────────────────────────────
 let triviaPublishedLoaded = false;
+
+// ── Trivia Question Bank State ─────────────────────────────────────
+let triviaUsedIds        = new Set();  // question IDs used in published puzzles
+let triviaQBankHideUsed  = true;
 
 // ── Active Game ────────────────────────────────────────────────────
 let activeGame = 'marquee'; // 'marquee' | 'trivia'
@@ -1475,13 +1480,19 @@ function bindTriviaEvents() {
 
 async function loadTriviaData() {
   if (triviaLoaded) return;
-  const res = await fetch('/admin/trivia/questions');
-  triviaQuestions = await res.json();
+  const [qRes, pRes] = await Promise.all([
+    fetch('/admin/trivia/questions'),
+    fetch('/admin/trivia/puzzles'),
+  ]);
+  triviaQuestions = await qRes.json();
+  const published = await pRes.json();
+  triviaUsedIds = new Set(published.flatMap(p => (p.questions || []).map(q => q.id)));
   triviaLoaded = true;
   renderTriviaStats();
   renderTriviaCategoryFilter();
   renderTriviaBank();
   renderTriviaBankForBuilder();
+  bindTriviaHideUsedToggle();
 }
 
 function renderTriviaStats() {
@@ -1539,9 +1550,26 @@ function renderTriviaCategoryFilter() {
     cats.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
 }
 
+function bindTriviaHideUsedToggle() {
+  const btn = document.getElementById('btn-trivia-hide-used');
+  if (!btn) return;
+  // Reflect initial state
+  btn.textContent      = triviaQBankHideUsed ? 'Show All' : 'Hide Used';
+  btn.style.background = triviaQBankHideUsed ? '#2a2a2a' : '';
+  btn.style.color      = triviaQBankHideUsed ? '#fff' : '';
+  btn.addEventListener('click', function() {
+    triviaQBankHideUsed       = !triviaQBankHideUsed;
+    this.textContent          = triviaQBankHideUsed ? 'Show All' : 'Hide Used';
+    this.style.background     = triviaQBankHideUsed ? '#2a2a2a' : '';
+    this.style.color          = triviaQBankHideUsed ? '#fff' : '';
+    renderTriviaBank();
+  });
+}
+
 function renderTriviaBank() {
   const $list = document.getElementById('trivia-q-list');
   let filtered = triviaQuestions.filter(q => {
+    if (triviaQBankHideUsed && triviaUsedIds.has(q.id)) return false;
     if (triviaSearch && !q.question.toLowerCase().includes(triviaSearch) &&
         !q.answer.toLowerCase().includes(triviaSearch) &&
         !q.category.toLowerCase().includes(triviaSearch)) return false;
@@ -1779,6 +1807,7 @@ function assignTriviaSlot(question) {
 
 function removeTriviaSlot(idx) {
   triviaBuilderSlots[idx] = null;
+  triviaSlotEditing[idx] = false;
   renderTriviaBuilderSlots();
   renderTriviaBankForBuilder();
   updateTriviaPubBtn();
@@ -1791,16 +1820,51 @@ function renderTriviaBuilderSlots() {
     if (!el) continue;
 
     if (slot) {
-      el.className = 'trivia-slot trivia-slot--filled';
-      el.innerHTML = `
-        <div class="trivia-slot__num">${i + 1}</div>
-        <div class="trivia-slot__body">
-          <div class="trivia-slot__cat">${escHtml(slot.category)}</div>
-          <div class="trivia-slot__q">${escHtml(slot.question)}</div>
-          <div class="trivia-slot__a">Answer: <strong>${escHtml(slot.answer)}</strong></div>
-        </div>
-        <button class="trivia-slot__remove" data-slot="${i}" title="Remove">×</button>`;
-      el.querySelector('.trivia-slot__remove').addEventListener('click', () => removeTriviaSlot(i));
+      if (triviaSlotEditing[i]) {
+        el.className = 'trivia-slot trivia-slot--filled trivia-slot--editing';
+        el.innerHTML = `
+          <div class="trivia-slot__num">${i + 1}</div>
+          <div class="trivia-slot__edit-form">
+            <label class="tslot-label">Category</label>
+            <input class="tslot-input" id="tslot-cat-${i}" value="${escHtml(slot.category)}" style="text-transform:uppercase;">
+            <label class="tslot-label">Question</label>
+            <textarea class="tslot-textarea" id="tslot-q-${i}">${escHtml(slot.question)}</textarea>
+            <label class="tslot-label">Answer</label>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input class="tslot-input" id="tslot-a-${i}" value="${escHtml(slot.answer)}" style="flex:1;">
+              <button class="btn btn--ghost btn--sm tslot-preview-btn" data-slot="${i}" style="font-size:11px;white-space:nowrap;">Accepted Answers</button>
+            </div>
+            <div class="tslot-edit-footer">
+              <button class="btn btn--primary btn--sm tslot-save-btn" data-slot="${i}">Save</button>
+              <button class="btn btn--ghost btn--sm tslot-cancel-btn" data-slot="${i}">Cancel</button>
+            </div>
+          </div>`;
+        el.querySelector('.tslot-save-btn').addEventListener('click', () => saveSlotEdit(i));
+        el.querySelector('.tslot-cancel-btn').addEventListener('click', () => { triviaSlotEditing[i] = false; renderTriviaBuilderSlots(); });
+        el.querySelector('.tslot-preview-btn').addEventListener('click', () => {
+          const ans = document.getElementById(`tslot-a-${i}`).value.trim() || slot.answer;
+          showAcceptedAnswers(ans);
+        });
+      } else {
+        el.className = 'trivia-slot trivia-slot--filled';
+        el.innerHTML = `
+          <div class="trivia-slot__num">${i + 1}</div>
+          <div class="trivia-slot__body">
+            <div class="trivia-slot__cat">${escHtml(slot.category)}</div>
+            <div class="trivia-slot__q">${escHtml(slot.question)}</div>
+            <div class="trivia-slot__a">
+              Answer: <strong>${escHtml(slot.answer)}</strong>
+              <button class="btn btn--ghost btn--sm tslot-preview-btn" data-slot="${i}" style="font-size:10px;padding:1px 7px;margin-left:6px;">Accepted Answers</button>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+            <button class="trivia-slot__edit-btn" data-slot="${i}" title="Edit">✎</button>
+            <button class="trivia-slot__remove" data-slot="${i}" title="Remove">×</button>
+          </div>`;
+        el.querySelector('.trivia-slot__remove').addEventListener('click', () => removeTriviaSlot(i));
+        el.querySelector('.trivia-slot__edit-btn').addEventListener('click', () => { triviaSlotEditing[i] = true; renderTriviaBuilderSlots(); });
+        el.querySelector('.tslot-preview-btn').addEventListener('click', () => showAcceptedAnswers(slot.answer));
+      }
     } else {
       el.className = 'trivia-slot';
       el.innerHTML = `
@@ -1855,8 +1919,12 @@ function bindTriviaPuzzleBuilderEvents() {
           $msg.style.color = '#1a7a1a';
           $msg.textContent = `✓ Published for ${dateVal}!`;
           triviaBuilderSlots = [null, null, null];
+          triviaSlotEditing  = [false, false, false];
           renderTriviaBuilderSlots();
+          // Update used IDs immediately with the newly published questions
+          ids.forEach(id => triviaUsedIds.add(id));
           renderTriviaBankForBuilder();
+          renderTriviaBank();
           // Reset published cache so it reloads
           triviaPublishedLoaded = false;
         } else {
@@ -1900,21 +1968,32 @@ function renderTriviaPublished(puzzles) {
     return;
   }
   $list.innerHTML = '';
+  const todayStr = new Date().toISOString().slice(0, 10);
   puzzles.forEach(p => {
     const row = document.createElement('div');
     row.className = 'trivia-pub-row';
     row.dataset.date = p.date;
 
+    const isUpcoming = p.date > todayStr;
     const cats = (p.questions || []).map(q =>
       `<span class="trivia-pub-cat-badge">${escHtml(q.category)}</span>`
     ).join('');
+    const scheduledBadge = isUpcoming
+      ? `<span style="font-size:10px;font-weight:700;color:#7B61FF;background:#F0EDFF;padding:2px 6px;border-radius:20px;flex-shrink:0;">SCHEDULED</span>`
+      : '';
+    const editBtn = isUpcoming
+      ? `<button class="btn btn--ghost btn--sm trivia-pub-edit-btn" data-date="${escHtml(p.date)}"
+               style="font-size:11px;" onclick="event.stopPropagation()">Edit</button>`
+      : '';
 
     row.innerHTML = `
       <div class="trivia-pub-row__summary">
         <div class="trivia-pub-row__date">${escHtml(p.date)}</div>
+        ${scheduledBadge}
         <div class="trivia-pub-row__cats">${cats}</div>
         <a href="/trivia/${escHtml(p.date)}" target="_blank"
            class="btn btn--ghost btn--sm" style="font-size:11px;" onclick="event.stopPropagation()">Play ↗</a>
+        ${editBtn}
         <button class="btn btn--ghost btn--sm trivia-pub-del-btn" data-date="${escHtml(p.date)}"
                 style="font-size:11px;color:#cc2200;border-color:#cc2200;" onclick="event.stopPropagation()">Delete</button>
         <span class="trivia-pub-row__expand">▶ Expand</span>
@@ -1951,6 +2030,14 @@ function renderTriviaPublished(puzzles) {
       }
     });
 
+    // Edit (upcoming only)
+    const editBtnEl = row.querySelector('.trivia-pub-edit-btn');
+    if (editBtnEl) {
+      editBtnEl.addEventListener('click', () => {
+        editTriviaPublishedPuzzle(p.date, p.questions || []);
+      });
+    }
+
     $list.appendChild(row);
   });
 }
@@ -1976,6 +2063,177 @@ function bindTriviaPublishedEvents() {
       loadTriviaPublished();
     });
   }
+}
+
+// ── Slot inline edit ───────────────────────────────────────────────
+function saveSlotEdit(i) {
+  const cat = document.getElementById(`tslot-cat-${i}`)?.value.trim().toUpperCase();
+  const q   = document.getElementById(`tslot-q-${i}`)?.value.trim();
+  const a   = document.getElementById(`tslot-a-${i}`)?.value.trim();
+  if (!q || !a) return;
+  const slot = triviaBuilderSlots[i];
+  if (slot) {
+    slot.category = cat || slot.category;
+    slot.question = q;
+    slot.answer   = a;
+  }
+  triviaSlotEditing[i] = false;
+  renderTriviaBuilderSlots();
+}
+
+// ── Fuzzy match helpers (mirrors trivia.js) ────────────────────────
+function _adminLevenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m + 1}, (_, i) => [i]);
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
+function _adminNorm(s) {
+  return s.toLowerCase()
+    .replace(/\([^)]*\)/g, ' ').replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\b(the|a|an)\b/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function _adminSim(a, b) {
+  if (!a || !b) return 0;
+  return 1 - _adminLevenshtein(a, b) / Math.max(a.length, b.length);
+}
+function _adminFuzzy(userAnswer, correctAnswer) {
+  const ua = _adminNorm(userAnswer);
+  if (!ua || ua.length < 1) return false;
+  const ca = _adminNorm(correctAnswer);
+  if (ua === ca) return true;
+  if (ua.length >= 3 && ca.includes(ua)) return true;
+  if (ca.length >= 3 && ua.includes(ca)) return true;
+  if (_adminSim(ua, ca) >= 0.72) return true;
+  const parts = correctAnswer.replace(/\([^)]*\)/g, '')
+    .split(/\s+(?:and|or|&)\s+|[,\/]/).map(p => _adminNorm(p)).filter(p => p.length >= 2);
+  if (parts.length > 1) {
+    for (const part of parts) {
+      if (part.length >= 3 && ua.includes(part)) return true;
+      if (part.length >= 3 && part.includes(ua) && ua.length >= 3) return true;
+      if (_adminSim(ua, part) >= 0.72) return true;
+    }
+  }
+  const keyWords = ca.split(' ').filter(w => w.length >= 4);
+  if (keyWords.length >= 2) {
+    const hits = keyWords.filter(w => ua.includes(w)).length;
+    if (hits / keyWords.length >= 0.6) return true;
+  }
+  return false;
+}
+
+// ── Accepted Answers popup ─────────────────────────────────────────
+function showAcceptedAnswers(correctAnswer) {
+  // Build derived variants the fuzzy matcher will definitely accept
+  const norm = _adminNorm(correctAnswer);
+
+  // Parts split by "and / or / & / , / /"
+  const rawParts = correctAnswer.replace(/\([^)]*\)/g, '')
+    .split(/\s+(?:and|or|&)\s+|[,\/]/).map(p => p.trim()).filter(Boolean);
+
+  // Strip parentheticals
+  const noParens = correctAnswer.replace(/\([^)]*\)/g, '').trim();
+
+  const variantSet = new Set();
+  variantSet.add(correctAnswer.trim());
+  if (noParens && noParens !== correctAnswer.trim()) variantSet.add(noParens);
+  if (norm)       variantSet.add(norm);
+  rawParts.forEach(p => { if (p) variantSet.add(p); });
+
+  const variants = [...variantSet].filter(v => v.length >= 1);
+
+  // Build or reuse popup
+  let modal = document.getElementById('accepted-answers-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'accepted-answers-modal';
+    modal.className = 'accepted-modal-overlay';
+    modal.innerHTML = `
+      <div class="accepted-modal">
+        <div class="accepted-modal__hd">
+          <span class="accepted-modal__title">Accepted Answers</span>
+          <button class="accepted-modal__close" id="accepted-modal-close">×</button>
+        </div>
+        <div class="accepted-modal__answer" id="accepted-modal-answer"></div>
+        <div class="accepted-modal__section-label">Always accepted</div>
+        <div id="accepted-modal-variants"></div>
+        <div class="accepted-modal__section-label" style="margin-top:14px;">Test an answer</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input class="accepted-modal__test-input" id="accepted-modal-test" placeholder="Type to test…" autocomplete="off">
+          <span class="accepted-modal__verdict" id="accepted-modal-verdict"></span>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('accepted-modal-close').addEventListener('click', () => { modal.style.display = 'none'; });
+    modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+  }
+
+  document.getElementById('accepted-modal-answer').textContent = `Correct answer: "${correctAnswer}"`;
+  document.getElementById('accepted-modal-variants').innerHTML = variants.map(v =>
+    `<div class="accepted-variant"><span class="accepted-variant__check">✓</span>${escHtml(v)}</div>`
+  ).join('');
+
+  const testInput = document.getElementById('accepted-modal-test');
+  const verdict   = document.getElementById('accepted-modal-verdict');
+  testInput.value = '';
+  verdict.textContent = '';
+  testInput.oninput = () => {
+    const val = testInput.value.trim();
+    if (!val) { verdict.textContent = ''; return; }
+    const ok = _adminFuzzy(val, correctAnswer);
+    verdict.textContent  = ok ? '✓ Accepted' : '✗ Rejected';
+    verdict.style.color  = ok ? '#1a7a1a' : '#cc2200';
+  };
+
+  modal.style.display = 'flex';
+  setTimeout(() => testInput.focus(), 50);
+}
+
+// ── Edit upcoming trivia puzzle ────────────────────────────────────
+async function editTriviaPublishedPuzzle(date, questions) {
+  // Ensure trivia data is loaded so we can find full question objects
+  if (!triviaLoaded) await loadTriviaData();
+
+  // Clear builder slots and fill with the published questions
+  triviaBuilderSlots = [null, null, null];
+  questions.forEach((q, i) => {
+    if (i >= 3) return;
+    const full = triviaQuestions.find(tq => tq.id === q.id) || q;
+    triviaBuilderSlots[i] = full;
+  });
+
+  // Pre-fill date
+  const dateEl = document.getElementById('trivia-pub-date');
+  if (dateEl) dateEl.value = date;
+
+  renderTriviaBuilderSlots();
+  renderTriviaBankForBuilder();
+  updateTriviaPubBtn();
+  switchToPanel('trivia-builder');
+}
+
+// ── Edit upcoming marquee puzzle ───────────────────────────────────
+async function editUpcomingMarqueePuzzle(date) {
+  const res  = await fetch(`/admin/published-detail/${date}`);
+  const data = await res.json();
+  if (data.error) { alert('Could not load puzzle.'); return; }
+
+  // Load into builder slots
+  data.categories.forEach((cat, i) => {
+    if (i >= slots.length) return;
+    slots[i].title  = cat.title;
+    slots[i].movies = cat.movies.map(m => ({ id: m.id, title: m.title, year: '' }));
+  });
+
+  // Pre-fill publish date
+  const dateEl = document.getElementById('pub-date');
+  if (dateEl) dateEl.value = date;
+
+  switchToPanel('builder');
+  renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
 }
 
 // ── Start ──────────────────────────────────────────────────────────

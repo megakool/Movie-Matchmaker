@@ -4,32 +4,36 @@ const STORAGE_KEY = 'trivia_history';
 const SCORE_MSGS  = ['Keep at it!', 'Not bad!', 'Sharp!', 'Perfect!'];
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let currentIdx = 0;   // 0–2
-let results    = [];  // [{id, correct, userAnswer, correctAnswer, question, skipped?}]
+let currentIdx      = 0;   // 0–2
+let results         = [];  // [{id, correct, userAnswer, correctAnswer, question, skipped?}]
+let currentParts    = [];  // answer parts for current question (1 = single, 2+ = multi)
+let _justSubmitted  = false; // guard: prevent same Enter from submitting AND advancing
 
-// ── DOM refs ──────────────────────────────────────────────────────────────────
-const $date        = document.getElementById('trivia-date');
-const $progress    = document.getElementById('trivia-progress');
-const $progressTxt = document.getElementById('progress-text');
-const $card        = document.getElementById('trivia-card');
-const $catLabel    = document.getElementById('cat-label');
-const $question    = document.getElementById('card-question');
-const $input       = document.getElementById('answer-input');
-const $submitBtn   = document.getElementById('submit-btn');
-const $skipBtn     = document.getElementById('skip-btn');
-const $reveal      = document.getElementById('reveal-panel');
-const $verdictIcon = document.getElementById('verdict-icon');
-const $verdictText = document.getElementById('verdict-text');
-const $revealAns   = document.getElementById('reveal-answer');
-const $nextBtn     = document.getElementById('next-btn');
-const $nextLabel   = document.getElementById('next-label');
-const $doneBanner  = document.getElementById('done-banner');
-const $summary     = document.getElementById('summary-card');
-const $summaryScore= document.getElementById('summary-score');
-const $summaryMsg  = document.getElementById('summary-msg');
-const $barFill     = document.getElementById('summary-bar-fill');
-const $summaryRev  = document.getElementById('summary-review');
-const $summaryFoot = document.getElementById('summary-comeback');
+// ── Static DOM refs ────────────────────────────────────────────────────────────
+const $date             = document.getElementById('trivia-date');
+const $progress         = document.getElementById('trivia-progress');
+const $progressTxt      = document.getElementById('progress-text');
+const $card             = document.getElementById('trivia-card');
+const $catLabel         = document.getElementById('cat-label');
+const $question         = document.getElementById('card-question');
+const $inputsContainer  = document.getElementById('answer-inputs-container');
+const $skipBtn          = document.getElementById('skip-btn');
+const $reveal           = document.getElementById('reveal-panel');
+const $verdictIcon      = document.getElementById('verdict-icon');
+const $verdictText      = document.getElementById('verdict-text');
+const $revealAns        = document.getElementById('reveal-answer');
+const $nextBtn          = document.getElementById('next-btn');
+const $nextLabel        = document.getElementById('next-label');
+const $doneBanner       = document.getElementById('done-banner');
+const $summary          = document.getElementById('summary-card');
+const $summaryScore     = document.getElementById('summary-score');
+const $summaryMsg       = document.getElementById('summary-msg');
+const $barFill          = document.getElementById('summary-bar-fill');
+const $summaryRev       = document.getElementById('summary-review');
+const $summaryFoot      = document.getElementById('summary-comeback');
+
+// $submitBtn is reassigned each time inputs are rendered (since it lives inside the container)
+let $submitBtn = null;
 
 // ── Fuzzy Matching ────────────────────────────────────────────────────────────
 
@@ -50,42 +54,32 @@ function levenshtein(a, b) {
 function normalizeStr(s) {
   return s
     .toLowerCase()
-    .replace(/\([^)]*\)/g, ' ')           // strip parentheticals: (2011)
-    .replace(/[^a-z0-9\s]/g, ' ')         // strip punctuation
-    .replace(/\b(the|a|an)\b/g, ' ')      // strip leading articles
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\b(the|a|an)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 function similarity(a, b) {
   if (!a || !b) return 0;
-  const dist = levenshtein(a, b);
-  return 1 - dist / Math.max(a.length, b.length);
+  return 1 - levenshtein(a, b) / Math.max(a.length, b.length);
 }
 
+// Full fuzzy match (used for single-answer questions — handles compound answers internally)
 function fuzzyMatch(userAnswer, correctAnswer) {
   const ua = normalizeStr(userAnswer);
   if (!ua || ua.length < 1) return false;
-
   const ca = normalizeStr(correctAnswer);
-
-  // Exact normalized match
   if (ua === ca) return true;
-
-  // Containment: user's answer appears in correct or vice versa (min 3 chars)
   if (ua.length >= 3 && ca.includes(ua)) return true;
   if (ca.length >= 3 && ua.includes(ca)) return true;
-
-  // Levenshtein similarity for short answers
   if (similarity(ua, ca) >= 0.72) return true;
-
-  // Split correct answer into alternatives: "X and Y", "X or Y", "X, Y"
   const parts = correctAnswer
     .replace(/\([^)]*\)/g, '')
     .split(/\s+(?:and|or|&)\s+|[,\/]/)
     .map(p => normalizeStr(p))
     .filter(p => p.length >= 2);
-
   if (parts.length > 1) {
     for (const part of parts) {
       if (part.length >= 3 && ua.includes(part)) return true;
@@ -93,15 +87,93 @@ function fuzzyMatch(userAnswer, correctAnswer) {
       if (similarity(ua, part) >= 0.72) return true;
     }
   }
-
-  // Key-word coverage: 60%+ of meaningful words (4+ chars) from correct appear in user
   const keyWords = ca.split(' ').filter(w => w.length >= 4);
   if (keyWords.length >= 2) {
     const hits = keyWords.filter(w => ua.includes(w)).length;
     if (hits / keyWords.length >= 0.6) return true;
   }
-
   return false;
+}
+
+// Single-part fuzzy match (used when checking one user input against one answer part)
+function fuzzyMatchPart(userAnswer, part) {
+  const ua = normalizeStr(userAnswer);
+  if (!ua || ua.length < 1) return false;
+  const ca = normalizeStr(part);
+  if (ua === ca) return true;
+  if (ua.length >= 3 && ca.includes(ua)) return true;
+  if (ca.length >= 3 && ua.includes(ca)) return true;
+  if (similarity(ua, ca) >= 0.72) return true;
+  const keyWords = ca.split(' ').filter(w => w.length >= 4);
+  if (keyWords.length >= 2) {
+    const hits = keyWords.filter(w => ua.includes(w)).length;
+    if (hits / keyWords.length >= 0.6) return true;
+  }
+  return false;
+}
+
+// ── Answer Part Parsing ───────────────────────────────────────────────────────
+
+function parseAnswerParts(answer) {
+  const stripped = answer.replace(/\([^)]*\)/g, '');
+  const parts = stripped
+    .split(/\s+(?:and|or|&)\s+|,\s+/)
+    .map(p => p.trim())
+    .filter(p => normalizeStr(p).length >= 3);
+  // Only treat as multi-part if each part is meaningfully distinct
+  return parts.length >= 2 ? parts : [answer.trim()];
+}
+
+// ── Dynamic Input Rendering ───────────────────────────────────────────────────
+
+function renderInputs(parts) {
+  if (parts.length === 1) {
+    $inputsContainer.innerHTML = `
+      <div class="trivia-input-row">
+        <input type="text" class="trivia-input trivia-answer-input" id="answer-input"
+          placeholder="Your answer…" autocomplete="off" spellcheck="false" aria-label="Your answer">
+        <button class="trivia-submit" id="submit-btn" disabled aria-label="Submit answer">Submit</button>
+      </div>`;
+  } else {
+    $inputsContainer.innerHTML =
+      parts.map((_, i) => `
+        <div class="trivia-multi-input-row">
+          <span class="trivia-multi-label">Answer ${i + 1}</span>
+          <input type="text" class="trivia-input trivia-answer-input"
+            placeholder="Answer ${i + 1}…" autocomplete="off" spellcheck="false">
+        </div>`).join('') +
+      `<button class="trivia-submit trivia-submit--block" id="submit-btn" disabled>Submit</button>`;
+  }
+  $submitBtn = document.getElementById('submit-btn');
+  _bindInputEvents();
+}
+
+function _bindInputEvents() {
+  getInputEls().forEach(inp => {
+    inp.addEventListener('input', _updateSubmitBtn);
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && $submitBtn && !$submitBtn.disabled) handleSubmit();
+    });
+  });
+}
+
+function getInputEls() {
+  return Array.from($inputsContainer.querySelectorAll('.trivia-answer-input'));
+}
+
+function _updateSubmitBtn() {
+  if (!$submitBtn) return;
+  $submitBtn.disabled = !getInputEls().every(inp => inp.value.trim().length > 0);
+}
+
+function disableInputs() {
+  getInputEls().forEach(inp => { inp.disabled = true; });
+  if ($submitBtn) $submitBtn.disabled = true;
+}
+
+function focusFirstInput() {
+  const inputs = getInputEls();
+  if (inputs.length > 0) inputs[0].focus();
 }
 
 // ── LocalStorage ──────────────────────────────────────────────────────────────
@@ -122,7 +194,6 @@ function getTodayRecord() {
 function saveTodayRecord(resultsArr) {
   const history = loadHistory().filter(r => r.date !== TODAY);
   history.push({ date: TODAY, results: resultsArr });
-  // Keep last 60 days only
   history.sort((a, b) => a.date.localeCompare(b.date));
   saveHistory(history.slice(-60));
 }
@@ -152,19 +223,19 @@ function loadQuestion(idx) {
   $card.className = 'trivia-card';
   $catLabel.textContent = q.category;
   $question.textContent = q.question;
-  $input.value = '';
-  $input.disabled = false;
-  $submitBtn.disabled = true;
+
+  currentParts = parseAnswerParts(q.answer);
+  renderInputs(currentParts);
+
   $skipBtn.style.display = '';
   $reveal.classList.remove('is-visible');
   $progressTxt.textContent = `Question ${idx + 1} of ${QUESTIONS.length}`;
   updateProgressDots(idx, results);
-  $input.focus();
+  focusFirstInput();
 }
 
 function showReveal(isCorrect, userAns, correctAns, skipped) {
-  $input.disabled = true;
-  $submitBtn.disabled = true;
+  disableInputs();
   $skipBtn.style.display = 'none';
 
   $card.className = 'trivia-card ' + (isCorrect ? 'trivia-card--correct' : 'trivia-card--wrong');
@@ -218,11 +289,9 @@ function showSummary(resultsArr) {
         <div class="review-item__answer">${escHtml(r.correctAnswer)}</div>
         ${yourAnswerLine}
       </div>
-    </div>
-  `;
+    </div>`;
   }).join('');
 
-  // Countdown to midnight
   renderCountdown();
   setInterval(renderCountdown, 30000);
 }
@@ -255,26 +324,7 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-function truncate(str, n) {
-  return str.length > n ? str.slice(0, n) + '…' : str;
-}
-
 // ── Events ────────────────────────────────────────────────────────────────────
-
-$submitBtn.addEventListener('click', handleSubmit);
-$input.addEventListener('input', () => {
-  $submitBtn.disabled = !$input.value.trim();
-});
-$input.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    if ($reveal.classList.contains('is-visible')) {
-      // Reveal is showing — Enter triggers Next
-      $nextBtn.click();
-    } else if (!$submitBtn.disabled) {
-      handleSubmit();
-    }
-  }
-});
 
 $skipBtn.addEventListener('click', handleSkip);
 
@@ -288,36 +338,62 @@ $nextBtn.addEventListener('click', () => {
   }
 });
 
+// Global Enter: submit when inputs are ready, or advance when reveal is showing.
+// _justSubmitted guards against the same keypress triggering both submit and next.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+
+  if (_justSubmitted) {
+    // This is the same Enter that triggered handleSubmit — skip it, but clear the flag
+    // so the NEXT Enter press can advance.
+    _justSubmitted = false;
+    return;
+  }
+
+  if ($reveal.classList.contains('is-visible')) {
+    $nextBtn.click();
+  }
+});
+
 function handleSubmit() {
-  const userAns = $input.value.trim();
-  if (!userAns) return;
+  const inputs = getInputEls();
+  const userAnswers = inputs.map(inp => inp.value.trim());
+  if (userAnswers.some(a => !a)) return;
+
+  _justSubmitted = true;
+
   const q = QUESTIONS[currentIdx];
-  const isCorrect = fuzzyMatch(userAns, q.answer);
+  let isCorrect;
+
+  if (currentParts.length <= 1) {
+    isCorrect = fuzzyMatch(userAnswers[0], q.answer);
+  } else {
+    // Every answer part must be covered by at least one user input
+    isCorrect = currentParts.every(part => userAnswers.some(ua => fuzzyMatchPart(ua, part)));
+  }
 
   results.push({
-    id: q.id,
-    correct: isCorrect,
-    userAnswer: userAns,
+    id:            q.id,
+    correct:       isCorrect,
+    userAnswer:    userAnswers.join(' / '),
     correctAnswer: q.answer,
-    question: q.question,
+    question:      q.question,
   });
 
   updateProgressDots(currentIdx, results);
-  showReveal(isCorrect, userAns, q.answer, false);
+  showReveal(isCorrect, userAnswers.join(' / '), q.answer, false);
 }
 
 function handleSkip() {
   const q = QUESTIONS[currentIdx];
   results.push({
-    id: q.id,
-    correct: false,
-    userAnswer: '',
+    id:            q.id,
+    correct:       false,
+    userAnswer:    '',
     correctAnswer: q.answer,
-    question: q.question,
-    skipped: true,
+    question:      q.question,
+    skipped:       true,
   });
-  $input.disabled = true;
-  $submitBtn.disabled = true;
   updateProgressDots(currentIdx, results);
   showReveal(false, '', q.answer, true);
 }
@@ -333,9 +409,8 @@ function handleSkip() {
     return;
   }
 
-  // Resume in-progress session (page refresh mid-game)
   if (record && record.results && record.results.length > 0) {
-    results = record.results;
+    results    = record.results;
     currentIdx = results.length;
     if (currentIdx >= QUESTIONS.length) {
       showSummary(results);
