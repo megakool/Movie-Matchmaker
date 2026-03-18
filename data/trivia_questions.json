@@ -1,0 +1,760 @@
+[
+  {
+    "id": 1,
+    "question": "The Norse were impressed by these in North America, but they weren't grown profitably in North America until around 1850.",
+    "answer": "Grapes",
+    "category": "AGRICULTURE",
+    "difficulty": 8,
+    "active": true
+  },
+  {
+    "id": 2,
+    "question": "Like fingerprints, what other part of the body has a unique print on it?",
+    "answer": "The tongue",
+    "category": "ANATOMY",
+    "difficulty": 4,
+    "active": false
+  },
+  {
+    "id": 3,
+    "question": "What celestial body, discovered in 1781, was almost named 'Georgium Sidus' in honor of King George III?",
+    "answer": "Uranus",
+    "category": "ASTRONOMY",
+    "difficulty": 10
+  },
+  {
+    "id": 4,
+    "question": "What was the first planet to be discovered?",
+    "answer": "Uranus",
+    "category": "ASTRONOMY",
+    "difficulty": 3,
+    "active": false
+  },
+  {
+    "id": 5,
+    "question": "What does BMW stand for (in English)?",
+    "answer": "Bavarian Motor Works",
+    "category": "AUTOMOBILES",
+    "difficulty": 6
+  },
+  {
+    "id": 6,
+    "question": "Which backpack company shares its name with one of the original proposed names for the planet Uranus?",
+    "answer": "Herschel",
+    "category": "BUSINESS",
+    "difficulty": 4
+  },
+  {
+    "id": 7,
+    "question": "He received a real obituary in the Albuquerque Journal in 2013 noting his 'long battle with lung cancer.'",
+    "answer": "Walter White",
+    "category": "DEATH",
+    "difficulty": 6
+  },
+  {
+    "id": 8,
+    "question": "Which director made their debut feature film with Pee Wee’s Great Adventure?",
+    "answer": "Tim Burton",
+    "category": "FILM",
+    "difficulty": 9
+  },
+  {
+    "id": 9,
+    "question": "The DJ duo Zed's Dead took their name from a famous line in which Quentin Tarantino movie?",
+    "answer": "Pulp Fiction",
+    "category": "FILM",
+    "difficulty": 4
+  },
+  {
+    "id": 10,
+    "question": "This non-Pixar movie won the first-ever Academy Award for Best Animated Feature in 2002.",
+    "answer": "Shrek",
+    "category": "FILM",
+    "difficulty": 2,
+    "active": false
+  },
+  {
+    "id": 11,
+    "question": "Born 344 years apart, they are the 2 real people mentioned by name in the titles of 1990s Best Picture Winners.",
+    "answer": "Shakespeare and Schindler",
+    "category": "FILM",
+    "difficulty": 9
+  },
+  {
+    "id": 12,
+    "question": "Which is the only film to win Best Picture without a single acting nomination?",
+    "answer": "Slumdog Millionaire (2008)",
+    "category": "FILM",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 13,
+    "question": "Which Best Picture-winning film contains the fewest spoken words in Oscar history?",
+    "answer": "The Artist (2011)",
+    "category": "FILM",
+    "difficulty": 5
+  },
+  {
+    "id": 14,
+    "question": "Who is the only person to have won an Oscar for acting in a Quentin Tarantino-directed film twice?",
+    "answer": "Christoph Waltz – Inglourious Basterds (2009) & Django Unchained (2012)",
+    "category": "FILM",
+    "difficulty": 5
+  },
+  {
+    "id": 15,
+    "question": "Since 1975, only one film has matched One Flew Over the Cuckoo's Nest in winning all five major Academy Awards—Best Picture, Best Actor, Best Actress, Best Director, and Best Screenplay. What film is it?",
+    "answer": "The Silence of the Lambs (1991)",
+    "category": "FILM",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 16,
+    "question": "Released in 2004, Crash won Best Picture at the 2006 Academy Awards, 14 months after its initial festival debut. Since then, only one film has had a longer gap between its first screening and its Best Picture win—nearly 20 months. What film is it?",
+    "answer": "Hurt Locker (2010)",
+    "category": "FILM",
+    "difficulty": 5
+  },
+  {
+    "id": 17,
+    "question": "David Niven holds the record for the shortest performance to win Best Actor, with just 23 minutes and 39 seconds of screentime in Separate Tables (1958). Since then, only one actor has come close, winning Best Actor for a role with just 24 minutes and 52 seconds of screentime. Who was it?",
+    "answer": "Anthony Hopkins – The Silence of the Lambs (1991)",
+    "category": "FILM",
+    "difficulty": 5
+  },
+  {
+    "id": 18,
+    "question": "What soft drink was originally introduced as 'Brad’s Drink' in the 1890s?",
+    "answer": "Pepsi",
+    "category": "FOOD/DRINK",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 19,
+    "question": "This area that includes several countries got its name because the colonizers spoke Spanish, French & Portuguese.",
+    "answer": "Latin America",
+    "category": "GEOGRAPHY",
+    "difficulty": 8
+  },
+  {
+    "id": 20,
+    "question": "What is the Largest City by Population in Europe?",
+    "answer": "Istanbul with 15.5 million, Moscow with 13 million",
+    "category": "GEOGRAPHY",
+    "difficulty": 4
+  },
+  {
+    "id": 21,
+    "question": "Which country has the most islands with over 267,000?",
+    "answer": "Sweden",
+    "category": "GEOGRAPHY",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 22,
+    "question": "What is the largest island in the Mediterranean Sea?",
+    "answer": "Sicily",
+    "category": "GEOGRAPHY",
+    "difficulty": 1,
+    "active": false
+  },
+  {
+    "id": 23,
+    "question": "After the U.S. and Canada, these two countries share the longest land border at more than 4,700 miles.",
+    "answer": "Russia and Kazakhstan",
+    "category": "GEOGRAPHY",
+    "difficulty": 10
+  },
+  {
+    "id": 24,
+    "question": "What two countries do not share a border in Europe but have territories that border each other in another part of the world?",
+    "answer": "The Netherlands and France (Sint Maarten and Saint-Martin)",
+    "category": "GEOGRAPHY",
+    "difficulty": 8
+  },
+  {
+    "id": 25,
+    "question": "Which U.S. state has direct flights to the most other states?",
+    "answer": "Georgia",
+    "category": "GEOGRAPHY",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 26,
+    "question": "Which U.S. state has direct flights to the fewest other states?",
+    "answer": "Delaware",
+    "category": "GEOGRAPHY",
+    "difficulty": 8
+  },
+  {
+    "id": 27,
+    "question": "While the population of Fiji includes small minorities of Chinese, Europeans, and other Pacific islanders, the majority are from one of two groups: native Fijians, and Fiji citizens descended from immigrants from what other country?",
+    "answer": "India",
+    "category": "GEOGRAPHY/DECENDENTS",
+    "difficulty": 2
+  },
+  {
+    "id": 28,
+    "question": "Traditionally said to be founded in 421, this city was later built up on islands in a lagoon by refugees from invading Lombards.",
+    "answer": "Venice",
+    "category": "GEOGRAPHY/HISTORY",
+    "difficulty": 7
+  },
+  {
+    "id": 29,
+    "question": "It's observed on March 7 in California, March 26 in Spain & April 22 in Nebraska.",
+    "answer": "Arbor Day",
+    "category": "HOLIDAYS",
+    "difficulty": 9,
+    "active": false
+  },
+  {
+    "id": 30,
+    "question": "What is the biggest drinking day of the year?",
+    "answer": "Blackout Wednesday (Thanksgiving Eve)",
+    "category": "HOLIDAYS",
+    "difficulty": 9
+  },
+  {
+    "id": 31,
+    "question": "Who invented scissors?",
+    "answer": "Leonardo Da Vinci",
+    "category": "INVENTIONS",
+    "difficulty": 2,
+    "active": false
+  },
+  {
+    "id": 32,
+    "question": "Which country has the most official languages in the world?",
+    "answer": "South Africa (11 official languages)",
+    "category": "LANGUAGE",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 33,
+    "question": "What is the only modern European language that is not written using the Latin, Cyrillic, or Greek alphabet?",
+    "answer": "Georgian",
+    "category": "LANGUAGE",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 34,
+    "question": "Which is the only language that uses a writing system invented by a single known person?",
+    "answer": "Korean (Hangul was created by King Sejong in 1443)",
+    "category": "LANGUAGE",
+    "difficulty": 5
+  },
+  {
+    "id": 35,
+    "question": "Which two official languages of the European Union have no closely related living relatives?",
+    "answer": "Greek and Hungarian",
+    "category": "LANGUAGE",
+    "difficulty": 5
+  },
+  {
+    "id": 36,
+    "question": "With over 750,000 fluent speakers and nearly 1.5 million people who understand it, this European language is the world's largest language isolate. What is it?",
+    "answer": "Basque",
+    "category": "LANGUAGE",
+    "difficulty": 5
+  },
+  {
+    "id": 37,
+    "question": "In 1892 Francisca Rojas became the world's first person convicted on the basis of this kind of evidence.",
+    "answer": "Fingerprint",
+    "category": "LAW ENFORCEMENT",
+    "difficulty": 5
+  },
+  {
+    "id": 38,
+    "question": "What fiction author outsold the Bible in 2022?",
+    "answer": "Colleen Hoover",
+    "category": "LITERATURE",
+    "difficulty": 2
+  },
+  {
+    "id": 39,
+    "question": "Severe tropical cyclones with winds of 74 mph (119 km/h) or greater are known as hurricanes when they occur in the Atlantic Ocean, the Gulf of Mexico, and the eastern Pacific Ocean. When they happen in the northwestern Pacific Ocean, they're best known as what?",
+    "answer": "Typhoons",
+    "category": "METEOROLOGY",
+    "difficulty": 4,
+    "active": false
+  },
+  {
+    "id": 40,
+    "question": "In 1934 the lease for this place was increased to $4,085 per year; since 1959 the checks haven’t been cashed.",
+    "answer": "Guantanamo Bay",
+    "category": "MILITARY",
+    "difficulty": 8,
+    "active": false
+  },
+  {
+    "id": 41,
+    "question": "While The Beatles were known as the 'Fab Four', what contemporaneous band and media sensation was known as the 'Prefab Four' (and which, like the Beatles, began to disintegrate in the late 1960s)?",
+    "answer": "The Monkees",
+    "category": "MUSIC",
+    "difficulty": 10
+  },
+  {
+    "id": 42,
+    "question": "What is the best-selling album of all time worldwide?",
+    "answer": "Thriller by Michael Jackson",
+    "category": "MUSIC",
+    "difficulty": 8,
+    "active": false
+  },
+  {
+    "id": 43,
+    "question": "What singer holds the most Grammy nominations?",
+    "answer": "Beyoncé (88 nominations, including 9 with Destiny's Child)",
+    "category": "MUSIC",
+    "difficulty": 9
+  },
+  {
+    "id": 44,
+    "question": "What is the only number in alphabetical order? What is the only number in reverse alphabetical order?",
+    "answer": "Forty, One",
+    "category": "NUMBERS",
+    "difficulty": 7
+  },
+  {
+    "id": 45,
+    "question": "He's the only U.S. president to serve in the Senate after leaving the White House.",
+    "answer": "Andrew Johnson",
+    "category": "PRESIDENTS",
+    "difficulty": 3,
+    "active": false
+  },
+  {
+    "id": 46,
+    "question": "On learning what his series would be called, the star of this reality show said, 'That sounds like a Chinese food place!'",
+    "answer": "Duck Dynasty",
+    "category": "REALITY TV",
+    "difficulty": 10
+  },
+  {
+    "id": 47,
+    "question": "Name as many animals used in the Chinese Zodiac.",
+    "answer": "Pig, rat, ox, tiger, rabbit, dragon, snake, horse, sheep, monkey, rooster, and dog",
+    "category": "RELIGION",
+    "difficulty": 6,
+    "active": false
+  },
+  {
+    "id": 48,
+    "question": "What anomaly connects bromine and mercury?",
+    "answer": "They are the only elements to take a liquid form at ambient temperature.",
+    "category": "SCIENCE",
+    "difficulty": 9,
+    "active": false
+  },
+  {
+    "id": 49,
+    "question": "The process known as cryodesiccation (or more colloquially, freeze-drying), involves two thermodynamic phase transitions, the first of which is the freezing of the substance. What is the other transition, which converts the frozen water in the substance to vapor via a strong vacuum?",
+    "answer": "Sublimation",
+    "category": "SCIENCE",
+    "difficulty": 7,
+    "active": false
+  },
+  {
+    "id": 50,
+    "question": "This vegetable, which has been seen growing on Mars in film, was the first vegetable to be grown in space.",
+    "answer": "The Potato",
+    "category": "SCIENCE",
+    "difficulty": 1,
+    "active": false
+  },
+  {
+    "id": 51,
+    "question": "When a gas changes to a liquid, this is called what?",
+    "answer": "Condensation",
+    "category": "SCIENCE",
+    "difficulty": 3,
+    "active": false
+  },
+  {
+    "id": 53,
+    "question": "What sporting event is held every Memorial Day?",
+    "answer": "Indy 500",
+    "category": "SPORTS",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 54,
+    "question": "Which player had the highest points per game during their MVP season with 35.0 PPG?",
+    "answer": "Michael Jordan (1988)",
+    "category": "SPORTS",
+    "difficulty": 1,
+    "active": false
+  },
+  {
+    "id": 56,
+    "question": "Which player had the highest assists per game during their MVP season with 12.8 APG?",
+    "answer": "Magic Johnson (1989)",
+    "category": "SPORTS",
+    "difficulty": 9
+  },
+  {
+    "id": 57,
+    "question": "Which player had the highest blocks per game during their MVP season with 3.7 BPG?",
+    "answer": "Hakeem Olajuwon (1994)",
+    "category": "SPORTS",
+    "difficulty": 6
+  },
+  {
+    "id": 58,
+    "question": "Which player had the lowest points per game during their MVP season with 15.5 PPG?",
+    "answer": "Steve Nash (2006)",
+    "category": "SPORTS",
+    "difficulty": 7
+  },
+  {
+    "id": 59,
+    "question": "Which player has the two lowest-scoring MVP seasons of all time?",
+    "answer": "Steve Nash",
+    "category": "SPORTS",
+    "difficulty": 9
+  },
+  {
+    "id": 60,
+    "question": "Which NFL player has finished in second place for MVP voting the most times in history without ever winning an MVP?",
+    "answer": "Drew Brees",
+    "category": "SPORTS",
+    "difficulty": 4,
+    "active": false
+  },
+  {
+    "id": 61,
+    "question": "Which player has the most second-place finishes in NFL MVP voting history?",
+    "answer": "Tom Brady (5 times: 2021, 2016, 2015, 2013, 2003)",
+    "category": "SPORTS",
+    "difficulty": 10
+  },
+  {
+    "id": 62,
+    "question": "Who is the most recent NFL player to win MVP and never receive another first-place vote for the rest of their career?",
+    "answer": "Matt Ryan",
+    "category": "SPORTS",
+    "difficulty": 7
+  },
+  {
+    "id": 63,
+    "question": "Before Patrick Mahomes in 2022, who was the last player to win both NFL MVP and the Super Bowl in the same season?",
+    "answer": "Kurt Warner (1999)",
+    "category": "SPORTS",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 64,
+    "question": "Which NFL team had two players receive Defensive Player of the Year votes in 2015 with 4 and 2 votes?",
+    "answer": "Carolina Panthers – Luke Kuechly and Josh Norman",
+    "category": "SPORTS",
+    "difficulty": 10
+  },
+  {
+    "id": 65,
+    "question": "Which NFL team had two players receive Defensive Player of the Year votes in 2013 with 7.5 and 4 votes?",
+    "answer": "Seattle Seahawks – Earl Thomas and Richard Sherman",
+    "category": "SPORTS",
+    "difficulty": 1
+  },
+  {
+    "id": 66,
+    "question": "Which NFL team had three players receive Defensive Player of the Year votes in 2011 with 6, 2, and 1 vote?",
+    "answer": "San Francisco 49ers – Justin Smith, Patrick Willis, and NaVorro Bowman",
+    "category": "SPORTS",
+    "difficulty": 1
+  },
+  {
+    "id": 67,
+    "question": "In 2010, which is the only team in NFL history to have two players receive more than 5 votes each for Defensive Player of the Year?",
+    "answer": "Pittsburgh Steelers – Troy Polamalu (17 votes) and James Harrison (8 votes)",
+    "category": "SPORTS",
+    "difficulty": 5
+  },
+  {
+    "id": 68,
+    "question": "Who is the only player in NFL history to receive 5 or more Defensive Player of the Year votes in a season for two different teams?",
+    "answer": "Khalil Mack – 2016 Raiders (18 votes) and 2018 Bears (5 votes)",
+    "category": "SPORTS",
+    "difficulty": 7
+  },
+  {
+    "id": 69,
+    "question": "Which NFL player won three consecutive Offensive Player of the Year awards from 1999 to 2001?",
+    "answer": "Marshall Faulk",
+    "category": "SPORTS",
+    "difficulty": 10
+  },
+  {
+    "id": 70,
+    "question": "In the interest of player safety, the National Football League in 2019 banned a certain high-energy, full-contact practice drill whose development is credited to legendary college coach Bud Wilkinson, and thus is best known by what geographic name?",
+    "answer": "Oklahoma Drill",
+    "category": "SPORTS/FOOTBALL",
+    "difficulty": 1
+  },
+  {
+    "id": 71,
+    "question": "The Detroit Pistons NBA franchise was founded in 1941 in what other city, where it played until relocating roughly three hours to the northeast in 1957?",
+    "answer": "Fort Wayne, Indiana",
+    "category": "SPORTS/GEOGRAPHY",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 72,
+    "question": "In 2009, what became the first Morse code character to be added since WWII?",
+    "answer": "@ symbol",
+    "category": "TECHNOLOGY",
+    "difficulty": 3,
+    "active": false
+  },
+  {
+    "id": 73,
+    "question": "What was the first mobile phone brand to sell 1 billion devices?",
+    "answer": "Nokia",
+    "category": "TECHNOLOGY",
+    "difficulty": 10
+  },
+  {
+    "id": 74,
+    "question": "Before founding Facebook, Mark Zuckerberg created a website that allowed users to compare the attractiveness of two people side by side. What was the name of this website?",
+    "answer": "Facesmash",
+    "category": "TECHNOLOGY",
+    "difficulty": 2,
+    "active": false
+  },
+  {
+    "id": 75,
+    "question": "Interstate 25 connects these 2 state capitals, 1st & 2nd in elevation & in between runs through No. 3 Denver.",
+    "answer": "Cheyenne and Santa Fe",
+    "category": "US STATES",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 76,
+    "question": "This 3-word phrase originated with a signal sent by General Sherman; today it means to be in charge temporarily.",
+    "answer": "Hold the Fort",
+    "category": "WORD ORIGIN",
+    "difficulty": 8
+  },
+  {
+    "id": 77,
+    "question": "Monopoly gained initial popularity and fame as a result of what U.S. Historical Event?",
+    "answer": "The Great Depression",
+    "category": "GAMES",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 78,
+    "question": "In 2019, for the first time, this nation allowed for non-gendered last names with the suffix -bur.",
+    "answer": "Iceland",
+    "category": "WORLD SURNAMES",
+    "difficulty": 1
+  },
+  {
+    "id": 79,
+    "question": "What two cities represent letters in the phonetic alphabet?",
+    "answer": "Lima and Quebec",
+    "category": "ALPHABET/GEOGRAPHY",
+    "difficulty": 1,
+    "active": false
+  },
+  {
+    "id": 80,
+    "question": "In the classic version of Monopoly, the only 2 improvable properties without avenue or place in their names.",
+    "answer": "Boardwalk and Marvin Gardens",
+    "category": "BOARDGAMES",
+    "difficulty": 2,
+    "active": false
+  },
+  {
+    "id": 81,
+    "question": "There are exactly three letters of the alphabet that are the first letter of the name of one (and only one) capital city of a US state. Name any one of those three capital cities.",
+    "answer": "Frankfort, Indianapolis, Nashville",
+    "category": "CAPITAL CITIES",
+    "difficulty": 6
+  },
+  {
+    "id": 82,
+    "question": "This sandwich was 1st sold in 1962 as an attempt to give the many Catholics of Cincinnati something to eat on Fridays during Lent.",
+    "answer": "Filet-O-Fish",
+    "category": "FOOD/DRINK",
+    "difficulty": 10
+  },
+  {
+    "id": 83,
+    "question": "Two sovereign island nations within the Indian Ocean, despite differing in area by a factor of nine, have roughly the same population at a little over 20 million. What are these two countries?",
+    "answer": "Madagascar and Sri Lanka",
+    "category": "GEOGRAPHY",
+    "difficulty": 2
+  },
+  {
+    "id": 84,
+    "question": "The name of which Japanese multinational corporation is also the second most common last name in Japan?",
+    "answer": "Suzuki",
+    "category": "JAPAN CULTURE",
+    "difficulty": 7,
+    "active": false
+  },
+  {
+    "id": 85,
+    "question": "What is the largest majority Spanish-speaking country in the world, measured by area?",
+    "answer": "Argentina",
+    "category": "LANGUAGE/GEOGRAPHY",
+    "difficulty": 9
+  },
+  {
+    "id": 86,
+    "question": "Name the two highest selling authors who have each sold an estimated 2-4 Billion Books? Hint: One Man and One Woman.",
+    "answer": "William Shakespeare and Agatha Christie",
+    "category": "LITERATURE",
+    "difficulty": 2,
+    "active": false
+  },
+  {
+    "id": 87,
+    "question": "The last book Dr. Seuss published in his lifetime, it climbs bestseller lists every spring.",
+    "answer": "Oh, the Places You’ll Go",
+    "category": "LITERATURE",
+    "difficulty": 5,
+    "active": false
+  },
+  {
+    "id": 88,
+    "question": "This magazine had the same person on its cover since its founding 20 years ago until it chose Breonna Taylor as its September 2020 cover.",
+    "answer": "O, The Oprah Magazine",
+    "category": "MAGAZINE",
+    "difficulty": 1,
+    "active": false
+  },
+  {
+    "id": 89,
+    "question": "With revenue of over $45 billion in 2013, roughly seven times larger than the Las Vegas Strip's, the casino market of this city is the world's largest, by far.",
+    "answer": "Macau",
+    "category": "MONEY",
+    "difficulty": 9
+  },
+  {
+    "id": 90,
+    "question": "What successful 1988 film was the first of many featuring action roles for an Emmy winner who had theretofore been known primarily as a television comedy actor and, perhaps, wine-cooler pitchman? The film has been described as an interracial buddy movie, though the buddies don't actually meet until after the climax.",
+    "answer": "Die Hard",
+    "category": "MOVIES",
+    "difficulty": 3,
+    "active": false
+  },
+  {
+    "id": 91,
+    "question": "What two movies star Will Smith and his son, Jaden Smith?",
+    "answer": "Pursuit of Happyness and After Earth",
+    "category": "MOVIES",
+    "difficulty": 7
+  },
+  {
+    "id": 92,
+    "question": "What are the two highest grossing holiday movies of all time?",
+    "answer": "The Grinch (2018) and Home Alone (1990)",
+    "category": "MOVIES/CHRISTMAS",
+    "difficulty": 5
+  },
+  {
+    "id": 93,
+    "question": "The only solo artist to have five Billboard No. 1 albums before the age of 19.",
+    "answer": "Justin Bieber",
+    "category": "MUSIC",
+    "difficulty": 1,
+    "active": false
+  },
+  {
+    "id": 94,
+    "question": "The Live Aid concert, which took place on July 13, 1985, was held simultaneously in two cities -- London, and what U.S. city (with Phil Collins famously appearing at both venues)?",
+    "answer": "Philadelphia",
+    "category": "MUSIC/GEOGRAPHY",
+    "difficulty": 9
+  },
+  {
+    "id": 95,
+    "question": "Name the two books of the Bible that list the Ten Commandments?",
+    "answer": "Exodus and Deuteronomy",
+    "category": "RELIGION",
+    "difficulty": 6,
+    "active": false
+  },
+  {
+    "id": 96,
+    "question": "Despite the familiar story, it is unlikely that a bell was often used as a tool by what 1904 Nobel winner (it was more likely a buzzer, metronome, electric shock device, or other stimuli)?",
+    "answer": "Ivan Pavlov",
+    "category": "SCIENCE",
+    "difficulty": 5
+  },
+  {
+    "id": 97,
+    "question": "Decompression sickness, known as the bends and suffered commonly by deep-sea divers and aviators, is caused when a gas comes out of solution and forms bubbles in body fluid and blood during a quick ascent. Most commonly, this gas is what element?",
+    "answer": "Nitrogen",
+    "category": "SCIENCE",
+    "difficulty": 2,
+    "active": false
+  },
+  {
+    "id": 98,
+    "question": "Liechtenstein is the world leader in the manufacturing of what type of prosthetic device, producing more than 60 million each year?",
+    "answer": "False Teeth",
+    "category": "SCIENCE/PROSTHETICS",
+    "difficulty": 9
+  },
+  {
+    "id": 99,
+    "question": "What two countries on the planet is Coca-Cola not officially sold?",
+    "answer": "Cuba and North Korea",
+    "category": "SODA/GEOGRAPHY",
+    "difficulty": 2
+  },
+  {
+    "id": 100,
+    "question": "Though Americans won eight consecutive gold medals beginning with the first modern Olympiad in 1896, from 1960 to 1992, Dick Fosbury was the only male competitor from the U.S. to win the gold (in 1968) in what Olympic event?",
+    "answer": "High Jump",
+    "category": "SPORTS/OLYMPICS",
+    "difficulty": 7
+  },
+  {
+    "id": 101,
+    "question": "Tom DeLay, Billy Dee Williams, Ralph Macchio, Bill Nye, and Tommy Chong are among the many individuals who have suffered injuries in association with what television program?",
+    "answer": "Dancing with the Stars",
+    "category": "TELEVISION",
+    "difficulty": 5
+  },
+  {
+    "id": 102,
+    "question": "Which show is the highest-grossing production on Broadway ever?",
+    "answer": "The Lion King",
+    "category": "THEATER",
+    "difficulty": 1,
+    "active": false
+  },
+  {
+    "id": 103,
+    "question": "What is the longest-running Broadway show?",
+    "answer": "Phantom of the Opera",
+    "category": "THEATER",
+    "difficulty": 10
+  },
+  {
+    "id": 104,
+    "question": "Which two U.S. states don’t observe Daylight Saving Time?",
+    "answer": "Arizona and Hawaii",
+    "category": "US STATES",
+    "difficulty": 5,
+    "active": false
+  }
+]

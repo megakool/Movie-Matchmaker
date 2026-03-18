@@ -44,8 +44,9 @@ def _init_persistent_disk() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
     TRIVIA_PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
-    repo_data    = BASE_DIR / "data"
-    repo_puzzles = BASE_DIR / "data" / "puzzles"
+    repo_data           = BASE_DIR / "data"
+    repo_puzzles        = BASE_DIR / "data" / "puzzles"
+    repo_trivia_puzzles = BASE_DIR / "data" / "trivia_puzzles"
     import shutil
     # Copy data files only if they don't already exist on the disk
     for src in repo_data.glob("*.json"):
@@ -55,6 +56,11 @@ def _init_persistent_disk() -> None:
     # Copy puzzle files only if they don't already exist on the disk
     for src in repo_puzzles.glob("*.json"):
         dst = PUZZLES_DIR / src.name
+        if not dst.exists():
+            shutil.copy2(src, dst)
+    # Copy trivia puzzle files only if they don't already exist on the disk
+    for src in repo_trivia_puzzles.glob("*.json"):
+        dst = TRIVIA_PUZZLES_DIR / src.name
         if not dst.exists():
             shutil.copy2(src, dst)
 
@@ -170,9 +176,11 @@ def get_trivia_questions() -> list:
         if TRIVIA_DATA_PATH.exists():
             with open(TRIVIA_DATA_PATH, "r", encoding="utf-8") as f:
                 _trivia_cache = json.load(f)
-        else:
+        elif TRIVIA_PATH.exists():
             with open(TRIVIA_PATH, "r", encoding="utf-8") as f:
                 _trivia_cache = json.load(f)["questions"]
+        else:
+            _trivia_cache = []
     return _trivia_cache
 
 
