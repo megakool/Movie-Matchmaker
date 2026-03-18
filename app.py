@@ -18,7 +18,8 @@ from flask import (
 
 # ── Config ────────────────────────────────────────────────────────────────────
 BASE_DIR          = Path(__file__).parent
-MARQUEE_DIR       = BASE_DIR / "marquee"
+# On Render the git root IS the marquee/ dir; locally app.py lives one level up.
+MARQUEE_DIR       = BASE_DIR / "marquee" if (BASE_DIR / "marquee").is_dir() else BASE_DIR
 MOVIES_PATH       = MARQUEE_DIR / "movies.json"
 MOVIES_FULL_PATH  = MARQUEE_DIR / "movies_full.json"
 
