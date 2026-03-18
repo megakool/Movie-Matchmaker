@@ -1042,6 +1042,40 @@ def admin_trivia_get_puzzle(puzzle_date: str):
     return jsonify({"date": puzzle_date, "questions": qs})
 
 
+@app.post("/admin/trivia/import-questions")
+@admin_required
+def admin_trivia_import_questions():
+    """Replace the entire trivia_questions.json with the posted array."""
+    data = request.get_json(force=True)
+    if not isinstance(data, list):
+        return jsonify({"error": "expected a JSON array"}), 400
+    save_trivia_questions(data)
+    return jsonify({"ok": True, "count": len(data)})
+
+
+@app.post("/admin/trivia/import-puzzles")
+@admin_required
+def admin_trivia_import_puzzles():
+    """Bulk-create puzzle files. Accepts a list of {date, questions} objects."""
+    data = request.get_json(force=True)
+    if not isinstance(data, list):
+        return jsonify({"error": "expected a JSON array"}), 400
+    TRIVIA_PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
+    saved = []
+    for item in data:
+        puzzle_date = item.get("date", "").strip()
+        question_ids = item.get("questions", [])
+        if not puzzle_date or len(question_ids) != 3:
+            continue
+        puzzle = {"date": puzzle_date, "questions": question_ids,
+                  "created_at": datetime.now().isoformat(timespec="seconds")}
+        path = TRIVIA_PUZZLES_DIR / f"{puzzle_date}.json"
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(puzzle, f, indent=2)
+        saved.append(puzzle_date)
+    return jsonify({"ok": True, "saved": saved})
+
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
