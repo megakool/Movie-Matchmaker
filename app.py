@@ -74,7 +74,7 @@ ADMIN_PASSWORD    = os.environ.get("MARQUEE_ADMIN_PASSWORD", "marquee-admin-2026
 DEV_MODE          = os.environ.get("MARQUEE_DEV_MODE", "0") == "1"
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
-app = Flask(__name__, template_folder="marquee/templates", static_folder="marquee/static")
+app = Flask(__name__, template_folder=str(MARQUEE_DIR / "templates"), static_folder=str(MARQUEE_DIR / "static"))
 app.secret_key = os.environ.get("MARQUEE_SECRET_KEY", "marquee-secret-dev-2026")
 
 @app.context_processor
