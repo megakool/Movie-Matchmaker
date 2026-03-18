@@ -38,11 +38,23 @@ const publishedDetailCache = {};
 // ── Panel Load Flags ───────────────────────────────────────────────
 let categoriesLoaded  = false;
 
+// ── Trivia Builder State ───────────────────────────────────────────
+let triviaBuilderSlots   = [null, null, null];  // each: question object or null
+let triviaBuilderLoaded  = false;
+let triviaBankQuery      = '';
+
+// ── Trivia Published State ─────────────────────────────────────────
+let triviaPublishedLoaded = false;
+
+// ── Active Game ────────────────────────────────────────────────────
+let activeGame = 'marquee'; // 'marquee' | 'trivia'
+
 // ══════════════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════════════
 async function init() {
   document.getElementById('pub-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('trivia-pub-date').value = new Date().toISOString().slice(0, 10);
   bindNav();
   bindBuilderEvents();
   bindDatasetEvents();
@@ -53,9 +65,38 @@ async function init() {
   bindRandomDiscoveryEvents();
   bindPublishedEvents();
   bindSettingsEvents();
+  bindTriviaEvents();
+  bindTriviaPuzzleBuilderEvents();
+  bindTriviaPublishedEvents();
   await initDataset();
   await loadMovies();
   pickRandomMovies();
+}
+
+function switchToGame(game) {
+  activeGame = game;
+  const navMarquee = document.getElementById('nav-marquee');
+  const navTrivia  = document.getElementById('nav-trivia');
+  const pillMarquee = document.getElementById('pill-marquee');
+  const pillTrivia  = document.getElementById('pill-trivia');
+  const movieDatasetCard = document.getElementById('settings-movie-dataset');
+
+  if (game === 'marquee') {
+    navMarquee.style.display = '';
+    navTrivia.style.display  = 'none';
+    pillMarquee.classList.remove('game-pill--inactive');
+    pillTrivia.classList.add('game-pill--inactive');
+    if (movieDatasetCard) movieDatasetCard.style.display = '';
+    switchToPanel('builder');
+  } else {
+    navMarquee.style.display = 'none';
+    navTrivia.style.display  = '';
+    pillTrivia.classList.remove('game-pill--inactive');
+    pillMarquee.classList.add('game-pill--inactive');
+    if (movieDatasetCard) movieDatasetCard.style.display = 'none';
+    switchToPanel('trivia-builder');
+    loadTriviaData();
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1089,17 +1130,6 @@ function bindPublishedEvents() {
     btn.addEventListener('click', () => deletePuzzle(btn.dataset.date));
   });
 
-  const renumberBtn = document.getElementById('btn-renumber-all');
-  if (renumberBtn) renumberBtn.addEventListener('click', renumberAll);
-
-  // btn-reset-progress on the published panel (legacy button kept for compatibility)
-  const resetBtn = document.getElementById('btn-reset-progress');
-  if (resetBtn) resetBtn.addEventListener('click', async () => {
-    if (!confirm('This will wipe ALL players\' progress and streaks on their next visit. Continue?')) return;
-    const res  = await fetch('/admin/reset-progress', { method: 'POST' });
-    const data = await res.json();
-    if (data.ok) alert(`Done. All players will start fresh (version ${data.progress_version}).`);
-  });
 }
 
 async function redatePuzzle(oldDate) {
@@ -1379,6 +1409,12 @@ function bindNav() {
         loadCategoryLibrary();
         loadConnections();
       }
+      if (panelId === 'trivia-questions' || panelId === 'trivia-builder') {
+        loadTriviaData();
+      }
+      if (panelId === 'trivia-published') {
+        loadTriviaPublished();
+      }
     });
   });
 }
@@ -1401,6 +1437,545 @@ function escHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TRIVIA ADMIN
+// ══════════════════════════════════════════════════════════════════
+
+let triviaQuestions = [];
+let triviaLoaded    = false;
+let triviaSearch    = '';
+let triviaCatFilter = '';
+let triviaDiffFilter = '';
+
+function bindTriviaEvents() {
+  // Add form toggle
+  document.getElementById('btn-trivia-toggle-add').addEventListener('click', () => {
+    document.getElementById('trivia-add-form').classList.toggle('open');
+  });
+  document.getElementById('btn-trivia-cancel-add').addEventListener('click', () => {
+    document.getElementById('trivia-add-form').classList.remove('open');
+    clearTriviaAddForm();
+  });
+  document.getElementById('btn-trivia-save-new').addEventListener('click', saveNewTriviaQuestion);
+
+  // Filters
+  document.getElementById('trivia-search').addEventListener('input', e => {
+    triviaSearch = e.target.value.toLowerCase();
+    renderTriviaBank();
+  });
+  document.getElementById('trivia-cat-filter').addEventListener('change', e => {
+    triviaCatFilter = e.target.value;
+    renderTriviaBank();
+  });
+
+  // (Schedule lazy-load removed — schedule is no longer shown)
+}
+
+async function loadTriviaData() {
+  if (triviaLoaded) return;
+  const res = await fetch('/admin/trivia/questions');
+  triviaQuestions = await res.json();
+  triviaLoaded = true;
+  renderTriviaStats();
+  renderTriviaCategoryFilter();
+  renderTriviaBank();
+  renderTriviaBankForBuilder();
+}
+
+function renderTriviaStats() {
+  const active = triviaQuestions.filter(q => q.active !== false).length;
+  const cats   = new Set(triviaQuestions.map(q => q.category)).size;
+  document.getElementById('tstat-total').textContent  = triviaQuestions.length;
+  document.getElementById('tstat-active').textContent = active;
+  document.getElementById('tstat-cats').textContent   = cats;
+}
+
+function renderTriviaTodayPreview() {
+  const $box = document.getElementById('trivia-today-preview');
+  // Compute today's 3 questions using same deterministic algorithm as server
+  const today = new Date().toISOString().slice(0, 10);
+  const qs = getDailyTriviaJS(triviaQuestions, today, 3);
+  if (!qs.length) { $box.innerHTML = '<div class="loading-state">No active questions.</div>'; return; }
+  $box.innerHTML = qs.map((q, i) => `
+    <div class="trivia-preview-q">
+      <div class="trivia-preview-q__num">${i + 1}</div>
+      <div class="trivia-preview-q__body">
+        <div class="trivia-preview-q__cat">${escHtml(q.category)}</div>
+        <div class="trivia-preview-q__text">${escHtml(q.question)}</div>
+        <div class="trivia-preview-q__answer">Answer: <strong>${escHtml(q.answer)}</strong></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function renderTriviaSchedule() {
+  const $body = document.getElementById('trivia-schedule-body');
+  $body.innerHTML = '<tr><td colspan="4" style="padding:12px;text-align:center;opacity:0.5;">Loading…</td></tr>';
+  const res = await fetch('/admin/trivia/schedule');
+  const schedule = await res.json();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  $body.innerHTML = schedule.map(day => {
+    const isToday = day.date === todayStr;
+    const label = isToday ? `<strong>${day.date}</strong> <span style="font-size:10px;font-weight:700;color:#7B61FF;background:#F0EDFF;padding:1px 5px;border-radius:10px;margin-left:4px;">TODAY</span>` : day.date;
+    const qCells = day.questions.map(q => `
+      <div class="sched-q">
+        <div class="sched-q__cat">${escHtml(q.category)}</div>
+        <div class="sched-q__text" title="${escHtml(q.question)}">${escHtml(truncate(q.question, 45))}</div>
+      </div>
+    `).join('');
+    const tdCells = day.questions.map(q => `<td>${
+      '<div class="sched-q"><div class="sched-q__cat">' + escHtml(q.category) + '</div><div class="sched-q__text" title="' + escHtml(q.question) + '">' + escHtml(truncate(q.question, 40)) + '</div></div>'
+    }</td>`).join('');
+    return `<tr class="${isToday ? 'today-row' : ''}"><td>${label}</td>${tdCells}</tr>`;
+  }).join('');
+}
+
+function renderTriviaCategoryFilter() {
+  const cats = [...new Set(triviaQuestions.map(q => q.category))].sort();
+  const $sel = document.getElementById('trivia-cat-filter');
+  $sel.innerHTML = '<option value="">All Categories</option>' +
+    cats.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+}
+
+function renderTriviaBank() {
+  const $list = document.getElementById('trivia-q-list');
+  let filtered = triviaQuestions.filter(q => {
+    if (triviaSearch && !q.question.toLowerCase().includes(triviaSearch) &&
+        !q.answer.toLowerCase().includes(triviaSearch) &&
+        !q.category.toLowerCase().includes(triviaSearch)) return false;
+    if (triviaCatFilter && q.category !== triviaCatFilter) return false;
+    return true;
+  });
+
+  document.getElementById('trivia-shown-count').textContent =
+    filtered.length === triviaQuestions.length ? `${filtered.length} questions` : `${filtered.length} of ${triviaQuestions.length}`;
+
+  if (!filtered.length) {
+    $list.innerHTML = '<div class="loading-state">No questions match your filters.</div>';
+    return;
+  }
+
+  $list.innerHTML = filtered.map(q => `
+    <div class="trivia-q-row ${q.active === false ? 'trivia-q-row--inactive' : ''}" id="trow-${q.id}">
+      <div class="trivia-q-row__main" onclick="toggleTriviaEdit(${q.id})">
+        <div class="trivia-q-row__id">#${q.id}</div>
+        <div class="trivia-q-row__body">
+          <div class="trivia-q-row__cat">${escHtml(q.category)}</div>
+          <div class="trivia-q-row__q">${escHtml(q.question)}</div>
+          <div class="trivia-q-row__a">Answer: <strong>${escHtml(q.answer)}</strong></div>
+        </div>
+        <div class="trivia-q-row__actions" onclick="event.stopPropagation()">
+          <button class="btn btn--sm" style="font-size:11px;padding:3px 8px;"
+            onclick="sendTriviaQuestionToBuilder(${q.id})">→ Builder</button>
+          <button class="btn btn--ghost btn--sm" style="font-size:11px;"
+            onclick="toggleTriviaActive(${q.id}, ${q.active !== false})">${q.active === false ? 'Enable' : 'Disable'}</button>
+          <button class="btn btn--ghost btn--sm" style="font-size:11px;color:#cc2200;border-color:#cc2200;"
+            onclick="deleteTriviaQuestion(${q.id})">Delete</button>
+        </div>
+      </div>
+      <div class="trivia-q-edit" id="tedit-${q.id}">
+        <label>Question</label>
+        <textarea id="tedit-q-${q.id}">${escHtml(q.question)}</textarea>
+        <label>Answer</label>
+        <input type="text" id="tedit-a-${q.id}" value="${escHtml(q.answer)}">
+        <div style="margin-top:10px;">
+          <label>Category</label>
+          <input type="text" id="tedit-cat-${q.id}" value="${escHtml(q.category)}" style="text-transform:uppercase;">
+        </div>
+        <div class="trivia-q-edit__footer">
+          <button class="btn btn--primary btn--sm" onclick="saveTriviaEdit(${q.id})">Save</button>
+          <button class="btn btn--ghost btn--sm" onclick="toggleTriviaEdit(${q.id})">Cancel</button>
+          <span id="tedit-msg-${q.id}" style="font-size:12px;font-weight:700;"></span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function diffPips(d) {
+  const clamped = Math.min(d, 3);
+  return Array.from({length: 3}, (_, i) =>
+    `<div class="tdiff-pip ${i < clamped ? 'tdiff-pip--on' : ''}"></div>`
+  ).join('');
+}
+
+function toggleTriviaEdit(id) {
+  const el = document.getElementById(`tedit-${id}`);
+  el.classList.toggle('open');
+}
+
+function sendTriviaQuestionToBuilder(id) {
+  const q = triviaQuestions.find(q => q.id === id);
+  if (!q) return;
+  assignTriviaSlot(q);
+  switchToPanel('trivia-builder');
+}
+
+async function saveTriviaEdit(id) {
+  const $msg = document.getElementById(`tedit-msg-${id}`);
+  const payload = {
+    question:   document.getElementById(`tedit-q-${id}`).value.trim(),
+    answer:     document.getElementById(`tedit-a-${id}`).value.trim(),
+    category:   document.getElementById(`tedit-cat-${id}`).value.trim().toUpperCase(),
+  };
+  if (!payload.question || !payload.answer) {
+    $msg.style.color = '#cc2200';
+    $msg.textContent = 'Question and answer are required.';
+    return;
+  }
+  const res  = await fetch(`/admin/trivia/questions/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const data = await res.json();
+  if (data.ok) {
+    const idx = triviaQuestions.findIndex(q => q.id === id);
+    if (idx !== -1) Object.assign(triviaQuestions[idx], payload);
+    $msg.style.color = '#1a7a1a';
+    $msg.textContent = 'Saved!';
+    setTimeout(() => { renderTriviaBank(); renderTriviaBankForBuilder(); }, 600);
+  } else {
+    $msg.style.color = '#cc2200';
+    $msg.textContent = data.error || 'Error saving.';
+  }
+}
+
+async function toggleTriviaActive(id, currentlyActive) {
+  const res  = await fetch(`/admin/trivia/questions/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({active: !currentlyActive}) });
+  const data = await res.json();
+  if (data.ok) {
+    const q = triviaQuestions.find(q => q.id === id);
+    if (q) q.active = !currentlyActive;
+    renderTriviaStats();
+    renderTriviaBank();
+    renderTriviaBankForBuilder();
+  }
+}
+
+async function deleteTriviaQuestion(id) {
+  if (!confirm('Delete this question? This cannot be undone.')) return;
+  const res  = await fetch(`/admin/trivia/questions/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (data.ok) {
+    triviaQuestions = triviaQuestions.filter(q => q.id !== id);
+    renderTriviaStats();
+    renderTriviaBank();
+    renderTriviaBankForBuilder();
+  }
+}
+
+async function saveNewTriviaQuestion() {
+  const $msg = document.getElementById('trivia-add-msg');
+  const payload = {
+    question:   document.getElementById('tadd-question').value.trim(),
+    answer:     document.getElementById('tadd-answer').value.trim(),
+    category:   document.getElementById('tadd-category').value.trim().toUpperCase() || 'GENERAL',
+  };
+  if (!payload.question || !payload.answer) {
+    $msg.style.color = '#cc2200';
+    $msg.textContent = 'Question and answer are required.';
+    return;
+  }
+  const res  = await fetch('/admin/trivia/questions', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const data = await res.json();
+  if (data.ok) {
+    triviaQuestions.push(data.question);
+    $msg.style.color = '#1a7a1a';
+    $msg.textContent = 'Question added!';
+    clearTriviaAddForm();
+    renderTriviaStats();
+    renderTriviaCategoryFilter();
+    renderTriviaBank();
+    renderTriviaBankForBuilder();
+    setTimeout(() => { $msg.textContent = ''; }, 2000);
+  } else {
+    $msg.style.color = '#cc2200';
+    $msg.textContent = data.error || 'Error.';
+  }
+}
+
+function clearTriviaAddForm() {
+  ['tadd-question','tadd-answer','tadd-category'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('trivia-add-msg').textContent = '';
+}
+
+// Deterministic daily selection — mirrors Python logic
+function getDailyTriviaJS(questions, dateStr, count) {
+  const active   = questions.filter(q => q.active !== false);
+  const SEED_KEY = 'spiker-trivia-v1';
+
+  // Simple deterministic hash (mirrors hashlib.md5 ordering closely enough for display)
+  function simpleHash(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(16).padStart(8, '0');
+  }
+
+  const shuffled = [...active].sort((a, b) =>
+    simpleHash(SEED_KEY + a.id).localeCompare(simpleHash(SEED_KEY + b.id))
+  );
+  const epoch      = new Date('2026-01-01T00:00:00');
+  const today      = new Date(dateStr + 'T00:00:00');
+  const dayOffset  = Math.round((today - epoch) / 86400000);
+  const n          = shuffled.length;
+  if (!n) return [];
+  return Array.from({length: count}, (_, i) => shuffled[(dayOffset * count + i) % n]);
+}
+
+function truncate(s, n) {
+  return s.length > n ? s.slice(0, n) + '…' : s;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TRIVIA PUZZLE BUILDER
+// ══════════════════════════════════════════════════════════════════
+
+function renderTriviaBankForBuilder() {
+  const $list = document.getElementById('trivia-bank-list');
+  if (!$list) return;
+
+  const assignedIds = new Set(triviaBuilderSlots.filter(Boolean).map(q => q.id));
+  const q = triviaBankQuery.toLowerCase();
+
+  let filtered = triviaQuestions.filter(qu => qu.active !== false);
+  if (q) {
+    filtered = filtered.filter(qu =>
+      qu.question.toLowerCase().includes(q) ||
+      qu.answer.toLowerCase().includes(q) ||
+      qu.category.toLowerCase().includes(q)
+    );
+  }
+
+  if (!filtered.length) {
+    $list.innerHTML = '<div style="padding:14px;text-align:center;opacity:0.5;font-size:13px;">No matches</div>';
+    return;
+  }
+
+  $list.innerHTML = '';
+  filtered.forEach(qu => {
+    const row = document.createElement('div');
+    row.className = 'trivia-bank-row' + (assignedIds.has(qu.id) ? ' dimmed' : '');
+    row.innerHTML = `
+      <span class="trivia-bank-row__cat">${escHtml(qu.category)}</span>
+      <span class="trivia-bank-row__text">${escHtml(qu.question)}</span>`;
+    if (!assignedIds.has(qu.id)) {
+      row.addEventListener('click', () => assignTriviaSlot(qu));
+    }
+    $list.appendChild(row);
+  });
+}
+
+function assignTriviaSlot(question) {
+  // Find first empty slot
+  const emptyIdx = triviaBuilderSlots.findIndex(s => s === null);
+  if (emptyIdx === -1) {
+    // All filled — replace last or show no-op
+    return;
+  }
+  triviaBuilderSlots[emptyIdx] = question;
+  renderTriviaBuilderSlots();
+  renderTriviaBankForBuilder();
+  updateTriviaPubBtn();
+}
+
+function removeTriviaSlot(idx) {
+  triviaBuilderSlots[idx] = null;
+  renderTriviaBuilderSlots();
+  renderTriviaBankForBuilder();
+  updateTriviaPubBtn();
+}
+
+function renderTriviaBuilderSlots() {
+  for (let i = 0; i < 3; i++) {
+    const slot = triviaBuilderSlots[i];
+    const el   = document.getElementById(`trivia-slot-${i}`);
+    if (!el) continue;
+
+    if (slot) {
+      el.className = 'trivia-slot trivia-slot--filled';
+      el.innerHTML = `
+        <div class="trivia-slot__num">${i + 1}</div>
+        <div class="trivia-slot__body">
+          <div class="trivia-slot__cat">${escHtml(slot.category)}</div>
+          <div class="trivia-slot__q">${escHtml(slot.question)}</div>
+          <div class="trivia-slot__a">Answer: <strong>${escHtml(slot.answer)}</strong></div>
+        </div>
+        <button class="trivia-slot__remove" data-slot="${i}" title="Remove">×</button>`;
+      el.querySelector('.trivia-slot__remove').addEventListener('click', () => removeTriviaSlot(i));
+    } else {
+      el.className = 'trivia-slot';
+      el.innerHTML = `
+        <div class="trivia-slot__num">${i + 1}</div>
+        <div class="trivia-slot__body">
+          <div class="trivia-slot__placeholder">Click a question from the bank →</div>
+        </div>`;
+    }
+  }
+}
+
+function updateTriviaPubBtn() {
+  const btn = document.getElementById('btn-trivia-publish');
+  if (!btn) return;
+  const allFilled = triviaBuilderSlots.every(s => s !== null);
+  const dateVal   = document.getElementById('trivia-pub-date')?.value;
+  btn.disabled = !(allFilled && dateVal);
+}
+
+function bindTriviaPuzzleBuilderEvents() {
+  const searchEl = document.getElementById('trivia-bank-search');
+  if (searchEl) {
+    searchEl.addEventListener('input', e => {
+      triviaBankQuery = e.target.value;
+      renderTriviaBankForBuilder();
+    });
+  }
+
+  const dateEl = document.getElementById('trivia-pub-date');
+  if (dateEl) {
+    dateEl.addEventListener('change', updateTriviaPubBtn);
+  }
+
+  const pubBtn = document.getElementById('btn-trivia-publish');
+  if (pubBtn) {
+    pubBtn.addEventListener('click', async () => {
+      const dateVal = document.getElementById('trivia-pub-date').value;
+      const ids     = triviaBuilderSlots.map(s => s?.id).filter(Boolean);
+      if (ids.length !== 3 || !dateVal) return;
+
+      pubBtn.disabled = true;
+      const $msg = document.getElementById('trivia-pub-msg');
+      $msg.textContent = '';
+
+      try {
+        const res  = await fetch('/admin/trivia/puzzles', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: dateVal, questions: ids }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          $msg.style.color = '#1a7a1a';
+          $msg.textContent = `✓ Published for ${dateVal}!`;
+          triviaBuilderSlots = [null, null, null];
+          renderTriviaBuilderSlots();
+          renderTriviaBankForBuilder();
+          // Reset published cache so it reloads
+          triviaPublishedLoaded = false;
+        } else {
+          $msg.style.color = '#cc2200';
+          $msg.textContent = data.error || 'Error publishing.';
+        }
+      } catch {
+        $msg.style.color = '#cc2200';
+        $msg.textContent = 'Network error.';
+      }
+      pubBtn.disabled = false;
+      updateTriviaPubBtn();
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TRIVIA PUBLISHED PUZZLES
+// ══════════════════════════════════════════════════════════════════
+
+async function loadTriviaPublished() {
+  if (triviaPublishedLoaded) return;
+  const $list = document.getElementById('trivia-published-list');
+  if (!$list) return;
+  $list.innerHTML = '<div class="loading-state">Loading…</div>';
+  try {
+    const res     = await fetch('/admin/trivia/puzzles');
+    const puzzles = await res.json();
+    triviaPublishedLoaded = true;
+    renderTriviaPublished(puzzles);
+  } catch {
+    $list.innerHTML = '<div class="loading-state">Failed to load.</div>';
+  }
+}
+
+function renderTriviaPublished(puzzles) {
+  const $list = document.getElementById('trivia-published-list');
+  if (!$list) return;
+  if (!puzzles.length) {
+    $list.innerHTML = '<p style="opacity:0.5;font-size:13px;">No trivia puzzles published yet.</p>';
+    return;
+  }
+  $list.innerHTML = '';
+  puzzles.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'trivia-pub-row';
+    row.dataset.date = p.date;
+
+    const cats = (p.questions || []).map(q =>
+      `<span class="trivia-pub-cat-badge">${escHtml(q.category)}</span>`
+    ).join('');
+
+    row.innerHTML = `
+      <div class="trivia-pub-row__summary">
+        <div class="trivia-pub-row__date">${escHtml(p.date)}</div>
+        <div class="trivia-pub-row__cats">${cats}</div>
+        <a href="/trivia/${escHtml(p.date)}" target="_blank"
+           class="btn btn--ghost btn--sm" style="font-size:11px;" onclick="event.stopPropagation()">Play ↗</a>
+        <button class="btn btn--ghost btn--sm trivia-pub-del-btn" data-date="${escHtml(p.date)}"
+                style="font-size:11px;color:#cc2200;border-color:#cc2200;" onclick="event.stopPropagation()">Delete</button>
+        <span class="trivia-pub-row__expand">▶ Expand</span>
+      </div>
+      <div class="trivia-pub-row__detail" id="trivia-pub-detail-${escHtml(p.date)}"></div>`;
+
+    // Expand/collapse
+    row.querySelector('.trivia-pub-row__summary').addEventListener('click', () => {
+      const detail  = row.querySelector('.trivia-pub-row__detail');
+      const icon    = row.querySelector('.trivia-pub-row__expand');
+      const isOpen  = detail.classList.contains('open');
+      if (isOpen) {
+        detail.classList.remove('open');
+        icon.textContent = '▶ Expand';
+      } else {
+        detail.classList.add('open');
+        icon.textContent = '▼ Collapse';
+        if (!detail.dataset.loaded) {
+          detail.dataset.loaded = '1';
+          renderTriviaPuzzleDetail(detail, p.questions || []);
+        }
+      }
+    });
+
+    // Delete
+    row.querySelector('.trivia-pub-del-btn').addEventListener('click', async () => {
+      if (!confirm(`Delete trivia puzzle for ${p.date}? This cannot be undone.`)) return;
+      const res = await fetch(`/admin/trivia/puzzles/${p.date}`, { method: 'DELETE' });
+      if (res.ok) {
+        row.remove();
+        triviaPublishedLoaded = false;
+      } else {
+        alert('Delete failed.');
+      }
+    });
+
+    $list.appendChild(row);
+  });
+}
+
+function renderTriviaPuzzleDetail(container, questions) {
+  container.innerHTML = '';
+  questions.forEach(q => {
+    const div = document.createElement('div');
+    div.className = 'trivia-pub-q';
+    div.innerHTML = `
+      <div class="trivia-pub-q__cat">${escHtml(q.category)}</div>
+      <div class="trivia-pub-q__text">${escHtml(q.question)}</div>
+      <div class="trivia-pub-q__answer">Answer: <strong>${escHtml(q.answer)}</strong></div>`;
+    container.appendChild(div);
+  });
+}
+
+function bindTriviaPublishedEvents() {
+  const refreshBtn = document.getElementById('btn-trivia-pub-refresh');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      triviaPublishedLoaded = false;
+      loadTriviaPublished();
+    });
+  }
 }
 
 // ── Start ──────────────────────────────────────────────────────────

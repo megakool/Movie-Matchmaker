@@ -19,7 +19,9 @@
         <span class="nav-burger__line"></span>
         <span class="nav-burger__line"></span>
       </button>
-      <a href="/marquee" class="site-logo">Marquee</a>
+      <a href="{{ '/admin' if request.path.startswith('/admin') else ('/trivia' if request.path.startswith('/trivia') else '/marquee') }}" class="site-logo">
+        {% if request.path.startswith('/admin') %}Admin{% elif request.path.startswith('/trivia') %}Trivia{% else %}Marquee{% endif %}
+      </a>
       <!-- Spacer to keep logo visually centered -->
       <div style="width:36px;"></div>
     </div>
@@ -48,7 +50,7 @@
       <!-- Games -->
       <div>
         <div class="drawer-section-label">Games</div>
-        <a href="/marquee" class="drawer-game drawer-game--active">
+        <a href="/marquee" class="drawer-game{% if not request.path.startswith('/trivia') %} drawer-game--active{% endif %}">
           <div class="drawer-game__swatch">
             <div class="drawer-game__swatch-cell drawer-game__swatch-cell--y"></div>
             <div class="drawer-game__swatch-cell drawer-game__swatch-cell--g"></div>
@@ -59,20 +61,19 @@
             <div class="drawer-game__name">Marquee</div>
             <div class="drawer-game__sub">Daily Movie Puzzle</div>
           </div>
-          <div class="drawer-active-dot"></div>
+          {% if not request.path.startswith('/trivia') %}<div class="drawer-active-dot"></div>{% endif %}
         </a>
-        <div class="drawer-game drawer-game--inactive" style="margin-top:6px;">
-          <div class="drawer-game__swatch">
-            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--ghost"></div>
-            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--ghost"></div>
-            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--ghost"></div>
-            <div class="drawer-game__swatch-cell drawer-game__swatch-cell--ghost"></div>
+        <a href="/trivia" class="drawer-game{% if request.path.startswith('/trivia') %} drawer-game--active{% endif %}" style="margin-top:6px;">
+          <div class="drawer-game__swatch" style="background:#d4890a;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+            <span aria-hidden="true" style="font-family:'Fraunces',Georgia,serif;font-weight:900;font-style:italic;font-size:20px;color:rgba(90,40,0,0.6);line-height:1;position:relative;z-index:1;">?</span>
+            <span aria-hidden="true" style="position:absolute;font-family:'Fraunces',Georgia,serif;font-weight:900;font-style:italic;font-size:36px;color:rgba(90,40,0,0.12);line-height:1;top:-6px;left:-6px;">?</span>
           </div>
           <div class="drawer-game__info">
             <div class="drawer-game__name">Trivia</div>
-            <div class="drawer-game__sub">Coming soon</div>
+            <div class="drawer-game__sub">Daily Quiz</div>
           </div>
-        </div>
+          {% if request.path.startswith('/trivia') %}<div class="drawer-active-dot"></div>{% endif %}
+        </a>
       </div>
 
       <hr class="drawer-rule">
@@ -85,6 +86,19 @@
             <span class="drawer-link__icon">🎬</span> Today's Puzzle
           </a>
           <a href="/marquee/archive" class="drawer-link">
+            <span class="drawer-link__icon">📅</span> Archive
+          </a>
+        </div>
+      </div>
+
+      <!-- Trivia links -->
+      <div style="margin-top:16px;">
+        <div class="drawer-section-label">Trivia</div>
+        <div class="drawer-links">
+          <a href="/trivia" class="drawer-link">
+            <span class="drawer-link__icon">🧠</span> Today's Questions
+          </a>
+          <a href="/trivia/archive" class="drawer-link">
             <span class="drawer-link__icon">📅</span> Archive
           </a>
         </div>

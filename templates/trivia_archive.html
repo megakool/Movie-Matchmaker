@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Trivia Archive{% endblock %}
+
+{% block head %}
+<style>
+  .archive-wrap {
+    padding: 28px 16px 80px;
+    min-height: calc(100vh - 56px);
+  }
+  .archive-hd {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .archive-hd h1 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 32px;
+    line-height: 1;
+    letter-spacing: -1px;
+    margin: 0;
+  }
+  .archive-back {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+    text-decoration: none;
+    margin-left: auto;
+  }
+  .archive-back:hover { color: var(--text); }
+
+  .archive-empty {
+    text-align: center;
+    padding: 60px 20px;
+    opacity: 0.5;
+    font-size: 15px;
+  }
+
+  /* ── Puzzle entry ── */
+  .archive-puzzle {
+    background: var(--surface);
+    border: var(--bw) solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .archive-puzzle__hd {
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .archive-puzzle__date {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .archive-puzzle__today-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    background: var(--green);
+    color: #1a4d19;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .archive-puzzle__play-link {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(250,244,239,0.7);
+    text-decoration: none;
+  }
+  .archive-puzzle__play-link:hover { color: rgba(250,244,239,1); }
+
+  .archive-puzzle__questions {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ── Category row ── */
+  .archive-q {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .archive-q__status {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: var(--bw) solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .archive-q__status--correct { background: var(--green); }
+  .archive-q__status--wrong   { background: #f8d7d7; border-color: #c43c3c; }
+  .archive-q__status--skipped { background: #f0ebe5; }
+  .archive-q__status--unplayed { background: transparent; border-color: rgba(17,17,17,0.2); }
+
+  .archive-q__cat {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="archive-wrap">
+  <div class="container">
+
+    <div class="archive-hd">
+      <h1>Trivia Archive</h1>
+      <a href="/trivia" class="archive-back">← Today's Questions</a>
+    </div>
+
+    {% if not puzzles %}
+    <div class="archive-empty">No puzzles in the archive yet.</div>
+    {% else %}
+
+    <div id="archive-list">
+      {% for puzzle in puzzles %}
+      <div class="archive-puzzle" data-date="{{ puzzle.date }}">
+        <div class="archive-puzzle__hd">
+          <div class="archive-puzzle__date" id="archive-date-{{ puzzle.date }}">{{ puzzle.date }}</div>
+          {% if puzzle.date == today %}
+          <span class="archive-puzzle__today-badge">Today</span>
+          {% endif %}
+          <a href="/trivia/{{ puzzle.date }}" class="archive-puzzle__play-link">Play →</a>
+        </div>
+        <div class="archive-puzzle__questions" id="archive-qs-{{ puzzle.date }}">
+          {% for q in puzzle.questions %}
+          <div class="archive-q" data-qid="{{ q.id }}" data-date="{{ puzzle.date }}">
+            <div class="archive-q__status archive-q__status--unplayed">·</div>
+            <div class="archive-q__cat">{{ q.category }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% endif %}
+
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  // Load personal history from localStorage and overlay results
+  var STORAGE_KEY = 'trivia_history';
+  var history = [];
+  try { history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) {}
+
+  // Build a quick lookup: date -> {qid -> result}
+  var historyMap = {};
+  history.forEach(function (entry) {
+    if (!entry.date || !Array.isArray(entry.results)) return;
+    historyMap[entry.date] = {};
+    entry.results.forEach(function (r) {
+      historyMap[entry.date][r.id] = r;
+    });
+  });
+
+  // Format dates
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.querySelectorAll('[id^="archive-date-"]').forEach(function (el) {
+    var iso = el.textContent.trim();
+    var parts = iso.split('-');
+    if (parts.length === 3) {
+      el.textContent = months[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10) + ', ' + parts[0];
+    }
+  });
+
+  // Overlay results
+  document.querySelectorAll('.archive-q').forEach(function (row) {
+    var qid = parseInt(row.dataset.qid, 10);
+    var d   = row.dataset.date;
+    var statusEl = row.querySelector('.archive-q__status');
+
+    if (!historyMap[d]) return; // not played this date
+
+    var result = historyMap[d][qid];
+    if (!result) return; // question not in this record
+
+    statusEl.textContent = result.correct ? '✓' : (result.skipped ? '–' : '✗');
+    statusEl.className   = 'archive-q__status ' + (
+      result.correct ? 'archive-q__status--correct' :
+      result.skipped ? 'archive-q__status--skipped' :
+      'archive-q__status--wrong'
+    );
+  });
+})();
+</script>
+{% endblock %}

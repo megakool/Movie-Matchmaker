@@ -18,15 +18,19 @@ from flask import (
 
 # ── Config ────────────────────────────────────────────────────────────────────
 BASE_DIR          = Path(__file__).parent
-MOVIES_PATH       = BASE_DIR / "movies.json"
-MOVIES_FULL_PATH  = BASE_DIR / "movies_full.json"
+MARQUEE_DIR       = BASE_DIR / "marquee"
+MOVIES_PATH       = MARQUEE_DIR / "movies.json"
+MOVIES_FULL_PATH  = MARQUEE_DIR / "movies_full.json"
 
 # If DATA_DIR env var is set (e.g. Render persistent disk at /data), use that.
-# Otherwise fall back to the local data/ folder so local dev is unchanged.
+# Otherwise fall back to the shared data/ folder at the project root.
 _env_data_dir = os.environ.get("DATA_DIR", "")
 DATA_DIR      = Path(_env_data_dir) if _env_data_dir else BASE_DIR / "data"
 PUZZLES_DIR   = DATA_DIR / "puzzles"
 
+TRIVIA_PATH       = BASE_DIR / "trivia" / "trivia.json"
+TRIVIA_DATA_PATH  = DATA_DIR / "trivia_questions.json"
+TRIVIA_PUZZLES_DIR = DATA_DIR / "trivia_puzzles"
 SUBMISSIONS_PATH  = DATA_DIR / "community_submissions.json"
 CATEGORIES_PATH   = DATA_DIR / "saved_categories.json"
 DRAFTS_PATH       = DATA_DIR / "drafts.json"
@@ -34,13 +38,14 @@ SETTINGS_PATH     = DATA_DIR / "settings.json"
 
 
 def _init_persistent_disk() -> None:
-    """On first boot with a fresh persistent disk, seed it from the repo's data/ and puzzles/."""
+    """On first boot with a fresh persistent disk, seed it from the repo's data/ folder."""
     if not _env_data_dir:
         return  # local dev — nothing to do
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
+    TRIVIA_PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
     repo_data    = BASE_DIR / "data"
-    repo_puzzles = BASE_DIR / "puzzles"
+    repo_puzzles = BASE_DIR / "data" / "puzzles"
     import shutil
     # Copy data files only if they don't already exist on the disk
     for src in repo_data.glob("*.json"):
@@ -55,12 +60,14 @@ def _init_persistent_disk() -> None:
 
 
 _init_persistent_disk()
+# Ensure trivia_puzzles dir always exists locally too
+TRIVIA_PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
 
 ADMIN_PASSWORD    = os.environ.get("MARQUEE_ADMIN_PASSWORD", "marquee-admin-2026")
 DEV_MODE          = os.environ.get("MARQUEE_DEV_MODE", "0") == "1"
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="marquee/templates", static_folder="marquee/static")
 app.secret_key = os.environ.get("MARQUEE_SECRET_KEY", "marquee-secret-dev-2026")
 
 @app.context_processor
@@ -153,10 +160,101 @@ def admin_required(f):
         return redirect(url_for("admin_login"))
     return decorated
 
+# ── Trivia helpers ────────────────────────────────────────────────────────────
+_trivia_cache = None
+
+def get_trivia_questions() -> list:
+    """Return trivia questions. Prefer editable copy on persistent disk."""
+    global _trivia_cache
+    if _trivia_cache is None:
+        if TRIVIA_DATA_PATH.exists():
+            with open(TRIVIA_DATA_PATH, "r", encoding="utf-8") as f:
+                _trivia_cache = json.load(f)
+        else:
+            with open(TRIVIA_PATH, "r", encoding="utf-8") as f:
+                _trivia_cache = json.load(f)["questions"]
+    return _trivia_cache
+
+
+def save_trivia_questions(questions: list) -> None:
+    global _trivia_cache
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(TRIVIA_DATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(questions, f, indent=2, ensure_ascii=False)
+    _trivia_cache = questions
+
+
+def get_daily_trivia(questions: list, today_str: str, count: int = 3) -> list:
+    """Return `count` questions for today using a deterministic shuffle."""
+    active = [q for q in questions if q.get("active", True)]
+    seed_key = "spiker-trivia-v1"
+    shuffled = sorted(
+        active,
+        key=lambda q: hashlib.md5(f"{seed_key}{q['id']}".encode()).hexdigest(),
+    )
+    n = len(shuffled)
+    if n == 0:
+        return []
+    epoch = date(2026, 1, 1)
+    day_offset = (date.fromisoformat(today_str) - epoch).days
+    return [shuffled[(day_offset * count + i) % n] for i in range(count)]
+
+
+def get_trivia_puzzle(puzzle_date: str) -> dict | None:
+    path = TRIVIA_PUZZLES_DIR / f"{puzzle_date}.json"
+    if not path.exists():
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def get_all_trivia_puzzle_dates() -> list:
+    if not TRIVIA_PUZZLES_DIR.exists():
+        return []
+    return sorted(p.stem for p in TRIVIA_PUZZLES_DIR.glob("*.json"))
+
+
 # ── Public Routes ─────────────────────────────────────────────────────────────
 @app.get("/")
 def home():
     return render_template("home.html")
+
+
+@app.get("/trivia")
+def trivia_index():
+    today = date.today().isoformat()
+    return redirect(url_for("trivia_puzzle", puzzle_date=today))
+
+
+@app.get("/trivia/<puzzle_date>")
+def trivia_puzzle(puzzle_date: str):
+    today = date.today().isoformat()
+    puzzle = get_trivia_puzzle(puzzle_date)
+    questions_by_id = {q["id"]: q for q in get_trivia_questions()}
+    if puzzle is None:
+        return render_template("no_trivia.html", puzzle_date=puzzle_date, today=today)
+    qs = [questions_by_id.get(qid) for qid in puzzle.get("questions", [])]
+    qs = [q for q in qs if q]
+    if not qs:
+        return render_template("no_trivia.html", puzzle_date=puzzle_date, today=today)
+    return render_template("trivia.html", questions=qs, today=puzzle_date)
+
+
+@app.get("/trivia/archive")
+def trivia_archive():
+    puzzle_dates = get_all_trivia_puzzle_dates()
+    today = date.today().isoformat()
+    questions_by_id = {q["id"]: q for q in get_trivia_questions()}
+    past_dates = [d for d in puzzle_dates if d <= today]
+    puzzles = []
+    for d in reversed(past_dates[-60:]):  # last 60, past only
+        puzzle = get_trivia_puzzle(d)
+        if puzzle is None:
+            continue
+        qs = [questions_by_id.get(qid) for qid in puzzle.get("questions", [])]
+        qs = [q for q in qs if q]
+        puzzles.append({"date": d, "questions": qs})
+    return render_template("trivia_archive.html", puzzles=puzzles, today=today)
 
 
 @app.get("/marquee")
@@ -812,9 +910,142 @@ def admin_ai_workshop():
 
 
 
+# ── Trivia Admin Routes ───────────────────────────────────────────────────────
+
+@app.get("/admin/trivia/questions")
+@admin_required
+def admin_trivia_list():
+    return jsonify(get_trivia_questions())
+
+
+@app.get("/admin/trivia/schedule")
+@admin_required
+def admin_trivia_schedule():
+    """Return 14-day question schedule starting from today."""
+    questions = get_trivia_questions()
+    today = date.today()
+    schedule = []
+    for i in range(14):
+        d = (today + timedelta(days=i)).isoformat()
+        qs = get_daily_trivia(questions, d, count=3)
+        schedule.append({
+            "date": d,
+            "questions": [{"id": q["id"], "question": q["question"],
+                           "answer": q["answer"], "category": q["category"]} for q in qs],
+        })
+    return jsonify(schedule)
+
+
+@app.put("/admin/trivia/questions/<int:qid>")
+@admin_required
+def admin_trivia_update(qid: int):
+    data = request.get_json(force=True)
+    questions = [q.copy() for q in get_trivia_questions()]
+    for i, q in enumerate(questions):
+        if q["id"] == qid:
+            for field in ("question", "answer", "category", "difficulty", "active"):
+                if field in data:
+                    questions[i][field] = data[field]
+            save_trivia_questions(questions)
+            return jsonify({"ok": True, "question": questions[i]})
+    return jsonify({"ok": False, "error": "Not found"}), 404
+
+
+@app.post("/admin/trivia/questions")
+@admin_required
+def admin_trivia_add():
+    data = request.get_json(force=True)
+    q_text = data.get("question", "").strip()
+    a_text = data.get("answer", "").strip()
+    if not q_text or not a_text:
+        return jsonify({"ok": False, "error": "Question and answer are required"}), 400
+    questions = list(get_trivia_questions())
+    new_id = max((q["id"] for q in questions), default=0) + 1
+    new_q = {
+        "id": new_id,
+        "question": q_text,
+        "answer": a_text,
+        "category": data.get("category", "GENERAL").strip().upper(),
+        "difficulty": max(1, min(10, int(data.get("difficulty", 5)))),
+        "active": True,
+    }
+    questions.append(new_q)
+    save_trivia_questions(questions)
+    return jsonify({"ok": True, "question": new_q})
+
+
+@app.delete("/admin/trivia/questions/<int:qid>")
+@admin_required
+def admin_trivia_delete(qid: int):
+    questions = get_trivia_questions()
+    new_list = [q for q in questions if q["id"] != qid]
+    if len(new_list) == len(questions):
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    save_trivia_questions(new_list)
+    return jsonify({"ok": True})
+
+
+@app.get("/admin/trivia/puzzles")
+@admin_required
+def admin_trivia_list_puzzles():
+    dates = get_all_trivia_puzzle_dates()
+    questions_by_id = {q["id"]: q for q in get_trivia_questions()}
+    puzzles = []
+    for d in reversed(dates):
+        p = get_trivia_puzzle(d)
+        if p is None:
+            continue
+        qs = [questions_by_id.get(qid) for qid in p.get("questions", [])]
+        qs = [q for q in qs if q]
+        puzzles.append({
+            "date": d,
+            "questions": [{"id": q["id"], "question": q["question"], "answer": q["answer"], "category": q["category"]} for q in qs]
+        })
+    return jsonify(puzzles)
+
+
+@app.post("/admin/trivia/puzzles")
+@admin_required
+def admin_trivia_publish_puzzle():
+    data = request.get_json(force=True)
+    puzzle_date = data.get("date", "").strip()
+    question_ids = data.get("questions", [])
+    if not puzzle_date or len(question_ids) != 3:
+        return jsonify({"error": "date and exactly 3 question ids required"}), 400
+    TRIVIA_PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
+    puzzle = {"date": puzzle_date, "questions": question_ids, "created_at": datetime.now().isoformat(timespec="seconds")}
+    path = TRIVIA_PUZZLES_DIR / f"{puzzle_date}.json"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(puzzle, f, indent=2)
+    return jsonify({"ok": True})
+
+
+@app.delete("/admin/trivia/puzzles/<puzzle_date>")
+@admin_required
+def admin_trivia_delete_puzzle(puzzle_date: str):
+    path = TRIVIA_PUZZLES_DIR / f"{puzzle_date}.json"
+    if not path.exists():
+        return jsonify({"error": "not found"}), 404
+    path.unlink()
+    return jsonify({"ok": True})
+
+
+@app.get("/admin/trivia/puzzles/<puzzle_date>")
+@admin_required
+def admin_trivia_get_puzzle(puzzle_date: str):
+    puzzle = get_trivia_puzzle(puzzle_date)
+    if puzzle is None:
+        return jsonify({"error": "not found"}), 404
+    questions_by_id = {q["id"]: q for q in get_trivia_questions()}
+    qs = [questions_by_id.get(qid) for qid in puzzle.get("questions", [])]
+    qs = [q for q in qs if q]
+    return jsonify({"date": puzzle_date, "questions": qs})
+
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    TRIVIA_PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
     print("Starting Marquee at http://127.0.0.1:5002")
     app.run(host="127.0.0.1", port=5002, debug=True, use_reloader=False)

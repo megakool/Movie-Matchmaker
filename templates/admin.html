@@ -475,6 +475,264 @@
 
 /* ── Loading/empty states ───────────────────────────────────────── */
 .loading-state { padding: 20px; text-align: center; opacity: 0.5; font-size: 13px; }
+
+/* ── Trivia Admin ────────────────────────────────────────────────── */
+.trivia-two-col {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 960px) { .trivia-two-col { grid-template-columns: 1fr; } }
+.trivia-sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+.trivia-stats-row { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.trivia-stat-chip {
+  background: var(--surface); border: var(--bw) solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow-xs); padding: 10px 16px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.trivia-stat-chip__val { font-size: 22px; font-weight: 700; line-height: 1; }
+.trivia-stat-chip__lbl { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+
+.trivia-today-box {
+  background: var(--surface); border: var(--bw) solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; margin-bottom: 20px;
+}
+.trivia-today-box__hd {
+  background: #1a1205; color: #faf4ef; padding: 10px 16px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.trivia-preview-q {
+  padding: 12px 16px; border-bottom: 1px solid #e5ddd5;
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.trivia-preview-q:last-child { border-bottom: none; }
+.trivia-preview-q__num {
+  width: 22px; height: 22px; border-radius: 50%; background: #1a1205; color: #faf4ef;
+  font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 2px;
+}
+.trivia-preview-q__body { flex: 1; min-width: 0; }
+.trivia-preview-q__cat { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.trivia-preview-q__text { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.trivia-preview-q__answer { font-size: 12px; color: var(--text2); }
+.trivia-preview-q__answer strong { color: var(--text); }
+
+.trivia-schedule-wrap {
+  background: var(--surface); border: var(--bw) solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow-xs); margin-bottom: 20px; overflow: hidden;
+}
+.trivia-schedule-wrap summary {
+  padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
+  list-style: none; display: flex; align-items: center; justify-content: space-between; user-select: none;
+}
+.trivia-schedule-wrap summary:hover { background: var(--bg); }
+.trivia-schedule-wrap summary::after { content: '▶'; font-size: 10px; color: var(--muted); transition: transform 0.2s; }
+.trivia-schedule-wrap[open] summary::after { transform: rotate(90deg); }
+.trivia-schedule-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.trivia-schedule-table th {
+  padding: 7px 12px; text-align: left; font-size: 10px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid #e5ddd5; background: #faf4ef;
+}
+.trivia-schedule-table td { padding: 8px 12px; border-bottom: 1px solid #f0ebe5; vertical-align: top; }
+.trivia-schedule-table tr:last-child td { border-bottom: none; }
+.trivia-schedule-table tr.today-row td { background: #fffbea; }
+.sched-q { margin-bottom: 4px; }
+.sched-q__cat { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.sched-q__text { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+
+.trivia-bank-hd { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.trivia-bank-hd h2 { font-size: 16px; font-weight: 700; margin: 0; }
+.trivia-filter-input { padding: 6px 10px; border: var(--bw) solid var(--border); border-radius: 8px; font-family: inherit; font-size: 13px; width: 180px; background: var(--bg); outline: none; box-shadow: var(--shadow-xs); transition: box-shadow 0.15s; }
+.trivia-filter-input:focus { box-shadow: var(--shadow-sm); }
+.trivia-filter-select { padding: 6px 10px; border: var(--bw) solid var(--border); border-radius: 8px; font-family: inherit; font-size: 13px; background: var(--bg); cursor: pointer; outline: none; box-shadow: var(--shadow-xs); }
+.trivia-count-badge { font-size: 11px; background: #e5ddd5; border-radius: 10px; padding: 2px 8px; font-weight: 700; white-space: nowrap; }
+
+.trivia-q-row {
+  background: var(--surface); border: var(--bw) solid var(--border);
+  border-radius: 10px; margin-bottom: 8px; overflow: hidden; box-shadow: var(--shadow-xs);
+}
+.trivia-q-row--inactive { opacity: 0.5; }
+.trivia-q-row__main { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; cursor: pointer; }
+.trivia-q-row__main:hover { background: #faf4ef; }
+.trivia-q-row__id { font-size: 10px; font-weight: 700; color: var(--muted); min-width: 30px; padding-top: 3px; flex-shrink: 0; }
+.trivia-q-row__body { flex: 1; min-width: 0; }
+.trivia-q-row__cat { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.trivia-q-row__q { font-size: 13px; font-weight: 600; margin-bottom: 3px; line-height: 1.4; }
+.trivia-q-row__a { font-size: 12px; color: var(--text2); }
+.trivia-q-row__a strong { color: var(--text); }
+.trivia-q-row__diff { display: flex; gap: 2px; align-items: center; margin-left: auto; flex-shrink: 0; padding-top: 4px; }
+.tdiff-pip { width: 8px; height: 8px; border-radius: 50%; background: #ddd; }
+.tdiff-pip--on { background: #1a1205; }
+.trivia-q-row__actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.trivia-q-edit {
+  display: none; padding: 14px 14px 14px 54px;
+  border-top: 1px solid #e5ddd5; background: #faf4ef;
+}
+.trivia-q-edit.open { display: block; }
+.trivia-q-edit label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); display: block; margin-bottom: 4px; margin-top: 10px; }
+.trivia-q-edit label:first-child { margin-top: 0; }
+.trivia-q-edit input, .trivia-q-edit textarea, .trivia-q-edit select {
+  width: 100%; padding: 7px 10px; border: var(--bw) solid var(--border); border-radius: 8px;
+  font-family: inherit; font-size: 13px; box-sizing: border-box;
+  background: var(--surface); outline: none; transition: box-shadow 0.15s;
+}
+.trivia-q-edit input:focus, .trivia-q-edit textarea:focus, .trivia-q-edit select:focus { box-shadow: var(--shadow-sm); }
+.trivia-q-edit textarea { min-height: 65px; resize: vertical; }
+.trivia-q-edit__footer { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+
+.trivia-add-form {
+  background: var(--surface); border: var(--bw) solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow); padding: 18px 20px; margin-bottom: 20px;
+  display: none;
+}
+.trivia-add-form.open { display: block; }
+.trivia-add-form h3 { font-size: 14px; font-weight: 700; margin: 0 0 14px; }
+.trivia-add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 700px) { .trivia-add-grid { grid-template-columns: 1fr; } }
+.trivia-add-form label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); display: block; margin-bottom: 4px; }
+.trivia-add-form input, .trivia-add-form textarea, .trivia-add-form select {
+  width: 100%; padding: 7px 10px; border: var(--bw) solid var(--border); border-radius: 8px;
+  font-family: inherit; font-size: 13px; box-sizing: border-box;
+  background: var(--bg); outline: none; transition: box-shadow 0.15s; box-shadow: var(--shadow-xs);
+}
+.trivia-add-form input:focus, .trivia-add-form textarea:focus, .trivia-add-form select:focus { box-shadow: var(--shadow-sm); }
+.trivia-add-form textarea { min-height: 65px; resize: vertical; }
+.trivia-add-form__footer { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+
+/* ── Game pill states ────────────────────────────────────────────── */
+.game-pill--inactive {
+  opacity: 0.5;
+  box-shadow: none;
+}
+.game-pill--inactive:hover { opacity: 0.75; }
+
+/* ── Trivia Puzzle Builder ───────────────────────────────────────── */
+.trivia-builder-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) { .trivia-builder-layout { grid-template-columns: 1fr; } }
+
+.trivia-slot {
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xs);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.trivia-slot--filled { border-color: #1a1205; }
+.trivia-slot__num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #1a1205; color: #faf4ef;
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.trivia-slot__body { flex: 1; min-width: 0; }
+.trivia-slot__placeholder {
+  font-size: 13px; opacity: 0.4; font-style: italic;
+}
+.trivia-slot__cat {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
+}
+.trivia-slot__q { font-size: 13px; font-weight: 600; margin-bottom: 3px; line-height: 1.4; }
+.trivia-slot__a { font-size: 12px; color: var(--text2); }
+.trivia-slot__remove {
+  background: none; border: none; cursor: pointer; font-size: 16px;
+  color: var(--muted); padding: 0; line-height: 1; flex-shrink: 0;
+}
+.trivia-slot__remove:hover { color: #cc2200; }
+
+.trivia-builder-date-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 16px; flex-wrap: wrap;
+}
+.trivia-builder-date-row label {
+  font-size: 13px; font-weight: 700; white-space: nowrap;
+}
+.trivia-builder-date-row input[type=date] {
+  padding: 7px 10px; border: 1.5px solid #ccc; border-radius: 8px;
+  font-family: inherit; font-size: 13px;
+}
+
+.trivia-bank-panel {
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  position: sticky;
+  top: 70px;
+}
+.trivia-bank-panel__hd {
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5ddd5;
+  font-size: 12px; font-weight: 700; opacity: 0.6;
+}
+.trivia-bank-search {
+  width: 100%; box-sizing: border-box; padding: 8px 12px;
+  font-size: 13px; border: none; border-bottom: 1px solid #e5ddd5;
+  font-family: inherit; outline: none;
+}
+.trivia-bank-list { max-height: 480px; overflow-y: auto; }
+.trivia-bank-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #f0ebe5;
+}
+.trivia-bank-row:last-child { border-bottom: none; }
+.trivia-bank-row:hover { background: #faf4ef; }
+.trivia-bank-row.dimmed { opacity: 0.3; pointer-events: none; }
+.trivia-bank-row__cat {
+  font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--muted);
+  background: #f0ebe5; border-radius: 4px;
+  padding: 1px 5px; white-space: nowrap; flex-shrink: 0; margin-top: 2px;
+}
+.trivia-bank-row__text {
+  font-size: 12px; font-weight: 600; line-height: 1.4;
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+
+/* ── Trivia Published Puzzles ────────────────────────────────────── */
+.trivia-pub-row {
+  background: var(--surface); border: var(--bw) solid var(--border);
+  border-radius: 10px; margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow-xs);
+}
+.trivia-pub-row__summary {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; cursor: pointer;
+}
+.trivia-pub-row__summary:hover { background: #faf4ef; }
+.trivia-pub-row__date { font-size: 14px; font-weight: 700; }
+.trivia-pub-row__cats {
+  display: flex; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0;
+}
+.trivia-pub-cat-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; background: #f0ebe5;
+  border-radius: 6px; padding: 2px 7px; white-space: nowrap;
+}
+.trivia-pub-row__expand { font-size: 12px; color: var(--text2); user-select: none; flex-shrink: 0; }
+.trivia-pub-row__detail { display: none; padding: 0 16px 14px; border-top: 1px solid #e5ddd5; }
+.trivia-pub-row__detail.open { display: block; }
+.trivia-pub-q { margin-bottom: 10px; }
+.trivia-pub-q__cat { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; margin-top: 10px; }
+.trivia-pub-q__text { font-size: 13px; font-weight: 600; line-height: 1.4; }
+.trivia-pub-q__answer { font-size: 12px; color: var(--text2); }
 </style>
 {% endblock %}
 
@@ -485,8 +743,8 @@
   <aside class="admin-sidebar">
 
     <div class="sidebar-top">
-      <!-- Active game pill -->
-      <div class="game-pill">
+      <!-- Marquee game pill -->
+      <div class="game-pill" id="pill-marquee" style="cursor:pointer;" onclick="switchToGame('marquee');">
         <div class="game-pill__swatch">
           <div class="swatch-y"></div>
           <div class="swatch-g"></div>
@@ -497,20 +755,21 @@
           <span class="game-pill__name">Marquee</span>
           <span class="game-pill__sub">Movie Puzzle</span>
         </div>
-        <span class="game-pill__badge">Active</span>
       </div>
-      <!-- Upcoming game -->
-      <div class="game-upcoming">
-        <div class="game-upcoming__swatch"></div>
-        <div>
-          <span class="game-upcoming__name">Trivia</span>
-          <span class="game-upcoming__sub">Coming soon</span>
+      <!-- Trivia pill -->
+      <div class="game-pill game-pill--inactive" id="pill-trivia" style="margin-top:6px;cursor:pointer;" onclick="switchToGame('trivia');">
+        <div class="game-pill__swatch" style="background:#d4890a;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+          <span style="font-family:'Fraunces',Georgia,serif;font-weight:900;font-style:italic;font-size:18px;color:rgba(90,40,0,0.65);line-height:1;position:relative;z-index:1;">?</span>
+        </div>
+        <div class="game-pill__info">
+          <span class="game-pill__name">Trivia</span>
+          <span class="game-pill__sub">Daily Quiz</span>
         </div>
       </div>
     </div>
 
     <nav class="admin-nav">
-      <div class="nav-section">
+      <div class="nav-section" id="nav-marquee">
         <span class="nav-label">Marquee</span>
         <button class="nav-item active" data-panel="builder">
           <span class="nav-icon">⬛</span> Puzzle Builder
@@ -522,6 +781,18 @@
           <span class="nav-icon">★</span> Category Library
         </button>
         <button class="nav-item" data-panel="published">
+          <span class="nav-icon">📋</span> Published Puzzles
+        </button>
+      </div>
+      <div class="nav-section" id="nav-trivia" style="display:none;">
+        <span class="nav-label">Trivia</span>
+        <button class="nav-item" data-panel="trivia-builder">
+          <span class="nav-icon">📝</span> Puzzle Builder
+        </button>
+        <button class="nav-item" data-panel="trivia-questions">
+          <span class="nav-icon">🧠</span> Question Bank
+        </button>
+        <button class="nav-item" data-panel="trivia-published">
           <span class="nav-icon">📋</span> Published Puzzles
         </button>
       </div>
@@ -754,10 +1025,6 @@
 
       <div class="panel-hd">
         <h1 class="panel-hd__title">Published Puzzles</h1>
-        <div class="panel-hd__actions">
-          <button class="btn btn--ghost btn--sm" id="btn-renumber-all" style="font-size:11px;">Renumber All</button>
-          <button class="btn btn--ghost btn--sm" id="btn-reset-progress" style="font-size:11px;color:#cc6600;border-color:#cc6600;">Reset Player Progress</button>
-        </div>
       </div>
 
       {% if puzzle_dates %}
@@ -796,7 +1063,7 @@
         <h1 class="panel-hd__title">Settings</h1>
       </div>
 
-      <div class="settings-card">
+      <div class="settings-card" id="settings-movie-dataset">
         <h3>Movie Dataset</h3>
         <p>Switch the active movie pool used in Puzzle Builder and Category tools. The full dataset includes ~600 films; curated is a hand-picked set of ~170.</p>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -812,6 +1079,126 @@
         <button class="btn btn--ghost btn--sm" id="btn-reset-progress-settings"
                 style="color:#cc2200;border-color:#cc2200;">Reset All Player Progress</button>
       </div>
+
+    </div>
+
+    <!-- ══════════════ TRIVIA PUZZLE BUILDER PANEL ══════════════ -->
+    <div class="admin-panel" id="panel-trivia-builder">
+
+      <div class="panel-hd">
+        <h1 class="panel-hd__title">Trivia Puzzle Builder</h1>
+      </div>
+
+      <div class="trivia-builder-date-row">
+        <label for="trivia-pub-date">Publish Date</label>
+        <input type="date" id="trivia-pub-date">
+        <span id="trivia-pub-msg" style="font-size:13px;font-weight:700;"></span>
+      </div>
+
+      <div class="trivia-builder-layout">
+
+        <!-- Left: Slots -->
+        <div>
+          <div id="trivia-builder-slots">
+            <div class="trivia-slot" id="trivia-slot-0">
+              <div class="trivia-slot__num">1</div>
+              <div class="trivia-slot__body">
+                <div class="trivia-slot__placeholder">Click a question from the bank →</div>
+              </div>
+            </div>
+            <div class="trivia-slot" id="trivia-slot-1">
+              <div class="trivia-slot__num">2</div>
+              <div class="trivia-slot__body">
+                <div class="trivia-slot__placeholder">Click a question from the bank →</div>
+              </div>
+            </div>
+            <div class="trivia-slot" id="trivia-slot-2">
+              <div class="trivia-slot__num">3</div>
+              <div class="trivia-slot__body">
+                <div class="trivia-slot__placeholder">Click a question from the bank →</div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <button class="btn btn--primary" id="btn-trivia-publish" disabled>Publish Puzzle</button>
+          </div>
+        </div>
+
+        <!-- Right: Question bank -->
+        <div class="trivia-bank-panel">
+          <div class="trivia-bank-panel__hd">Question Bank</div>
+          <input type="text" class="trivia-bank-search" id="trivia-bank-search" placeholder="Search questions…" autocomplete="off">
+          <div class="trivia-bank-list" id="trivia-bank-list">
+            <div class="loading-state">Loading…</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ══════════════ TRIVIA PUBLISHED PUZZLES PANEL ══════════════ -->
+    <div class="admin-panel" id="panel-trivia-published">
+
+      <div class="panel-hd">
+        <h1 class="panel-hd__title">Published Trivia Puzzles</h1>
+        <div class="panel-hd__actions">
+          <button class="btn btn--ghost btn--sm" id="btn-trivia-pub-refresh">Refresh</button>
+        </div>
+      </div>
+
+      <div id="trivia-published-list">
+        <div class="loading-state">Loading…</div>
+      </div>
+
+    </div>
+
+    <!-- ══════════════ TRIVIA QUESTION BANK PANEL ══════════════ -->
+    <div class="admin-panel" id="panel-trivia-questions">
+
+      <div class="panel-hd">
+        <h1 class="panel-hd__title">Question Bank</h1>
+        <div class="panel-hd__actions">
+          <button class="btn btn--primary" id="btn-trivia-toggle-add">+ Add Question</button>
+        </div>
+      </div>
+
+      <!-- Add question form (full-width, drops in below header) -->
+      <div class="trivia-add-form" id="trivia-add-form">
+        <h3>New Question</h3>
+        <div style="margin-bottom:10px;">
+          <label for="tadd-question">Question</label>
+          <textarea id="tadd-question" placeholder="Enter the question text…"></textarea>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label for="tadd-answer">Answer</label>
+          <input type="text" id="tadd-answer" placeholder="Correct answer">
+        </div>
+        <div style="margin-bottom:10px;">
+          <label for="tadd-category">Category</label>
+          <input type="text" id="tadd-category" placeholder="e.g. FILM, SPORTS, SCIENCE" style="text-transform:uppercase;">
+        </div>
+        <div class="trivia-add-form__footer">
+          <button class="btn btn--primary btn--sm" id="btn-trivia-save-new">Save Question</button>
+          <button class="btn btn--ghost btn--sm" id="btn-trivia-cancel-add">Cancel</button>
+          <span id="trivia-add-msg" style="font-size:12px;font-weight:700;"></span>
+        </div>
+      </div>
+
+      <div class="trivia-stats-row" id="trivia-stats-row">
+        <div class="trivia-stat-chip"><div class="trivia-stat-chip__val" id="tstat-total">—</div><div class="trivia-stat-chip__lbl">Total</div></div>
+        <div class="trivia-stat-chip"><div class="trivia-stat-chip__val" id="tstat-active">—</div><div class="trivia-stat-chip__lbl">Active</div></div>
+        <div class="trivia-stat-chip"><div class="trivia-stat-chip__val" id="tstat-cats">—</div><div class="trivia-stat-chip__lbl">Categories</div></div>
+      </div>
+
+      <div class="trivia-bank-hd">
+        <h2>Question Bank</h2>
+        <input type="text" class="trivia-filter-input" id="trivia-search" placeholder="Search…" autocomplete="off">
+        <select class="trivia-filter-select" id="trivia-cat-filter"><option value="">All Categories</option></select>
+        <span class="trivia-count-badge" id="trivia-shown-count"></span>
+      </div>
+
+      <div id="trivia-q-list"><div class="loading-state">Loading…</div></div>
 
     </div>
 

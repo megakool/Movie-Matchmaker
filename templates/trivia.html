@@ -1,0 +1,563 @@
+{% extends "base.html" %}
+{% block title %}Daily Trivia{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Trivia page layout ── */
+  .trivia-wrap {
+    padding: 28px 0 80px;
+    min-height: calc(100vh - 56px);
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* ── Meta row ── */
+  .trivia-meta {
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .trivia-meta__date {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .trivia-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 40px;
+    line-height: 1;
+    letter-spacing: -1px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  /* ── Progress dots ── */
+  .trivia-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .trivia-progress__dots {
+    display: flex;
+    gap: 7px;
+  }
+  .progress-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: var(--bw) solid var(--border);
+    background: transparent;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .progress-dot--active {
+    background: var(--text);
+    transform: scale(1.2);
+  }
+  .progress-dot--correct {
+    background: var(--green);
+  }
+  .progress-dot--wrong {
+    background: #e05252;
+    border-color: #c43c3c;
+  }
+  .trivia-progress__text {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ── Question card ── */
+  .trivia-card {
+    background: var(--surface);
+    border: var(--bw) solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: border-color 0.25s, box-shadow 0.25s;
+  }
+  .trivia-card--correct {
+    border-color: var(--green);
+    box-shadow: 4px 4px 0 rgba(106,191,105,0.5);
+  }
+  .trivia-card--wrong {
+    border-color: #c43c3c;
+    box-shadow: 4px 4px 0 rgba(196,60,60,0.3);
+  }
+
+  /* Category badge strip */
+  .trivia-card__category {
+    background: var(--text);
+    color: var(--bg);
+    padding: 7px 20px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Question body */
+  .trivia-card__body {
+    padding: 24px 24px 20px;
+  }
+  .trivia-card__question {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--text);
+    margin-bottom: 24px;
+  }
+
+  /* Answer input area */
+  .trivia-input-row {
+    display: flex;
+    gap: 10px;
+  }
+  .trivia-input {
+    flex: 1;
+    height: 46px;
+    border: var(--bw) solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    padding: 0 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    outline: none;
+    transition: box-shadow 0.15s, border-color 0.15s;
+    box-shadow: var(--shadow-xs);
+  }
+  .trivia-input:focus {
+    border-color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+  .trivia-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .trivia-submit {
+    height: 46px;
+    padding: 0 22px;
+    background: var(--text);
+    color: var(--bg);
+    border: var(--bw) solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: var(--shadow-xs);
+    transition: transform 0.08s, box-shadow 0.08s;
+    white-space: nowrap;
+  }
+  .trivia-submit:hover:not(:disabled) {
+    transform: translate(-2px,-2px);
+    box-shadow: var(--shadow-sm);
+  }
+  .trivia-submit:active:not(:disabled) {
+    transform: translate(2px,2px);
+    box-shadow: none;
+  }
+  .trivia-submit:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: var(--shadow-xs);
+  }
+
+  /* Skip button */
+  .trivia-skip {
+    height: 36px;
+    padding: 0 16px;
+    background: transparent;
+    color: var(--text2);
+    border: var(--bw) solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: color 0.1s, background 0.1s;
+  }
+  .trivia-skip:hover {
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ── Reveal panel ── */
+  .trivia-reveal {
+    margin-top: 16px;
+    border-top: var(--bw) solid rgba(17,17,17,0.1);
+    padding-top: 16px;
+    display: none;
+  }
+  @keyframes revealSlideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .trivia-reveal.is-visible {
+    display: block;
+    animation: revealSlideIn 0.22s ease forwards;
+  }
+
+  .reveal-verdict {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .reveal-verdict__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: var(--bw) solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .reveal-verdict__icon--correct { background: var(--green); }
+  .reveal-verdict__icon--wrong   { background: #f8d7d7; border-color: #c43c3c; }
+
+  .reveal-verdict__text {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .reveal-verdict__text span {
+    font-weight: 400;
+    color: var(--text2);
+  }
+
+  .reveal-answer-block {
+    background: var(--bg);
+    border: var(--bw) solid rgba(17,17,17,0.12);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+  }
+  .reveal-answer-block__label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .reveal-answer-block__text {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .trivia-next-btn {
+    width: 100%;
+    height: 46px;
+    background: var(--text);
+    color: var(--bg);
+    border: var(--bw) solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: var(--shadow-xs);
+    transition: transform 0.08s, box-shadow 0.08s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .trivia-next-btn:hover {
+    transform: translate(-2px,-2px);
+    box-shadow: var(--shadow-sm);
+  }
+  .trivia-next-btn:active {
+    transform: translate(2px,2px);
+    box-shadow: none;
+  }
+
+  /* ── Score summary card ── */
+  .trivia-summary {
+    display: none;
+    background: var(--surface);
+    border: var(--bw) solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .trivia-summary.is-visible { display: block; }
+
+  .summary-top {
+    background: var(--text);
+    color: var(--bg);
+    padding: 28px 24px 24px;
+    text-align: center;
+  }
+  .summary-top__score {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 64px;
+    line-height: 1;
+    letter-spacing: -2px;
+    margin-bottom: 6px;
+  }
+  .summary-top__label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.6;
+    margin-bottom: 14px;
+  }
+  .summary-top__msg {
+    font-size: 15px;
+    font-weight: 500;
+    opacity: 0.8;
+  }
+
+  /* Score bar */
+  .summary-bar-wrap {
+    padding: 0 24px;
+    margin-top: -1px;
+    background: var(--text);
+    padding-bottom: 24px;
+  }
+  .summary-bar {
+    height: 8px;
+    background: rgba(250,244,239,0.15);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .summary-bar__fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 999px;
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* Answer review list */
+  .summary-review {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .review-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .review-item__icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: var(--bw) solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .review-item__icon--correct { background: var(--green); }
+  .review-item__icon--wrong   { background: #f8d7d7; border-color: #c43c3c; }
+
+  .review-item__content { flex: 1; min-width: 0; }
+  .review-item__question {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+    margin-bottom: 2px;
+    white-space: normal;
+    overflow: visible;
+  }
+  .review-item__answer {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .review-item__your-answer {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  .summary-footer {
+    padding: 16px 24px 22px;
+    border-top: var(--bw) solid rgba(17,17,17,0.1);
+    text-align: center;
+  }
+  .summary-comeback {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+  }
+
+  /* ── Already played banner ── */
+  .trivia-done-banner {
+    background: var(--surface);
+    border: var(--bw) solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+  .trivia-done-banner.is-visible { display: flex; }
+  .trivia-done-banner__icon {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .trivia-done-banner__text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+  }
+
+  /* ── Archive link ── */
+  .trivia-archive-link {
+    text-align: center;
+    margin-top: 14px;
+  }
+  .trivia-archive-link a {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+    text-decoration: none;
+  }
+  .trivia-archive-link a:hover {
+    color: var(--text);
+  }
+
+  /* ── Fade-in animation ── */
+  @keyframes triviaFadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .trivia-card, .trivia-summary, .trivia-progress {
+    animation: triviaFadeUp 0.3s ease forwards;
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 540px) {
+    .trivia-title { font-size: 32px; }
+    .trivia-card__question { font-size: 16px; }
+    .trivia-input-row { flex-direction: column; }
+    .trivia-submit { height: 44px; }
+    .summary-top__score { font-size: 52px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="trivia-wrap">
+  <div class="container">
+
+    <!-- Meta -->
+    <div class="trivia-meta">
+      <div class="trivia-meta__date" id="trivia-date"></div>
+    </div>
+
+    <!-- Progress -->
+    <div class="trivia-progress" id="trivia-progress">
+      <div class="trivia-progress__dots" id="progress-dots">
+        <div class="progress-dot progress-dot--active" id="dot-0"></div>
+        <div class="progress-dot" id="dot-1"></div>
+        <div class="progress-dot" id="dot-2"></div>
+      </div>
+      <div class="trivia-progress__text" id="progress-text">Question 1 of 3</div>
+    </div>
+
+    <!-- Already-played notice -->
+    <div class="trivia-done-banner" id="done-banner">
+      <div class="trivia-done-banner__icon">✓</div>
+      <div class="trivia-done-banner__text">You've already played today. Come back tomorrow for new questions!</div>
+    </div>
+
+    <!-- Active question card -->
+    <div class="trivia-card" id="trivia-card">
+      <div class="trivia-card__category" id="card-category">
+        <span id="cat-label">FILM</span>
+      </div>
+      <div class="trivia-card__body">
+        <p class="trivia-card__question" id="card-question"></p>
+
+        <div class="trivia-input-row">
+          <input
+            type="text"
+            class="trivia-input"
+            id="answer-input"
+            placeholder="Your answer…"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Your answer"
+          >
+          <button class="trivia-submit" id="submit-btn" aria-label="Submit answer">Submit</button>
+        </div>
+
+        <button class="trivia-skip" id="skip-btn">Skip</button>
+
+        <!-- Reveal panel -->
+        <div class="trivia-reveal" id="reveal-panel">
+          <div class="reveal-verdict" id="reveal-verdict">
+            <div class="reveal-verdict__icon" id="verdict-icon"></div>
+            <div class="reveal-verdict__text" id="verdict-text"></div>
+          </div>
+          <div class="reveal-answer-block">
+            <div class="reveal-answer-block__label">Correct Answer</div>
+            <div class="reveal-answer-block__text" id="reveal-answer"></div>
+          </div>
+          <button class="trivia-next-btn" id="next-btn">
+            <span id="next-label">Next Question</span>
+            <span>→</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary card (shown after all 3 answered) -->
+    <div class="trivia-summary" id="summary-card">
+      <div class="summary-top">
+        <div class="summary-top__score" id="summary-score">0 / 3</div>
+        <div class="summary-top__label">Today's Score</div>
+        <div class="summary-top__msg" id="summary-msg"></div>
+      </div>
+      <div class="summary-bar-wrap">
+        <div class="summary-bar">
+          <div class="summary-bar__fill" id="summary-bar-fill" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="summary-review" id="summary-review"></div>
+      <div class="summary-footer">
+        <div class="summary-comeback" id="summary-comeback"></div>
+        <div class="trivia-archive-link">
+          <a href="/trivia/archive">See Archives →</a>
+        </div>
+      </div>
+    </div>
+
+
+
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const QUESTIONS = {{ questions | tojson }};
+  const TODAY     = {{ today | tojson }};
+</script>
+<script src="{{ url_for('static', filename='trivia.js') }}"></script>
+{% endblock %}
