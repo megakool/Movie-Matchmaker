@@ -42,6 +42,7 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; cursor: pointer; }
@@ -1261,13 +1262,15 @@ body::before {
   .tile, .create-tile {
     font-size: 10px;
     height: auto;
+    min-width: 0;
     aspect-ratio: 1;
     padding: 8px 4px;
   }
   .tile--long  { font-size: 9px; }
   .tile--vlong { font-size: 8px; }
   .game-title { font-size: 30px; }
-  .action-row .btn { min-width: 100px; font-size: 13px; }
+  .action-row { gap: 8px; }
+  .action-row .btn { flex: 1; min-width: 0; font-size: 13px; padding: 9px 10px; }
   .builder-layout { grid-template-columns: 1fr; }
   .movie-browser__list { height: 220px; }
   .result-card { padding: 24px 18px; }
