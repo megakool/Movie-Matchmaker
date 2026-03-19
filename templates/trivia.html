@@ -13,8 +13,7 @@
 
   /* ── Meta row ── */
   .trivia-meta {
-    text-align: center;
-    margin-bottom: 4px;
+    display: none; /* date is now inside the progress row */
   }
   .trivia-meta__date {
     font-size: 12px;
@@ -34,12 +33,12 @@
     margin-bottom: 20px;
   }
 
-  /* ── Progress dots ── */
+  /* ── Progress row (dots + question count on left, date on right) ── */
   .trivia-progress {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 28px;
+    margin-bottom: 20px;
   }
   .trivia-progress__dots {
     display: flex;
@@ -197,7 +196,7 @@
 
   /* Skip button */
   .trivia-skip {
-    height: 36px;
+    height: 44px;
     padding: 0 16px;
     background: transparent;
     color: var(--text2);
@@ -473,13 +472,71 @@
     animation: triviaFadeUp 0.3s ease forwards;
   }
 
+  /* ── Reduced motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    .trivia-card, .trivia-summary, .trivia-progress,
+    .trivia-reveal.is-visible,
+    .summary-bar__fill {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+
   /* ── Mobile ── */
   @media (max-width: 540px) {
-    .trivia-title { font-size: 32px; }
-    .trivia-card__question { font-size: 16px; }
+    /* Wrapper — tighter top, safe-area bottom for notched phones */
+    .trivia-wrap {
+      padding-top: 20px;
+      padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Title */
+    .trivia-title {
+      font-size: 32px;
+      margin-bottom: 16px;
+    }
+
+    /* Progress — tighter spacing, slightly bigger dots */
+    .trivia-progress { margin-bottom: 14px; }
+    .progress-dot { width: 14px; height: 14px; }
+
+    /* Card body */
+    .trivia-card__body { padding: 20px 18px 18px; }
+    .trivia-card__question { font-size: 16px; margin-bottom: 18px; }
+
+    /* Input — stacked, submit goes full-width */
     .trivia-input-row { flex-direction: column; }
+    .trivia-input-row .trivia-submit { width: 100%; padding: 0; }
     .trivia-submit { height: 44px; }
+
+    /* Input size — 16px prevents iOS auto-zoom on focus */
+    .trivia-input { height: 52px; font-size: 16px; }
+
+    /* Skip — small right-aligned text, visually separate from Submit */
+    .trivia-skip {
+      display: block;
+      width: auto;
+      margin-left: auto;
+      height: auto;
+      padding: 6px 0;
+      font-size: 12px;
+      border: none;
+      color: var(--muted);
+      background: transparent;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+
+    /* Reveal panel — save vertical space */
+    .trivia-reveal { margin-top: 12px; padding-top: 12px; }
+    .reveal-answer-block { padding: 8px 12px; margin-bottom: 10px; }
+
+    /* Summary card — tighter padding throughout */
+    .summary-top { padding: 20px 16px 14px; }
     .summary-top__score { font-size: 52px; }
+    .summary-bar-wrap { padding: 0 16px 14px; }
+    .summary-review { padding: 14px 16px; gap: 10px; }
+    .summary-footer { padding: 12px 16px 18px; }
   }
 </style>
 {% endblock %}
@@ -488,12 +545,13 @@
 <main class="trivia-wrap">
   <div class="container">
 
-    <!-- Meta -->
-    <div class="trivia-meta">
-      <div class="trivia-meta__date" id="trivia-date"></div>
+    <!-- Meta row: date left, quiz number right -->
+    <div class="game-meta">
+      <div class="game-meta__date" id="trivia-date"></div>
+      <div class="game-meta__num">Quiz #{{ quiz_number }}</div>
     </div>
 
-    <!-- Progress -->
+    <!-- Progress dots row -->
     <div class="trivia-progress" id="trivia-progress">
       <div class="trivia-progress__dots" id="progress-dots">
         <div class="progress-dot progress-dot--active" id="dot-0"></div>
@@ -529,7 +587,7 @@
         <button class="trivia-skip" id="skip-btn">Skip</button>
 
         <!-- Reveal panel -->
-        <div class="trivia-reveal" id="reveal-panel">
+        <div class="trivia-reveal" id="reveal-panel" aria-live="polite" aria-atomic="true">
           <div class="reveal-verdict" id="reveal-verdict">
             <div class="reveal-verdict__icon" id="verdict-icon"></div>
             <div class="reveal-verdict__text" id="verdict-text"></div>

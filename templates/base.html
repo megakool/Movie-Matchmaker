@@ -11,6 +11,8 @@
 </head>
 <body>
 
+  <a href="#main-content" class="skip-link">Skip to content</a>
+
   <!-- Header -->
   <header class="site-header">
     <div class="site-header__inner">
@@ -23,11 +25,11 @@
         {% if request.path.startswith('/admin') %}Admin{% elif request.path.startswith('/trivia') %}Trivia{% else %}Marquee{% endif %}
       </a>
       <!-- Spacer to keep logo visually centered -->
-      <div style="width:36px;"></div>
+      <div style="width:44px;"></div>
     </div>
   </header>
 
-  {% block content %}{% endblock %}
+  <div id="main-content">{% block content %}{% endblock %}</div>
 
   {% block scripts %}{% endblock %}
 
@@ -83,10 +85,10 @@
         <div class="drawer-section-label">Marquee</div>
         <div class="drawer-links">
           <a href="/marquee" class="drawer-link">
-            <span class="drawer-link__icon">🎬</span> Today's Puzzle
+            <span class="drawer-link__icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 4v16M17 4v16M2 12h20M2 8h5M17 8h5M2 16h5M17 16h5"/></svg></span> Today's Puzzle
           </a>
           <a href="/marquee/archive" class="drawer-link">
-            <span class="drawer-link__icon">📅</span> Archive
+            <span class="drawer-link__icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span> Archive
           </a>
         </div>
       </div>
@@ -96,10 +98,10 @@
         <div class="drawer-section-label">Trivia</div>
         <div class="drawer-links">
           <a href="/trivia" class="drawer-link">
-            <span class="drawer-link__icon">🧠</span> Today's Questions
+            <span class="drawer-link__icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg></span> Today's Questions
           </a>
           <a href="/trivia/archive" class="drawer-link">
-            <span class="drawer-link__icon">📅</span> Archive
+            <span class="drawer-link__icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span> Archive
           </a>
         </div>
       </div>

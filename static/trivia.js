@@ -138,9 +138,9 @@ function renderInputs(parts) {
     $inputsContainer.innerHTML =
       parts.map((_, i) => `
         <div class="trivia-multi-input-row">
-          <span class="trivia-multi-label">Answer ${i + 1}</span>
-          <input type="text" class="trivia-input trivia-answer-input"
-            placeholder="Answer ${i + 1}…" autocomplete="off" spellcheck="false">
+          <input type="text" class="trivia-input trivia-answer-input" id="answer-input-${i}"
+            placeholder="Answer ${i + 1}…" autocomplete="off" spellcheck="false"
+            aria-label="Answer ${i + 1}">
         </div>`).join('') +
       `<button class="trivia-submit trivia-submit--block" id="submit-btn" disabled>Submit</button>`;
   }
@@ -155,6 +155,7 @@ function _bindInputEvents() {
       if (e.key === 'Enter' && $submitBtn && !$submitBtn.disabled) handleSubmit();
     });
   });
+  $submitBtn.addEventListener('click', handleSubmit);
 }
 
 function getInputEls() {
@@ -381,6 +382,7 @@ function handleSubmit() {
   });
 
   updateProgressDots(currentIdx, results);
+  saveTodayRecord(results);
   showReveal(isCorrect, userAnswers.join(' / '), q.answer, false);
 }
 
@@ -395,6 +397,7 @@ function handleSkip() {
     skipped:       true,
   });
   updateProgressDots(currentIdx, results);
+  saveTodayRecord(results);
   showReveal(false, '', q.answer, true);
 }
 

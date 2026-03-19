@@ -254,7 +254,9 @@ def trivia_puzzle(puzzle_date: str):
     qs = [q for q in qs if q]
     if not qs:
         return render_template("no_trivia.html", puzzle_date=puzzle_date, today=today)
-    return render_template("trivia.html", questions=qs, today=puzzle_date)
+    all_dates = get_all_trivia_puzzle_dates()
+    quiz_number = all_dates.index(puzzle_date) + 1 if puzzle_date in all_dates else 1
+    return render_template("trivia.html", questions=qs, today=puzzle_date, quiz_number=quiz_number)
 
 
 @app.get("/trivia/archive")
@@ -270,7 +272,8 @@ def trivia_archive():
             continue
         qs = [questions_by_id.get(qid) for qid in puzzle.get("questions", [])]
         qs = [q for q in qs if q]
-        puzzles.append({"date": d, "questions": qs})
+        quiz_number = puzzle_dates.index(d) + 1
+        puzzles.append({"date": d, "questions": qs, "quiz_number": quiz_number})
     return render_template("trivia_archive.html", puzzles=puzzles, today=today)
 
 

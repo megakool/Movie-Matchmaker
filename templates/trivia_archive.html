@@ -4,33 +4,9 @@
 {% block head %}
 <style>
   .archive-wrap {
-    padding: 28px 16px 80px;
+    padding: 0 0 80px;
     min-height: calc(100vh - 56px);
   }
-  .archive-hd {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-  }
-  .archive-hd h1 {
-    font-family: 'Fraunces', Georgia, serif;
-    font-weight: 900;
-    font-style: italic;
-    font-size: 32px;
-    line-height: 1;
-    letter-spacing: -1px;
-    margin: 0;
-  }
-  .archive-back {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text2);
-    text-decoration: none;
-    margin-left: auto;
-  }
-  .archive-back:hover { color: var(--text); }
 
   .archive-empty {
     text-align: center;
@@ -39,54 +15,82 @@
     font-size: 15px;
   }
 
-  /* ── Puzzle entry ── */
+  /* ── 2-column grid ── */
+  .trivia-archive-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding-top: 20px;
+  }
+  @media (max-width: 319px) {
+    .trivia-archive-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── Puzzle card (entire card is the link) ── */
   .archive-puzzle {
+    display: block;
     background: var(--surface);
     border: var(--bw) solid var(--border);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow);
     overflow: hidden;
-    margin-bottom: 16px;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.08s, box-shadow 0.08s;
   }
+  .archive-puzzle:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: var(--shadow-md, 6px 6px 0 rgba(17,17,17,0.12));
+  }
+  .archive-puzzle:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+
   .archive-puzzle__hd {
     background: var(--text);
     color: var(--bg);
-    padding: 10px 20px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .archive-puzzle__hd-top {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 6px;
   }
-  .archive-puzzle__date {
+  .archive-puzzle__num {
     font-family: 'Fraunces', Georgia, serif;
     font-weight: 900;
     font-style: italic;
-    font-size: 18px;
+    font-size: 17px;
     line-height: 1;
   }
   .archive-puzzle__today-badge {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 1.5px;
+    letter-spacing: 1px;
     text-transform: uppercase;
     background: var(--green);
     color: #1a4d19;
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: 20px;
-  }
-  .archive-puzzle__play-link {
     margin-left: auto;
-    font-size: 12px;
-    font-weight: 700;
-    color: rgba(250,244,239,0.7);
-    text-decoration: none;
   }
-  .archive-puzzle__play-link:hover { color: rgba(250,244,239,1); }
+  .archive-puzzle__date {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: rgba(250,244,239,0.5);
+  }
 
   .archive-puzzle__questions {
-    padding: 16px 20px;
+    padding: 10px 14px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
 
   /* ── Category row ── */
@@ -112,7 +116,7 @@
   .archive-q__status--unplayed { background: transparent; border-color: rgba(17,17,17,0.2); }
 
   .archive-q__cat {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.5px;
     text-transform: uppercase;
@@ -125,24 +129,26 @@
 <main class="archive-wrap">
   <div class="container">
 
-    <div class="archive-hd">
-      <h1>Trivia Archive</h1>
-      <a href="/trivia" class="archive-back">← Today's Questions</a>
+    <div class="archive-header">
+      <h1>Archive</h1>
+      <p style="font-size:14px;color:var(--text2);margin-top:6px;">Every quiz, all in one place.</p>
     </div>
 
     {% if not puzzles %}
     <div class="archive-empty">No puzzles in the archive yet.</div>
     {% else %}
 
-    <div id="archive-list">
+    <div class="trivia-archive-grid">
       {% for puzzle in puzzles %}
-      <div class="archive-puzzle" data-date="{{ puzzle.date }}">
+      <a class="archive-puzzle" href="/trivia/{{ puzzle.date }}" data-date="{{ puzzle.date }}">
         <div class="archive-puzzle__hd">
+          <div class="archive-puzzle__hd-top">
+            <div class="archive-puzzle__num">Quiz #{{ puzzle.quiz_number }}</div>
+            {% if puzzle.date == today %}
+            <span class="archive-puzzle__today-badge">Today</span>
+            {% endif %}
+          </div>
           <div class="archive-puzzle__date" id="archive-date-{{ puzzle.date }}">{{ puzzle.date }}</div>
-          {% if puzzle.date == today %}
-          <span class="archive-puzzle__today-badge">Today</span>
-          {% endif %}
-          <a href="/trivia/{{ puzzle.date }}" class="archive-puzzle__play-link">Play →</a>
         </div>
         <div class="archive-puzzle__questions" id="archive-qs-{{ puzzle.date }}">
           {% for q in puzzle.questions %}
@@ -152,7 +158,7 @@
           </div>
           {% endfor %}
         </div>
-      </div>
+      </a>
       {% endfor %}
     </div>
 
@@ -191,7 +197,6 @@
   });
 
   // Hide puzzles that are in the future from the client's local perspective.
-  // The server filters by UTC date, which can be ahead of the user's local date in the evening.
   var ld = new Date();
   var localToday = ld.getFullYear() + '-' +
     String(ld.getMonth() + 1).padStart(2, '0') + '-' +

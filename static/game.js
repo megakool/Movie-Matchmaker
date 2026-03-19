@@ -491,6 +491,13 @@ function bindEvents() {
   $overlay.addEventListener('click', (e) => {
     if (e.target === $overlay) $overlay.style.display = 'none';
   });
+
+  // Escape key closes result overlay
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && $overlay.style.display !== 'none') {
+      $overlay.style.display = 'none';
+    }
+  });
 }
 
 /* ── Start ── */

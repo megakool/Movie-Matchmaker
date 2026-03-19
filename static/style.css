@@ -12,7 +12,7 @@
   --surface:     #ffffff;
   --text:        #1a1205;
   --text2:       #6b5c4e;
-  --muted:       #a0907e;
+  --muted:       #736050; /* darkened for 4.5:1+ contrast on --bg */
   --border:      #111111;
   --bw:          2.5px;            /* border width */
   --shadow:      4px 4px 0 var(--border);
@@ -114,8 +114,8 @@ body::before {
 
 /* ── Hamburger button ── */
 .nav-burger {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -186,8 +186,8 @@ body::before {
   flex-shrink: 0;
 }
 .drawer-close {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -374,6 +374,10 @@ body::before {
   cursor: default;
   pointer-events: none;
 }
+.btn:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 2px;
+}
 
 .btn--primary {
   background: var(--text);
@@ -410,20 +414,24 @@ body::before {
   padding: 24px 0 60px;
 }
 .game-meta {
-  text-align: center;
-  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 .game-meta__date {
-  font-size: 13px;
-  color: var(--text2);
-  font-weight: 600;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 1px;
 }
 .game-meta__num {
   font-size: 12px;
   color: var(--muted);
-  margin-top: 2px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 .game-title {
   font-family: 'Fraunces', Georgia, serif;
@@ -437,8 +445,9 @@ body::before {
 .game-instructions {
   text-align: center;
   font-size: 14px;
+  font-weight: 600;
   color: var(--text2);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 /* ── Solved Category Banners ── */
@@ -1254,6 +1263,25 @@ body::before {
   animation: maxPulse 0.3s ease;
 }
 
+/* ── Skip link ── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  background: var(--text);
+  color: var(--bg);
+  padding: 10px 18px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: top 0.1s;
+}
+.skip-link:focus {
+  top: 8px;
+}
+
 /* ── Mobile ── */
 @media (max-width: 600px) {
   .tile-grid {
@@ -1267,7 +1295,7 @@ body::before {
     padding: 8px 4px;
   }
   .tile--long  { font-size: 9px; }
-  .tile--vlong { font-size: 8px; }
+  .tile--vlong { font-size: 10px; }
   .game-title { font-size: 30px; }
   .action-row { gap: 8px; }
   .action-row .btn { flex: 1; min-width: 0; font-size: 13px; padding: 9px 10px; }
@@ -1275,4 +1303,16 @@ body::before {
   .movie-browser__list { height: 220px; }
   .result-card { padding: 24px 18px; }
   .result-card__headline { font-size: 28px; }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .tile, .btn, .archive-card, .drawer-game {
+    transition: none;
+  }
 }
