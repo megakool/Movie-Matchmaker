@@ -1293,9 +1293,10 @@ body::before {
     min-width: 0;
     aspect-ratio: 1;
     padding: 8px 4px;
+    overflow: hidden;
   }
   .tile--long  { font-size: 9px; }
-  .tile--vlong { font-size: 10px; }
+  .tile--vlong { font-size: 8px; }
   .game-title { font-size: 30px; }
   .action-row { gap: 8px; }
   .action-row .btn { flex: 1; min-width: 0; font-size: 13px; padding: 9px 10px; }
