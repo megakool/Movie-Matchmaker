@@ -1066,13 +1066,13 @@
         <h1 class="panel-hd__title">Published Puzzles</h1>
       </div>
 
-      {% if puzzle_dates %}
+      {% if puzzle_dates_numbered %}
       <div class="admin-card">
-        {% for d in puzzle_dates | reverse %}
+        {% for d, num in puzzle_dates_numbered | reverse %}
         <div class="pub-row" data-date="{{ d }}">
           <div class="pub-row__summary">
             <strong>{{ d }}</strong>
-            <span style="font-size:12px;opacity:0.5;">#{{ loop.revindex }}</span>
+            <span style="font-size:12px;opacity:0.5;">#{{ num }}</span>
             {% if d > today %}<span style="font-size:10px;font-weight:700;color:#7B61FF;background:#F0EDFF;padding:2px 6px;border-radius:20px;">SCHEDULED</span>{% endif %}
             <a href="/marquee/{{ d }}" class="btn btn--ghost btn--sm" target="_blank"
                onclick="event.stopPropagation()">Play ↗</a>

@@ -313,10 +313,22 @@ def marquee_puzzle(puzzle_date: str):
         if movie:
             tiles.append({"id": mid, "title": movie["title"]})
 
+    # Prev / next navigation
+    all_dates = get_all_puzzle_dates()
+    prev_date = next_date = None
+    puzzle_number = 1
+    if puzzle_date in all_dates:
+        idx = all_dates.index(puzzle_date)
+        puzzle_number = idx + 1
+        if idx > 0:
+            prev_date = all_dates[idx - 1]
+        if idx < len(all_dates) - 1:
+            next_date = all_dates[idx + 1]
+
     # Puzzle data sent to client (categories include titles — revealed only when solved)
     puzzle_for_client = {
         "date": puzzle["date"],
-        "puzzle_number": puzzle.get("puzzle_number", 1),
+        "puzzle_number": puzzle_number,
         "categories": [
             {
                 "color": cat["color"],
@@ -327,16 +339,6 @@ def marquee_puzzle(puzzle_date: str):
             for cat in puzzle["categories"]
         ],
     }
-
-    # Prev / next navigation
-    all_dates = get_all_puzzle_dates()
-    prev_date = next_date = None
-    if puzzle_date in all_dates:
-        idx = all_dates.index(puzzle_date)
-        if idx > 0:
-            prev_date = all_dates[idx - 1]
-        if idx < len(all_dates) - 1:
-            next_date = all_dates[idx + 1]
 
     return render_template(
         "game.html",
@@ -356,17 +358,17 @@ def marquee_archive():
     all_dates = get_all_puzzle_dates()
     today = date.today().isoformat()
     puzzles_meta = []
-    for d in reversed(all_dates):
+    for i, d in enumerate(all_dates):
         if d > today:
             continue
-        p = get_puzzle(d)
         puzzles_meta.append({
             "date": d,
-            "puzzle_number": p.get("puzzle_number", "?") if p else "?",
+            "puzzle_number": i + 1,
             "is_today": d == today,
             "is_past": d < today,
             "is_future": False,
         })
+    puzzles_meta.reverse()
     return render_template("archive.html", puzzles=puzzles_meta, today=today)
 
 
@@ -465,10 +467,13 @@ def admin_logout():
 @admin_required
 def admin_dashboard():
     all_dates = get_all_puzzle_dates()
+    # Pass (date, number) pairs so the template shows the same number as players see
+    puzzle_dates_numbered = [(d, i + 1) for i, d in enumerate(all_dates)]
     pending = [s for s in get_submissions() if s.get("status") == "pending"]
     return render_template(
         "admin.html",
         puzzle_dates=all_dates,
+        puzzle_dates_numbered=puzzle_dates_numbered,
         pending_count=len(pending),
         today=date.today().isoformat(),
     )
