@@ -77,9 +77,12 @@ function renderGrid() {
       const div = document.createElement('div');
       div.className = 'tile';
       const len = tile.title.length;
-      if (len > 38)      div.classList.add('tile--xxlong');
-      else if (len > 28) div.classList.add('tile--vlong');
-      else if (len > 18) div.classList.add('tile--long');
+      // maxWord ensures the longest single word fits in the tile width without breaking
+      const maxWord = tile.title.split(/\s+/).reduce((m, w) => Math.max(m, w.length), 0);
+      if      (maxWord > 13 || len > 50) div.classList.add('tile--xxxlong'); // e.g. BLACKKKLANSMAN
+      else if (maxWord > 11 || len > 38) div.classList.add('tile--xxlong');
+      else if (maxWord > 9  || len > 28) div.classList.add('tile--vlong');
+      else if (maxWord > 7  || len > 18) div.classList.add('tile--long');
       div.textContent = tile.title;
       div.dataset.id = tile.id;
 

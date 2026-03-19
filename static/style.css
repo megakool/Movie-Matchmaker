@@ -1294,16 +1294,17 @@ body::before {
     aspect-ratio: 1;
     padding: 8px 4px;
     overflow: hidden;
-    /* Allow long single words to wrap mid-character rather than overflow/clip */
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    /* No mid-word breaks — font sizing ensures even the longest word fits */
+    overflow-wrap: normal;
+    word-break: normal;
     /* Tighter line-height squeezes ~8% more lines into the fixed tile height */
     line-height: 1.2;
   }
-  .tile--long   { font-size: 9px; }
-  .tile--vlong  { font-size: 7.5px; }
-  /* Extreme titles (39+ chars): push font small enough to survive 320px screens */
-  .tile--xxlong { font-size: 6.5px; }
+  .tile--long    { font-size: 9px; }
+  .tile--vlong   { font-size: 7.5px; }
+  .tile--xxlong  { font-size: 6.5px; }
+  /* 14+ char single words (e.g. BLACKKKLANSMAN): 6px fits in 58px on 320px screens */
+  .tile--xxxlong { font-size: 6px; }
   .game-title { font-size: 30px; }
   .action-row { gap: 8px; }
   .action-row .btn { flex: 1; min-width: 0; font-size: 13px; padding: 9px 10px; }
