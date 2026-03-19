@@ -1300,10 +1300,10 @@ body::before {
     /* Tighter line-height squeezes ~8% more lines into the fixed tile height */
     line-height: 1.2;
   }
+  /* Approximate fallbacks shown for one frame before JS fitTileText overrides */
   .tile--long    { font-size: 9px; }
   .tile--vlong   { font-size: 7.5px; }
   .tile--xxlong  { font-size: 6.5px; }
-  /* 14+ char single words (e.g. BLACKKKLANSMAN): 6px fits in 58px on 320px screens */
   .tile--xxxlong { font-size: 6px; }
   .game-title { font-size: 30px; }
   .action-row { gap: 8px; }

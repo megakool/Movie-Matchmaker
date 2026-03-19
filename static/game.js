@@ -33,6 +33,12 @@ const state = {
   won:        false,
 };
 
+/* ── Canvas context for text measurement (font auto-fit) ── */
+const _fitCtx = (() => {
+  try { return document.createElement('canvas').getContext('2d'); }
+  catch(e) { return null; }
+})();
+
 /* ── DOM refs ── */
 const $grid       = document.getElementById('tile-grid');
 const $solved     = document.getElementById('solved-list');
@@ -66,6 +72,52 @@ function init() {
   }
 }
 
+/* ── Font auto-fit (mobile only) ── */
+// Finds the largest font size where the longest word fits horizontally
+// AND all wrapped lines fit vertically — no word breaks, uniform boxes.
+function fitTileText() {
+  if (!_fitCtx || window.innerWidth > 600) return;
+
+  const tiles = Array.from($grid.querySelectorAll('.tile'));
+  if (!tiles.length) return;
+
+  const tileW = tiles[0].offsetWidth;
+  if (!tileW) return;
+
+  const availW = tileW - 8;    // 4px padding each side
+  const availH = tileW - 16;   // 8px padding top+bottom (height === width via aspect-ratio:1)
+  const LINE_H = 1.2;
+
+  tiles.forEach(tile => {
+    const words = tile.textContent.trim().split(/\s+/);
+    const longestWord = words.reduce((m, w) => w.length > m.length ? w : m, '');
+
+    let lo = 5.5, hi = 12, best = 5.5;
+    while (hi - lo > 0.2) {
+      const mid = (lo + hi) / 2;
+      _fitCtx.font = `700 ${mid}px "DM Sans", system-ui, sans-serif`;
+
+      // Reject if the longest word overflows horizontally
+      if (_fitCtx.measureText(longestWord).width > availW) { hi = mid; continue; }
+
+      // Count how many lines the full title needs at this size
+      let lines = 1, lineW = 0;
+      for (const word of words) {
+        const ww = _fitCtx.measureText(word).width;
+        const sp = _fitCtx.measureText(' ').width;
+        if (lineW > 0 && lineW + sp + ww > availW) { lines++; lineW = ww; }
+        else { lineW = lineW > 0 ? lineW + sp + ww : ww; }
+      }
+
+      // Reject if lines overflow vertically
+      if (lines * mid * LINE_H <= availH) { best = mid; lo = mid; }
+      else { hi = mid; }
+    }
+
+    tile.style.fontSize = best.toFixed(1) + 'px';
+  });
+}
+
 /* ── Render ── */
 function renderGrid() {
   $grid.innerHTML = '';
@@ -95,6 +147,9 @@ function renderGrid() {
       }
       $grid.appendChild(div);
     });
+
+  // Fit text after layout is painted
+  requestAnimationFrame(fitTileText);
 }
 
 function renderLives() {
@@ -501,6 +556,13 @@ function bindEvents() {
     if (e.key === 'Escape' && $overlay.style.display !== 'none') {
       $overlay.style.display = 'none';
     }
+  });
+
+  // Refit tile text on orientation change / resize
+  let _fitResizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(_fitResizeTimer);
+    _fitResizeTimer = setTimeout(fitTileText, 150);
   });
 }
 
