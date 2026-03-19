@@ -231,8 +231,16 @@ def home():
 
 @app.get("/trivia")
 def trivia_index():
-    today = date.today().isoformat()
-    return redirect(url_for("trivia_puzzle", puzzle_date=today))
+    # Let the client determine today's local date — the server runs UTC on Render,
+    # which would show tomorrow's puzzle for US users in the evening.
+    return """<!DOCTYPE html>
+<html><head><title>Trivia</title></head><body><script>
+const d = new Date();
+const y = d.getFullYear();
+const m = String(d.getMonth() + 1).padStart(2, '0');
+const day = String(d.getDate()).padStart(2, '0');
+window.location.replace('/trivia/' + y + '-' + m + '-' + day);
+</script></body></html>"""
 
 
 @app.get("/trivia/<puzzle_date>")
