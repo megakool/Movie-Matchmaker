@@ -8,3 +8,7 @@ venv/
 dist/
 .DS_Store
 Thumbs.db
+
+# Trivia puzzles are managed via admin and live on Render's persistent disk.
+# Never commit them — doing so causes puzzles to re-appear after deletion on redeploy.
+data/trivia_puzzles/*.json
