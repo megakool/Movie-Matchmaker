@@ -84,7 +84,7 @@ function fitTileText() {
   const tileW = tiles[0].offsetWidth;
   if (!tileW) return;
 
-  const availW = tileW - 20;   // 10px padding each side (extra buffer for canvas vs browser rendering)
+  const availW = tileW - 26;   // 13px padding each side (extra buffer for canvas vs browser rendering)
   const availH = tileW - 16;   // 8px padding top+bottom (height === width via aspect-ratio:1)
   const LINE_H = 1.2;
 
