@@ -2066,19 +2066,40 @@ function bindTriviaPublishedEvents() {
 }
 
 // ── Slot inline edit ───────────────────────────────────────────────
-function saveSlotEdit(i) {
+async function saveSlotEdit(i) {
   const cat = document.getElementById(`tslot-cat-${i}`)?.value.trim().toUpperCase();
   const q   = document.getElementById(`tslot-q-${i}`)?.value.trim();
   const a   = document.getElementById(`tslot-a-${i}`)?.value.trim();
   if (!q || !a) return;
   const slot = triviaBuilderSlots[i];
-  if (slot) {
-    slot.category = cat || slot.category;
-    slot.question = q;
-    slot.answer   = a;
+  if (!slot) return;
+
+  const saveBtn = document.querySelector(`.tslot-save-btn[data-slot="${i}"]`);
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+
+  const payload = { category: cat || slot.category, question: q, answer: a };
+
+  try {
+    const res  = await fetch(`/admin/trivia/questions/${slot.id}`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Save failed');
+  } catch (err) {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+    alert(`Could not save: ${err.message}`);
+    return;
   }
+
+  // Update in-memory state — slot and triviaQuestions[idx] may share the same reference,
+  // but we update both explicitly so they're always in sync regardless.
+  Object.assign(slot, payload);
+  const tqIdx = triviaQuestions.findIndex(tq => tq.id === slot.id);
+  if (tqIdx !== -1) Object.assign(triviaQuestions[tqIdx], payload);
+
   triviaSlotEditing[i] = false;
   renderTriviaBuilderSlots();
+  renderTriviaBank();
 }
 
 // ── Fuzzy match helpers (mirrors trivia.js) ────────────────────────
