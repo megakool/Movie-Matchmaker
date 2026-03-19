@@ -190,6 +190,16 @@
     }
   });
 
+  // Hide puzzles that are in the future from the client's local perspective.
+  // The server filters by UTC date, which can be ahead of the user's local date in the evening.
+  var ld = new Date();
+  var localToday = ld.getFullYear() + '-' +
+    String(ld.getMonth() + 1).padStart(2, '0') + '-' +
+    String(ld.getDate()).padStart(2, '0');
+  document.querySelectorAll('.archive-puzzle[data-date]').forEach(function (el) {
+    if (el.dataset.date > localToday) el.style.display = 'none';
+  });
+
   // Overlay results
   document.querySelectorAll('.archive-q').forEach(function (row) {
     var qid = parseInt(row.dataset.qid, 10);
