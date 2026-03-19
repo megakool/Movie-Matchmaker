@@ -77,7 +77,8 @@ function renderGrid() {
       const div = document.createElement('div');
       div.className = 'tile';
       const len = tile.title.length;
-      if (len > 28) div.classList.add('tile--vlong');
+      if (len > 38)      div.classList.add('tile--xxlong');
+      else if (len > 28) div.classList.add('tile--vlong');
       else if (len > 18) div.classList.add('tile--long');
       div.textContent = tile.title;
       div.dataset.id = tile.id;
