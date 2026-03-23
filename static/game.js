@@ -72,11 +72,11 @@ function init() {
   }
 }
 
-/* ── Font auto-fit (mobile only) ── */
+/* ── Font auto-fit ── */
 // Finds the largest font size where the longest word fits horizontally
 // AND all wrapped lines fit vertically — no word breaks, uniform boxes.
 function fitTileText() {
-  if (!_fitCtx || window.innerWidth > 600) return;
+  if (!_fitCtx) return;
 
   const tiles = Array.from($grid.querySelectorAll('.tile'));
   if (!tiles.length) return;
@@ -84,15 +84,22 @@ function fitTileText() {
   const tileW = tiles[0].offsetWidth;
   if (!tileW) return;
 
+  const isMobile = window.innerWidth <= 600;
   const availW = tileW - 26;   // 13px padding each side (extra buffer for canvas vs browser rendering)
-  const availH = tileW - 16;   // 8px padding top+bottom (height === width via aspect-ratio:1)
-  const LINE_H = 1.2;
+  // Mobile: tiles are square (aspect-ratio:1), so height === width
+  // Desktop: measure actual tile height from the grid layout
+  const availH = isMobile
+    ? tileW - 16
+    : (tiles[0].offsetHeight || tileW) - 22;
+  const LINE_H = isMobile ? 1.2 : 1.3;
+  const loFont = isMobile ? 5.5 : 8;
+  const hiFont = isMobile ? 12 : 18;
 
   tiles.forEach(tile => {
     const words = tile.textContent.trim().split(/\s+/);
     const longestWord = words.reduce((m, w) => w.length > m.length ? w : m, '');
 
-    let lo = 5.5, hi = 12, best = 5.5;
+    let lo = loFont, hi = hiFont, best = loFont;
     while (hi - lo > 0.2) {
       const mid = (lo + hi) / 2;
       _fitCtx.font = `700 ${mid}px "DM Sans", system-ui, sans-serif`;
