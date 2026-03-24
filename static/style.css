@@ -484,7 +484,7 @@ body::before {
 .tile-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: 1fr;
+  grid-auto-rows: auto;
   gap: 8px;
   margin-bottom: 16px;
 }
@@ -497,16 +497,16 @@ body::before {
   box-shadow: var(--shadow-sm);
   padding: 10px 6px;
   height: 80px;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 11px; /* placeholder — JS fitTileText overrides this */
   text-transform: uppercase;
   letter-spacing: 0.3px;
   line-height: 1.3;
-  height: 100%;
   cursor: pointer;
   user-select: none;
   transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.1s;
@@ -547,8 +547,8 @@ body::before {
 .tile--green  { background: var(--green);  color: var(--green-text); }
 .tile--blue   { background: var(--blue);   color: var(--blue-text); }
 .tile--purple { background: var(--purple); color: var(--purple-text); }
-.tile--long  { font-size: 11px; }
-.tile--vlong { font-size: 9px; }
+.tile--long  { font-size: 10px; } /* placeholder — JS overrides */
+.tile--vlong { font-size: 9px; }  /* placeholder — JS overrides */
 
 /* ── Lives ── */
 .lives-row {
@@ -721,7 +721,7 @@ body::before {
 }
 .archive-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 10px;
   padding: 20px 0 60px;
 }
@@ -731,11 +731,14 @@ body::before {
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   padding: 14px 12px;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   text-align: center;
   cursor: pointer;
   text-decoration: none;
   transition: transform 0.08s, box-shadow 0.08s;
-  display: block;
 }
 .archive-card:hover {
   transform: translate(-1px, -1px);
@@ -1284,20 +1287,13 @@ body::before {
 
 /* ── Mobile ── */
 @media (max-width: 600px) {
-  .tile-grid {
-    grid-auto-rows: auto;
-  }
   .tile, .create-tile {
     font-size: 10px;
-    height: auto;
     min-width: 0;
-    aspect-ratio: 1;
     padding: 8px 4px;
     overflow: hidden;
-    /* No mid-word breaks — font sizing ensures even the longest word fits */
     overflow-wrap: normal;
     word-break: normal;
-    /* Tighter line-height squeezes ~8% more lines into the fixed tile height */
     line-height: 1.2;
   }
   /* Approximate fallbacks shown for one frame before JS fitTileText overrides */

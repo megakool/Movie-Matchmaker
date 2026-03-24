@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!--
+    Apple touch icon. Cream bg + dark mark inverts the favicon —
+    distinct and versatile. iOS applies its own squircle mask.
+  -->
+
+  <!-- Cream background with slight inner border feel -->
+  <rect width="180" height="180" fill="#faf4ef"/>
+
+  <!--
+    Dot-grid texture, matching the site's background pattern.
+    Subtle, adds depth without distracting.
+  -->
+  <defs>
+    <pattern id="atc-dots" x="0" y="0" width="18" height="18" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="rgba(26,18,5,0.09)"/>
+    </pattern>
+  </defs>
+  <rect width="180" height="180" fill="url(#atc-dots)"/>
+
+  <!--
+    Large sparkle mark, centered. Outer radius 62, inner radius 13.4.
+    Same concave-arm bezier construction as favicon, scaled 4.77×.
+    Center: (90, 90).
+  -->
+  <path
+    d="M90,28 Q93.2,50 96.2,56.8 Q115.2,63 152,90 Q115.2,117 96.2,123.2 Q93.2,130 90,152 Q86.8,130 83.8,123.2 Q64.8,117 28,90 Q64.8,63 83.8,56.8 Q86.8,50 90,28Z"
+    fill="#1a1205"
+  />
+
+  <!-- Thin rule below — adds polish -->
+  <rect x="0" y="168" width="180" height="12" fill="#1a1205"/>
+
+  <!-- "SPIKER GAMES" label in the rule -->
+  <text
+    x="90"
+    y="179"
+    text-anchor="middle"
+    font-family="'DM Sans', system-ui, sans-serif"
+    font-weight="700"
+    font-size="9"
+    fill="#faf4ef"
+    letter-spacing="2.5"
+  >SPIKER GAMES</text>
+</svg>

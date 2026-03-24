@@ -5,7 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Spiker Games — Daily Puzzles</title>
   <meta name="description" content="Daily puzzle games crafted for curious minds. Play Marquee and more.">
-  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='faviconV2.ico') }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ url_for('static', filename='faviconV2.ico') }}" sizes="any">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.svg') }}">
+  <meta property="og:site_name" content="Spiker Games">
+  <meta property="og:title" content="Spiker Games — Daily Puzzles">
+  <meta property="og:description" content="Daily puzzle games crafted for curious minds. Play Marquee and more.">
+  <meta property="og:image" content="{{ request.host_url }}static/og-image.svg">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,900;1,9..144,900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">

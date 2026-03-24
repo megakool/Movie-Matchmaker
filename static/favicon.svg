@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Warm dark background — uses the site's text color, not generic black -->
+  <rect width="32" height="32" rx="7" fill="#1a1205"/>
+
+  <!--
+    4-pointed sparkle mark. Arms have slightly concave sides (quadratic bezier)
+    so it reads as designed rather than mechanical. Directly references "Spiker"
+    (spike → spark). Outer radius 13, inner radius 2.83, center (16,16).
+  -->
+  <path
+    d="M16,3 Q16.7,10.5 18,14 Q21.5,15.25 29,16 Q21.5,16.75 18,18 Q16.7,21.5 16,29 Q15.3,21.5 14,18 Q10.5,16.75 3,16 Q10.5,15.25 14,14 Q15.3,10.5 16,3Z"
+    fill="#faf4ef"
+  />
+</svg>

@@ -5,7 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Marquee{% endblock %} — Spiker Games</title>
   <meta name="description" content="Group 16 movies into 4 hidden categories. A new puzzle every day.">
-  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='faviconV2.ico') }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ url_for('static', filename='faviconV2.ico') }}" sizes="any">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.svg') }}">
+  <meta property="og:site_name" content="Spiker Games">
+  <meta property="og:title" content="{% block og_title %}Marquee — Spiker Games{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Group 16 movies into 4 hidden categories. A new puzzle every day.{% endblock %}">
+  <meta property="og:image" content="{{ request.host_url }}static/og-image.svg">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   {% block head %}{% endblock %}
 </head>

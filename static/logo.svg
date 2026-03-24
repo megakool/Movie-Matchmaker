@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 318 52" role="img" aria-label="Spiker Games">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,900&amp;display=swap');
+    </style>
+  </defs>
+
+  <!--
+    Mark: sparkle in a bordered stamp — classic neobrutalist treatment.
+    44×44 container, 3px border, 3px offset shadow, rounded 8px.
+  -->
+  <!-- Shadow layer -->
+  <rect x="5" y="7" width="40" height="40" rx="8" fill="#111111"/>
+  <!-- Border frame -->
+  <rect x="2" y="4" width="40" height="40" rx="8" fill="#111111"/>
+  <!-- Inner face -->
+  <rect x="3.25" y="5.25" width="37.5" height="37.5" rx="6.5" fill="#1a1205"/>
+
+  <!-- Sparkle mark, centered in the stamp (~22,24), scaled ~0.6× of favicon -->
+  <path
+    d="M22,11 Q22.42,17.3 23.2,18.6 Q26.3,19.55 31,20 Q26.3,20.45 23.2,21.4 Q22.42,22.7 22,29 Q21.58,22.7 20.8,21.4 Q17.7,20.45 13,20 Q17.7,19.55 20.8,18.6 Q21.58,17.3 22,11Z"
+    fill="#faf4ef"
+  />
+
+  <!-- Wordmark — Fraunces 900 italic, site text color -->
+  <text
+    x="54"
+    y="35"
+    font-family="'Fraunces', Georgia, 'Times New Roman', serif"
+    font-weight="900"
+    font-style="italic"
+    font-size="34"
+    fill="#1a1205"
+    letter-spacing="-0.8"
+  >Spiker Games</text>
+</svg>

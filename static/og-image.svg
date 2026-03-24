@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,900&amp;display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&amp;display=swap');
+    </style>
+    <!-- Dot-grid matches the site body texture exactly -->
+    <pattern id="og-dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1.2" fill="rgba(26,18,5,0.07)"/>
+    </pattern>
+  </defs>
+
+  <!-- ── Background ──────────────────────────────────────────── -->
+  <rect width="1200" height="630" fill="#faf4ef"/>
+  <rect width="1200" height="630" fill="url(#og-dots)"/>
+
+  <!--
+    Heavy left bar — neobrutalist accent, anchors the composition
+    and mirrors the site's header border treatment.
+  -->
+  <rect x="0" y="0" width="12" height="630" fill="#1a1205"/>
+
+  <!-- Top + bottom border bars -->
+  <rect x="0" y="0" width="1200" height="10" fill="#1a1205"/>
+  <rect x="0" y="620" width="1200" height="10" fill="#1a1205"/>
+
+  <!--
+    ── Oversized sparkle mark — right side, large, partially cropped ──
+    Acts as a graphic element / wallpaper rather than a centered icon.
+    This is the editorial choice: the mark is HUGE and off-center, letting
+    the type be the hero.
+    Center (940, 315), outer radius 260, inner radius 55.
+  -->
+  <path
+    d="M940,55 Q953,186 966,214 Q1066,248 1200,315 Q1066,382 966,416 Q953,444 940,575 Q927,444 914,416 Q814,382 680,315 Q814,248 914,214 Q927,186 940,55Z"
+    fill="rgba(26,18,5,0.06)"
+  />
+  <!-- Second, smaller sparkle, slightly offset — adds layering / depth -->
+  <path
+    d="M940,140 Q948.5,228 956,246 Q1016,268 1110,315 Q1016,362 956,384 Q948.5,402 940,490 Q931.5,402 924,384 Q864,362 770,315 Q864,268 924,246 Q931.5,228 940,140Z"
+    fill="rgba(26,18,5,0.08)"
+  />
+
+  <!-- ── Text content — left-anchored ──────────────────────────── -->
+
+  <!-- Eyebrow — uppercase tracked label -->
+  <text
+    x="80"
+    y="204"
+    font-family="'DM Sans', system-ui, sans-serif"
+    font-weight="700"
+    font-size="15"
+    fill="#736050"
+    letter-spacing="5"
+  >DAILY PUZZLE GAMES</text>
+
+  <!-- Main wordmark — the hero -->
+  <text
+    x="74"
+    y="340"
+    font-family="'Fraunces', Georgia, 'Times New Roman', serif"
+    font-weight="900"
+    font-style="italic"
+    font-size="116"
+    fill="#1a1205"
+    letter-spacing="-4"
+  >Spiker Games</text>
+
+  <!-- Tagline -->
+  <text
+    x="80"
+    y="390"
+    font-family="'DM Sans', system-ui, sans-serif"
+    font-weight="400"
+    font-size="22"
+    fill="#6b5c4e"
+  >A new puzzle, every single day.</text>
+
+  <!--
+    ── Game pills ───────────────────────────────────────────────
+    Filled dark pills for live games, ghost pill for "coming soon"
+  -->
+  <g transform="translate(80, 428)">
+    <!-- Marquee pill -->
+    <rect width="134" height="36" rx="18" fill="#1a1205"/>
+    <text x="67" y="23.5" text-anchor="middle"
+      font-family="'DM Sans', system-ui, sans-serif"
+      font-weight="700" font-size="13" fill="#faf4ef" letter-spacing="0.3">Marquee</text>
+
+    <!-- Trivia pill -->
+    <rect x="150" width="110" height="36" rx="18" fill="#1a1205"/>
+    <text x="205" y="23.5" text-anchor="middle"
+      font-family="'DM Sans', system-ui, sans-serif"
+      font-weight="700" font-size="13" fill="#faf4ef" letter-spacing="0.3">Trivia</text>
+
+    <!-- Coming soon ghost pill -->
+    <rect x="276" width="160" height="36" rx="18" fill="none"
+      stroke="#1a1205" stroke-width="2" stroke-dasharray="4 3" opacity="0.35"/>
+    <text x="356" y="23.5" text-anchor="middle"
+      font-family="'DM Sans', system-ui, sans-serif"
+      font-weight="600" font-size="12" fill="#736050" letter-spacing="0.5">More coming soon</text>
+  </g>
+
+  <!--
+    ── Small sparkle mark — bottom left corner as a brand stamp ──
+    Gives the card a finished, branded quality.
+  -->
+  <path
+    d="M64,552 Q64.9,562 65.7,563.6 Q69.5,565 76,568 Q69.5,571 65.7,572.4 Q64.9,574 64,584 Q63.1,574 62.3,572.4 Q58.5,571 52,568 Q58.5,565 62.3,563.6 Q63.1,562 64,552Z"
+    fill="#1a1205" opacity="0.5"
+  />
+</svg>

@@ -92,8 +92,8 @@ function fitTileText() {
     ? tileW - 16
     : (tiles[0].offsetHeight || tileW) - 22;
   const LINE_H = isMobile ? 1.2 : 1.3;
-  const loFont = isMobile ? 5.5 : 8;
-  const hiFont = isMobile ? 12 : 18;
+  const loFont = isMobile ? 5.5 : 9;
+  const hiFont = isMobile ? 12 : 13.5;
 
   tiles.forEach(tile => {
     const words = tile.textContent.trim().split(/\s+/);
