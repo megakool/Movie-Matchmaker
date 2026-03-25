@@ -25386,9 +25386,13 @@
       "oscar_categories": [
         "Best Supporting Actress"
       ],
-      "genres": [],
-      "runtime": 0,
-      "tagline": "",
+      "genres": [
+        "Drama",
+        "Romance",
+        "Crime"
+      ],
+      "runtime": 156,
+      "tagline": "A city divided. Their love will challenge everything.",
       "cast": [
         "Ansel Elgort",
         "Rachel Zegler",

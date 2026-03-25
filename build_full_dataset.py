@@ -14,7 +14,7 @@ from pathlib import Path
 BASE_DIR  = Path(__file__).parent
 ROOT_DIR  = BASE_DIR.parent
 CURATED   = BASE_DIR / "movies.json"
-FULL_CSV  = ROOT_DIR / "dualrank_ALL_selected_with_oscars.csv"
+FULL_CSV  = ROOT_DIR / "source-data" / "movies" / "dualrank_ALL_selected_with_oscars.csv"
 OUTPUT    = BASE_DIR / "movies_full.json"
 
 
@@ -24,7 +24,7 @@ def parse_directors(val):
     return [d.strip() for d in val.split(",") if d.strip()]
 
 
-def parse_actors(val):
+def parse_list(val):
     if not val:
         return []
     return [a.strip() for a in val.split(",") if a.strip()]
@@ -78,7 +78,16 @@ def main():
                 vote_avg = 0.0
 
             directors = parse_directors(row.get("directors", ""))
-            actors    = parse_actors(row.get("cast_top5", ""))
+            actors    = parse_list(row.get("cast_top5", ""))
+
+            try:
+                tier = int(row.get("tier", 2) or 2)
+            except (ValueError, TypeError):
+                tier = 2
+            keywords = parse_list(row.get("keywords", ""))
+            genres   = parse_list(row.get("genres", ""))
+            writers  = parse_list(row.get("writers", ""))
+            cast     = parse_list(row.get("cast", "") or row.get("cast_top5", ""))
 
             movie = {
                 "id":               next_id,
@@ -87,10 +96,15 @@ def main():
                 "year":             year,
                 "directors":        directors,
                 "actors":           actors,
+                "cast":             cast,
+                "writers":          writers,
+                "genres":           genres,
                 "poster_url":       row.get("poster_url", "").strip(),
                 "vote_average":     vote_avg,
                 "oscar_wins":       oscar_wins,
                 "oscar_categories": oscar_categories,
+                "tier":             tier,
+                "keywords":         keywords,
             }
             next_id += 1
 

@@ -103,8 +103,8 @@ def enrich_file(filepath: Path, api_key: str):
     total  = len(movies)
 
     for i, movie in enumerate(movies, 1):
-        # Skip if already enriched (has genres key)
-        if "genres" in movie and "writers" in movie:
+        # Skip if already enriched (has non-empty genres and writers)
+        if movie.get("genres") and movie.get("writers"):
             if i % 100 == 0:
                 print(f"  [{i}/{total}] already enriched, skipping...")
             continue
