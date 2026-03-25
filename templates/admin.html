@@ -437,6 +437,32 @@
 .toggle-btn.active { background: #111; color: #fff; border-color: #111; }
 .toggle-btn:hover:not(.active) { background: #f0ebe5; border-color: #999; }
 
+/* ── AI Suggest ─────────────────────────────────────────────────── */
+.suggest-input-row  { display: flex; gap: 8px; margin-bottom: 6px; }
+.suggest-input      { flex: 1; padding: 9px 12px; font-size: 14px; font-family: inherit;
+                      border: var(--bw) solid var(--border); border-radius: 8px;
+                      background: var(--bg); }
+.suggest-input:focus { outline: none; border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,.08); }
+.suggest-hint       { font-size: 11px; opacity: 0.45; margin: 0 0 14px; }
+.suggest-picks      { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.suggest-card       { background: #f8f4f0; border: 1.5px solid #ddd; border-radius: 10px;
+                      padding: 12px 14px; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.suggest-card:hover { border-color: #999; }
+.suggest-card.selected { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,.15); background: #fffbea; }
+.suggest-card.strong { border-left: 4px solid #f9df6d; }
+.suggest-card.strong.selected { border-left: 4px solid #111; }
+.suggest-card__hd   { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.suggest-card__title { font-size: 14px; font-weight: 700; flex: 1; }
+.suggest-card__year  { font-size: 12px; opacity: 0.5; }
+.suggest-card__dir   { font-size: 11px; opacity: 0.5; margin-bottom: 6px; }
+.suggest-card__reasoning { font-size: 12px; color: var(--text2); font-style: italic; line-height: 1.5; }
+.strength-badge     { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+                      padding: 2px 7px; border-radius: 8px; flex-shrink: 0; }
+.strength-badge--strong { background: #fff3c4; color: #7a5c00; }
+.strength-badge--good   { background: #f0ebe5; color: #666; }
+.suggest-footer     { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.suggest-count      { font-size: 13px; font-weight: 700; flex: 1; }
+
 /* ── Random Discovery ───────────────────────────────────────────── */
 .random-pick-grid {
   display: grid;
@@ -1020,6 +1046,22 @@
       <!-- ── AI sub-panel ── -->
       <div class="sub-panel" id="sub-ai">
         <div class="ai-wrap">
+
+          <!-- ── Movie Suggest ── -->
+          <div class="ai-section">
+            <h3>✦ Movie Search</h3>
+            <p class="ai-desc">Describe a category concept and Claude will find the best matching movies from the full database. Pick 4 to build your category.</p>
+            <div class="suggest-input-row">
+              <input type="text" id="suggest-prompt" class="suggest-input"
+                     placeholder='e.g. "movies where the protagonist fakes their own death"'
+                     maxlength="200" autocomplete="off">
+              <button class="btn btn--primary" id="btn-ai-suggest">Search ▶</button>
+            </div>
+            <p class="suggest-hint">Be specific — plot details, themes, facts, or shared traits all work.</p>
+            <div id="suggest-results"></div>
+          </div>
+
+          <!-- ── Category Workshop ── -->
           <div class="ai-section">
             <h3>✦ Category Workshop</h3>
             <p class="ai-desc">Generate 8 standalone category ideas to cherry-pick from. Toggle which connection types you want Claude to explore.</p>
@@ -1033,6 +1075,7 @@
             <button class="btn btn--primary" id="btn-ai-workshop">Generate 8 Categories ▶</button>
             <div id="ai-workshop-results" class="ai-results"></div>
           </div>
+
         </div>
       </div>
 

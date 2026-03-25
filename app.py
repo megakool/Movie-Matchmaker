@@ -4,6 +4,7 @@ Flask app serving the public game, /create page, and admin tools.
 
 import json
 import os
+import re
 import random
 import hashlib
 import uuid
@@ -852,6 +853,115 @@ def _call_claude(system: str, user: str, max_tokens: int = 1024) -> str | None:
     except Exception as e:
         print(f"Claude API error: {e}")
         return None
+
+@app.post("/admin/ai/suggest")
+@admin_required
+def admin_ai_suggest():
+    """Mode 2: Movie Suggest — given a category concept, find the best matching movies."""
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 503
+
+    data        = request.get_json(force=True)
+    prompt      = (data.get("prompt") or "").strip()[:200]
+    exclude_ids = set(data.get("exclude_ids", []))
+
+    if not prompt:
+        return jsonify({"error": "prompt required"}), 400
+
+    # Load full movie list
+    if MOVIES_FULL_PATH.exists():
+        with open(MOVIES_FULL_PATH, "r", encoding="utf-8") as f:
+            full_movies = json.load(f)["movies"]
+    else:
+        full_movies = get_movies()
+
+    pool = [m for m in full_movies if m["id"] not in exclude_ids]
+
+    # Pre-filter: score each movie by how many prompt tokens appear in its metadata
+    prompt_tokens = set(re.sub(r"[^a-z0-9 ]", " ", prompt.lower()).split())
+
+    def score_movie(m):
+        blob = " ".join([
+            m.get("title", ""),
+            str(m.get("year", "")),
+            " ".join(m.get("directors", [])),
+            " ".join(m.get("actors", [])[:5]),
+            " ".join(m.get("genres", [])),
+            " ".join(m.get("keywords", [])[:10]) if isinstance(m.get("keywords"), list)
+                else str(m.get("keywords", "")),
+            " ".join(m.get("oscar_categories", [])),
+        ]).lower()
+        return sum(1 for t in prompt_tokens if len(t) > 2 and t in blob)
+
+    scored = sorted(pool, key=score_movie, reverse=True)
+    # Take top 120 keyword-matched + 30 stratified tier-1 for broad coverage
+    top_matched = scored[:120]
+    tier1 = [m for m in pool if m.get("tier") == 1 and m not in top_matched]
+    candidates = top_matched + random.sample(tier1, min(30, len(tier1)))
+
+    # Build compact metadata block for Claude
+    movies_by_id    = {m["id"]: m for m in full_movies}
+    movies_by_title = {m["title"].lower(): m for m in full_movies}
+
+    def movie_line(m):
+        dirs  = ", ".join(m.get("directors", []))
+        acts  = ", ".join((m.get("actors") or m.get("cast", []))[:3])
+        genres = ", ".join(m.get("genres", []))
+        kws   = m.get("keywords", [])
+        kw_str = ", ".join(kws[:6]) if isinstance(kws, list) else str(kws)[:60]
+        oscars = "; ".join(m.get("oscar_categories", []))
+        return (f'"{m["title"]}" ({m["year"]}) | dir: {dirs} | cast: {acts} '
+                f'| genres: {genres} | keywords: {kw_str}'
+                + (f' | oscars: {oscars}' if oscars else ''))
+
+    movies_block = "\n".join(movie_line(m) for m in candidates)
+
+    raw = _call_claude(
+        "You are an expert puzzle designer for Marquee, a daily movie connections game. "
+        "You have deep knowledge of film history, plots, production facts, and thematic connections.",
+        f'The puzzle designer wants to build a category around this concept:\n"{prompt}"\n\n'
+        f"From the movies listed below, identify the 8–10 BEST matches for this concept.\n"
+        f"For each pick, explain WHY it fits and rate its strength:\n"
+        f'- "strong": a perfect, unambiguous fit\n'
+        f'- "good": fits well but with a caveat or minor stretch\n\n'
+        f"Movies:\n{movies_block}\n\n"
+        f"Rules:\n"
+        f"- Only pick movies from the provided list\n"
+        f"- Prioritise the strongest fits; don't pad with weak matches\n"
+        f"- Be specific in your reasoning (reference plot details, facts, or themes)\n\n"
+        'Respond ONLY with valid JSON:\n'
+        '{"picks": [\n'
+        '  {"title": "Exact Title", "year": 2001, "reasoning": "Specific reason this fits", "strength": "strong"}\n'
+        ']}',
+        max_tokens=3000,
+    )
+
+    if not raw:
+        return jsonify({"error": "AI unavailable"}), 503
+
+    try:
+        picks_raw = json.loads(_extract_json(raw)).get("picks", [])
+        out = []
+        for p in picks_raw:
+            ids = _match_titles_to_ids([p.get("title", "")], movies_by_title)
+            if not ids:
+                continue
+            mid = ids[0]
+            m   = movies_by_id.get(mid)
+            if not m:
+                continue
+            out.append({
+                "id":        mid,
+                "title":     m["title"],
+                "year":      m.get("year", ""),
+                "directors": m.get("directors", []),
+                "reasoning": p.get("reasoning", ""),
+                "strength":  p.get("strength", "good"),
+            })
+        return jsonify({"picks": out})
+    except (json.JSONDecodeError, KeyError) as e:
+        return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
+
 
 @app.post("/admin/ai/workshop")
 @admin_required

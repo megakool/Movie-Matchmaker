@@ -1254,7 +1254,16 @@ function bindDatasetEvents() {
 // AI ASSISTANT
 // ══════════════════════════════════════════════════════════════════
 
+// ── Movie Suggest state ───────────────────────────────────────────
+let suggestPicks    = [];   // all picks returned by AI [{id,title,year,directors,reasoning,strength}]
+let suggestSelected = new Set(); // ids user has clicked
+
 function bindAIEvents() {
+  document.getElementById('btn-ai-suggest').addEventListener('click', onAISuggest);
+  document.getElementById('suggest-prompt').addEventListener('keydown', e => {
+    if (e.key === 'Enter') onAISuggest();
+  });
+
   document.getElementById('btn-ai-workshop').addEventListener('click', onAIWorkshop);
 
   // Connection-type toggle buttons
@@ -1271,6 +1280,168 @@ function getExcludeIds() {
 function getActiveConnectionTypes() {
   return [...document.querySelectorAll('#workshop-toggles .toggle-btn.active')]
     .map(b => b.dataset.type);
+}
+
+
+// ── Mode 2: Movie Suggest ─────────────────────────────────────────
+
+async function onAISuggest() {
+  const prompt   = document.getElementById('suggest-prompt').value.trim();
+  const $results = document.getElementById('suggest-results');
+  const btn      = document.getElementById('btn-ai-suggest');
+  if (!prompt) return;
+
+  suggestPicks    = [];
+  suggestSelected = new Set();
+  btn.disabled    = true;
+  $results.innerHTML = '<div class="ai-spinner">✦ Searching movies… this may take a moment.</div>';
+
+  try {
+    const res  = await fetch('/admin/ai/suggest', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, exclude_ids: getExcludeIds() }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      $results.innerHTML = `<div style="color:#cc2200;font-size:13px;">Error: ${escHtml(data.error)}</div>`;
+      return;
+    }
+    suggestPicks = data.picks || [];
+    if (!suggestPicks.length) {
+      $results.innerHTML = '<div style="font-size:13px;opacity:0.5;">No matches found — try a different description.</div>';
+      return;
+    }
+    renderSuggestResults();
+  } catch (e) {
+    $results.innerHTML = '<div style="color:#cc2200;font-size:13px;">Request failed.</div>';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderSuggestResults() {
+  const $results = document.getElementById('suggest-results');
+  $results.innerHTML = '';
+
+  const list = document.createElement('div');
+  list.className = 'suggest-picks';
+  suggestPicks.forEach(pick => list.appendChild(renderSuggestCard(pick)));
+  $results.appendChild(list);
+
+  // Footer: count + action buttons
+  const footer = document.createElement('div');
+  footer.className = 'suggest-footer';
+  footer.id = 'suggest-footer';
+  renderSuggestFooter(footer);
+  $results.appendChild(footer);
+}
+
+function renderSuggestCard(pick) {
+  const card = document.createElement('div');
+  card.className = `suggest-card${pick.strength === 'strong' ? ' strong' : ''}`;
+  if (suggestSelected.has(pick.id)) card.classList.add('selected');
+  card.dataset.id = pick.id;
+
+  // Header row
+  const hd = document.createElement('div');
+  hd.className = 'suggest-card__hd';
+
+  const title = document.createElement('div');
+  title.className   = 'suggest-card__title';
+  title.textContent = pick.title;
+  hd.appendChild(title);
+
+  const year = document.createElement('div');
+  year.className   = 'suggest-card__year';
+  year.textContent = pick.year;
+  hd.appendChild(year);
+
+  const badge = document.createElement('span');
+  badge.className   = `strength-badge strength-badge--${pick.strength === 'strong' ? 'strong' : 'good'}`;
+  badge.textContent = pick.strength === 'strong' ? '★ Strong' : 'Good';
+  hd.appendChild(badge);
+
+  card.appendChild(hd);
+
+  // Directors
+  if (pick.directors && pick.directors.length) {
+    const dir = document.createElement('div');
+    dir.className   = 'suggest-card__dir';
+    dir.textContent = 'Dir. ' + pick.directors.join(', ');
+    card.appendChild(dir);
+  }
+
+  // Reasoning
+  if (pick.reasoning) {
+    const reason = document.createElement('div');
+    reason.className   = 'suggest-card__reasoning';
+    reason.textContent = pick.reasoning;
+    card.appendChild(reason);
+  }
+
+  // Toggle selection on click
+  card.addEventListener('click', () => {
+    if (suggestSelected.has(pick.id)) {
+      suggestSelected.delete(pick.id);
+      card.classList.remove('selected');
+    } else {
+      if (suggestSelected.size >= 4) return;
+      suggestSelected.add(pick.id);
+      card.classList.add('selected');
+    }
+    const footer = document.getElementById('suggest-footer');
+    if (footer) renderSuggestFooter(footer);
+  });
+
+  return card;
+}
+
+function renderSuggestFooter(footer) {
+  footer.innerHTML = '';
+  const n = suggestSelected.size;
+
+  const count = document.createElement('span');
+  count.className   = 'suggest-count';
+  count.textContent = n === 0 ? 'Click movies to select (pick 4)'
+                    : n < 4  ? `${n}/4 selected — pick ${4 - n} more`
+                    :          '4 selected ✓';
+  footer.appendChild(count);
+
+  if (n === 4) {
+    // Load into slot buttons
+    slots.forEach((slot, i) => {
+      const btn = document.createElement('button');
+      btn.className   = 'btn btn--ghost btn--sm';
+      btn.textContent = `→ Slot ${i + 1}`;
+      btn.style.borderLeft = `3px solid ${COLOR_HEX[slot.color]}`;
+      btn.addEventListener('click', () => {
+        const selected = suggestPicks.filter(p => suggestSelected.has(p.id));
+        slot.movies = selected.map(p => ({ id: p.id, title: p.title, year: p.year || '' }));
+        activeSlot = i;
+        renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
+      });
+      footer.appendChild(btn);
+    });
+
+    // Save to library
+    const saveBtn = document.createElement('button');
+    saveBtn.className   = 'btn btn--ghost btn--sm';
+    saveBtn.textContent = '+ Library';
+    saveBtn.addEventListener('click', async () => {
+      const prompt    = document.getElementById('suggest-prompt').value.trim();
+      const selected  = suggestPicks.filter(p => suggestSelected.has(p.id));
+      const movieIds  = selected.map(p => p.id);
+      const titles    = selected.map(p => p.title);
+      saveBtn.disabled = true;
+      await fetch('/admin/categories', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: prompt, movie_ids: movieIds, movie_titles: titles, source: 'ai' }),
+      });
+      saveBtn.textContent = '✓ Saved';
+      loadCategoryLibrary();
+    });
+    footer.appendChild(saveBtn);
+  }
 }
 
 
