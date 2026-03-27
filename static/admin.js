@@ -10,10 +10,26 @@ const COLOR_HEX   = { yellow: '#f9df6d', green: '#6abf69', blue: '#6ab0d4', purp
 const COLOR_TEXT  = { yellow: '#7a5c00', green: '#1a4d19', blue: '#0f3d5a', purple: '#3d1460' };
 
 // ── Builder State ──────────────────────────────────────────────────
-let allMovies     = [];
-let builderQuery  = '';
-let activeSlot    = 0;
+let allMovies      = [];
+let builderQuery   = '';   // legacy — kept for category search compatibility
+let activeSlot     = 0;
 let currentDraftId = null;
+
+// ── Builder Library State ──────────────────────────────────────────
+let builderLibQuery    = '';
+let builderLibSource   = 'all';   // 'all' | 'manual' | 'ai' | 'submission'
+let builderLibHideUsed = true;
+let builderLibSort     = 'az';
+let _draggingCatId     = null;
+let editingCatId       = null;   // id of card in edit mode, or null
+let _editDraft         = null;   // shallow copy of cat being edited; movie_ids/titles mutated live
+
+// ── Published Calendar State ───────────────────────────────────────
+let pubCalYear        = new Date().getFullYear();
+let pubCalMonth       = new Date().getMonth();
+let pubExpandedDate   = null;
+let pubPuzzleDates    = {};   // { "2025-03-15": { num: 42, future: false } }
+let pubCalInitialized = false;
 
 const slots = COLOR_ORDER.map((color, i) => ({
   color, difficulty: i + 1, title: '', movies: [],
@@ -24,6 +40,13 @@ let catBrowseSelected    = [];   // [{id, title, year}] — max 4
 let savedCategories      = [];
 let catLibraryQuery      = '';
 let catLibraryHideUsed   = true;
+let catLibrarySort       = 'az';
+let catLibraryFilterDiff = null;   // null = all; 1–4 = specific tier
+let catLibraryFilterType = '';     // '' = all; string = connection_type value
+
+// ── Tier Filter State ──────────────────────────────────────────────
+let randomTiers = [1];   // tiers included in random generator pool
+let aiTiers     = [1];   // tiers included in AI feature pool
 
 // ── Connections State ──────────────────────────────────────────────
 let connectionsData      = [];   // raw from /admin/connections
@@ -62,9 +85,9 @@ async function init() {
   document.getElementById('trivia-pub-date').value = new Date().toISOString().slice(0, 10);
   bindNav();
   bindBuilderEvents();
-  bindDatasetEvents();
   bindAIEvents();
   bindCategoriesEvents();
+  _bindModalEvents();
   bindCatSearchEvents();
   bindSubTabs();
   bindRandomDiscoveryEvents();
@@ -73,9 +96,13 @@ async function init() {
   bindTriviaEvents();
   bindTriviaPuzzleBuilderEvents();
   bindTriviaPublishedEvents();
-  await initDataset();
+  await loadSettings();
   await loadMovies();
   pickRandomMovies();
+  renderSlots();
+  renderPreview();
+  // Eagerly load category library so builder left pane is ready
+  loadCategoryLibrary();
 }
 
 function switchToGame(game) {
@@ -84,21 +111,17 @@ function switchToGame(game) {
   const navTrivia  = document.getElementById('nav-trivia');
   const pillMarquee = document.getElementById('pill-marquee');
   const pillTrivia  = document.getElementById('pill-trivia');
-  const movieDatasetCard = document.getElementById('settings-movie-dataset');
-
   if (game === 'marquee') {
     navMarquee.style.display = '';
     navTrivia.style.display  = 'none';
     pillMarquee.classList.remove('game-pill--inactive');
     pillTrivia.classList.add('game-pill--inactive');
-    if (movieDatasetCard) movieDatasetCard.style.display = '';
     switchToPanel('builder');
   } else {
     navMarquee.style.display = 'none';
     navTrivia.style.display  = '';
     pillTrivia.classList.remove('game-pill--inactive');
     pillMarquee.classList.add('game-pill--inactive');
-    if (movieDatasetCard) movieDatasetCard.style.display = 'none';
     switchToPanel('trivia-builder');
     loadTriviaData();
   }
@@ -111,11 +134,6 @@ function switchToGame(game) {
 async function loadMovies() {
   const res = await fetch('/admin/movies');
   allMovies = await res.json();
-  document.getElementById('pool-count').textContent = `${allMovies.length} movies`;
-  renderPool();
-  renderSlotSelector();
-  renderSlots();
-  renderPreview();
 }
 
 /* ── Movie pool ── */
@@ -176,7 +194,8 @@ function renderSlots() {
   slots.forEach((slot, si) => {
     const isActive = si === activeSlot;
     const div = document.createElement('div');
-    div.className = 'cat-slot' + (isActive ? ' active-target' : '');
+    div.className = `cat-slot cat-slot--${slot.color}` + (isActive ? ' active-target' : '');
+    div.dataset.slotIndex = si;
 
     const movieChips = slot.movies.map((m, mi) => `
       <div class="cat-movie-chip">
@@ -185,24 +204,22 @@ function renderSlots() {
       </div>`).join('');
 
     const moviesContent = slot.movies.length === 0
-      ? '<span class="cat-empty">Click header to activate, then pick movies from pool</span>'
+      ? '<span class="cat-slot__placeholder-empty">Drag a category here</span>'
       : movieChips + (slot.movies.length < 4
           ? `<span style="font-size:12px;opacity:0.4;align-self:center;">${slot.movies.length}/4</span>`
           : '');
 
     div.innerHTML = `
       <div class="cat-slot__header" data-slot="${si}">
+        <span class="slot-drag-handle" draggable="true" data-slot="${si}" title="Drag to reorder">⠿</span>
         <div class="cat-dot" style="background:${COLOR_HEX[slot.color]};border:2.5px solid #333;"></div>
         <input class="cat-slot__title" type="text" maxlength="80"
                placeholder="Category name…" value="${escHtml(slot.title)}" data-slot="${si}">
         <span class="cat-difficulty">${DIFF_LABELS[si]}</span>
         <div class="cat-slot__actions">
-          <button class="slot-reorder-btn" data-slot="${si}" data-dir="up"
-                  ${si === 0 ? 'disabled' : ''} title="Move up">↑</button>
-          <button class="slot-reorder-btn" data-slot="${si}" data-dir="down"
-                  ${si === slots.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
-          <button class="btn btn--ghost btn--sm from-lib-btn" data-slot="${si}"
-                  style="font-size:11px;padding:3px 8px;">Library ▾</button>
+          <button class="slot-clear-btn" data-slot="${si}"
+                  ${!slot.title && slot.movies.length === 0 ? 'disabled' : ''}
+                  title="Clear slot">✕</button>
         </div>
       </div>
       <div class="cat-slot__movies">${moviesContent}</div>`;
@@ -211,7 +228,6 @@ function renderSlots() {
     div.querySelector('.cat-slot__header').addEventListener('click', e => {
       if (e.target.tagName === 'INPUT' || e.target.closest('button')) return;
       activeSlot = si;
-      renderSlotSelector();
       renderSlots();
     });
 
@@ -226,7 +242,6 @@ function renderSlots() {
     });
     input.addEventListener('focus', e => {
       activeSlot = +e.target.dataset.slot;
-      renderSlotSelector();
     });
   });
 
@@ -235,31 +250,24 @@ function renderSlots() {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       slots[+e.target.dataset.slot].movies.splice(+e.target.dataset.movie, 1);
-      renderSlots(); renderPool(); renderPreview();
+      renderSlots(); renderBuilderLibrary(); renderPreview();
     });
   });
 
-  // Reorder
-  $area.querySelectorAll('.slot-reorder-btn').forEach(btn => {
+  // Clear slot
+  $area.querySelectorAll('.slot-clear-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      const si       = +e.target.dataset.slot;
-      const swapWith = e.target.dataset.dir === 'up' ? si - 1 : si + 1;
-      [slots[si].title,  slots[swapWith].title]  = [slots[swapWith].title,  slots[si].title];
-      [slots[si].movies, slots[swapWith].movies]  = [slots[swapWith].movies, slots[si].movies];
-      if      (activeSlot === si)       activeSlot = swapWith;
-      else if (activeSlot === swapWith) activeSlot = si;
-      renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
+      const si = +e.target.dataset.slot;
+      slots[si].title  = '';
+      slots[si].movies = [];
+      renderSlots(); renderBuilderLibrary(); renderPreview();
     });
   });
 
-  // From Library
-  $area.querySelectorAll('.from-lib-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      showLibraryOverlay(+e.target.dataset.slot, btn);
-    });
-  });
+  // Bind library→slot drag-and-drop and init SortableJS slot reorder
+  bindBuilderDragAndDrop();
+  initSortableSlots();
 }
 
 /* ── Live preview ── */
@@ -369,12 +377,120 @@ function closeLibraryOverlay() {
   if (el) el.remove();
 }
 
+/* ── Builder Library Pane ── */
+function renderBuilderLibrary() {
+  const $list = document.getElementById('builder-lib-list');
+  if (!$list) return;
+
+  const usedTitles = new Set(slots.filter(s => s.title).map(s => s.title));
+  const q = builderLibQuery.toLowerCase();
+
+  let filtered = savedCategories;
+  if (q) filtered = filtered.filter(c =>
+    c.title.toLowerCase().includes(q) ||
+    (c.movie_titles || []).some(t => t.toLowerCase().includes(q))
+  );
+  if (builderLibSource !== 'all') filtered = filtered.filter(c => (c.source || 'manual') === builderLibSource);
+  if (builderLibHideUsed) filtered = filtered.filter(c => !usedTitles.has(c.title));
+
+  if (builderLibSort === 'az') filtered.sort((a, b) => a.title.localeCompare(b.title));
+  else if (builderLibSort === 'recent') filtered.sort((a, b) => (b.id > a.id ? 1 : -1));
+  else if (builderLibSort === 'used') filtered.sort((a, b) => (b.times_used || 0) - (a.times_used || 0));
+
+  const countEl = document.getElementById('builder-lib-count');
+  if (countEl) countEl.textContent = `${filtered.length}`;
+  $list.innerHTML = '';
+
+  if (!filtered.length) {
+    $list.innerHTML = savedCategories.length
+      ? '<div class="loading-state">No categories match.</div>'
+      : '<div class="loading-state">No categories yet. Create some in the Category Library.</div>';
+    bindBuilderDragAndDrop();
+    return;
+  }
+
+  filtered.forEach(cat => {
+    const div = document.createElement('div');
+    div.className = 'blib-card';
+    div.draggable = true;
+    div.dataset.catId = cat.id;
+    if (usedTitles.has(cat.title)) div.classList.add('used');
+    div.innerHTML = `
+      <div class="blib-card__title">${escHtml(cat.title)}</div>
+      <div class="blib-card__movies">${(cat.movie_titles || []).slice(0, 4).map(t => escHtml(t)).join(' · ')}</div>
+      <div class="blib-card__footer">
+        <span class="source-badge source-badge--${cat.source || 'manual'}">${cat.source || 'manual'}</span>
+      </div>`;
+    div.addEventListener('dragstart', e => {
+      _draggingCatId = cat.id;
+      div.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    div.addEventListener('dragend', () => {
+      _draggingCatId = null;
+      div.classList.remove('dragging');
+    });
+    div.addEventListener('click', () => assignCategoryToActiveSlot(cat));
+    $list.appendChild(div);
+  });
+
+  bindBuilderDragAndDrop();
+}
+
+function assignCategoryToActiveSlot(cat) {
+  loadCategoryIntoSlot(cat, activeSlot);
+  // Auto-advance activeSlot to next empty slot
+  const next = slots.findIndex((s, i) => i > activeSlot && !s.title && s.movies.length === 0);
+  if (next !== -1) activeSlot = next;
+}
+
+function bindBuilderDragAndDrop() {
+  document.querySelectorAll('.cat-slot').forEach(el => {
+    el.addEventListener('dragover', e => {
+      e.preventDefault();
+      el.classList.add('drag-over');
+    });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      if (_draggingCatId === null) return;
+      const cat = savedCategories.find(c => c.id === _draggingCatId);
+      if (!cat) return;
+      const slotIdx = parseInt(el.dataset.slotIndex);
+      loadCategoryIntoSlot(cat, slotIdx);
+    });
+  });
+}
+
+function initSortableSlots() {
+  if (window._slotSortable) window._slotSortable.destroy();
+  window._slotSortable = Sortable.create(
+    document.getElementById('categories-area'),
+    {
+      handle: '.slot-drag-handle',
+      animation: 150,
+      onEnd(evt) {
+        const { oldIndex, newIndex } = evt;
+        if (oldIndex === newIndex) return;
+        [slots[oldIndex].title,  slots[newIndex].title]  =
+          [slots[newIndex].title,  slots[oldIndex].title];
+        [slots[oldIndex].movies, slots[newIndex].movies] =
+          [slots[newIndex].movies, slots[oldIndex].movies];
+        if      (activeSlot === oldIndex) activeSlot = newIndex;
+        else if (activeSlot === newIndex) activeSlot = oldIndex;
+        renderSlots(); renderBuilderLibrary(); renderPreview();
+      }
+    }
+  );
+}
+
 function loadCategoryIntoSlot(cat, slotIdx) {
   slots[slotIdx].title  = cat.title;
   slots[slotIdx].movies = (cat.movie_ids || []).map((id, j) => ({
     id, title: cat.movie_titles?.[j] || String(id), year: '',
   }));
-  renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
+  renderSlots(); renderBuilderLibrary(); renderPreview();
 }
 
 /* ── Validation ── */
@@ -391,12 +507,14 @@ function validatePuzzle() {
     if (!s.title.trim()) errors.push(`${COLOR_ORDER[i]} needs a name.`);
     if (s.movies.length !== 4) errors.push(`${COLOR_ORDER[i]} needs 4 movies (has ${s.movies.length}).`);
   });
-  const allIds = slots.flatMap(s => s.movies.map(m => m.id));
-  const seen = new Set(), dups = new Set();
-  allIds.forEach(id => { if (seen.has(id)) dups.add(id); seen.add(id); });
+  const allMovieEntries = slots.flatMap(s => s.movies.map(m => ({ id: m.id, title: m.title })));
+  const seen = new Set(), dups = new Map();
+  allMovieEntries.forEach(({ id, title }) => {
+    if (seen.has(id)) dups.set(id, title);
+    seen.add(id);
+  });
   if (dups.size) {
-    const titles = [...dups].map(id => allMovies.find(m => m.id === id)?.title || id);
-    errors.push(`Duplicate movies: ${titles.join(', ')}`);
+    errors.push(`Duplicate movies: ${[...dups.values()].join(', ')}`);
   }
   if (!document.getElementById('pub-date').value) errors.push('Select a publish date.');
   return errors;
@@ -526,7 +644,7 @@ function applyDraftToBuilder(draft) {
       id, title: cat.movie_titles?.[j] || String(id), year: '',
     }));
   });
-  renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
+  renderSlots(); renderBuilderLibrary(); renderPreview();
   const $msg = document.getElementById('publish-msg');
   $msg.textContent = `Loaded: ${draft.name}`; $msg.className = 'publish-msg ok';
 }
@@ -537,20 +655,49 @@ function onClearBuilder() {
   slots.forEach(s => { s.title = ''; s.movies = []; });
   document.getElementById('pub-note').value = '';
   activeSlot = 0;
-  renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
+  renderSlots(); renderBuilderLibrary(); renderPreview();
   clearValidation();
   document.getElementById('publish-msg').textContent = '';
 }
 
 /* ── Builder events ── */
 function bindBuilderEvents() {
-  document.getElementById('pool-search').addEventListener('input', e => {
-    builderQuery = e.target.value; renderPool();
-  });
   document.getElementById('btn-publish').addEventListener('click', onPublish);
   document.getElementById('btn-save-draft').addEventListener('click', onSaveDraft);
   document.getElementById('btn-load-draft').addEventListener('click', onLoadDraft);
   document.getElementById('btn-clear-builder').addEventListener('click', onClearBuilder);
+
+  // Library pane: search
+  document.getElementById('builder-lib-search').addEventListener('input', e => {
+    builderLibQuery = e.target.value;
+    renderBuilderLibrary();
+  });
+
+  // Library pane: source filter pills
+  document.querySelectorAll('.source-pill[data-source]').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.source-pill[data-source]').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      builderLibSource = pill.dataset.source;
+      renderBuilderLibrary();
+    });
+  });
+
+  // Library pane: hide-used toggle
+  const hideUsedBtn = document.getElementById('builder-lib-hide-used-btn');
+  hideUsedBtn.addEventListener('click', function() {
+    builderLibHideUsed        = !builderLibHideUsed;
+    this.textContent          = builderLibHideUsed ? 'Show All' : 'Hide Used';
+    this.style.background     = builderLibHideUsed ? '#2a2a2a' : '';
+    this.style.color          = builderLibHideUsed ? '#fff' : '';
+    renderBuilderLibrary();
+  });
+
+  // Library pane: sort select
+  document.getElementById('builder-lib-sort').addEventListener('change', e => {
+    builderLibSort = e.target.value;
+    renderBuilderLibrary();
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -561,6 +708,7 @@ async function loadCategoryLibrary() {
   const res   = await fetch('/admin/categories');
   savedCategories = await res.json();
   renderCategoryLibrary();
+  renderBuilderLibrary();
 }
 
 /* ── Connections Index ── */
@@ -572,6 +720,7 @@ async function loadConnections() {
 }
 
 function renderConnectionsIndex() {
+  if (connectionsType === 'keywords') { renderKeywordsBrowser(connectionsQuery); return; }
   const $list = document.getElementById('conn-list');
   const q     = connectionsQuery.toLowerCase();
   const items = connectionsData.filter(c =>
@@ -625,11 +774,12 @@ function renderConnectionMovies() {
   sorted.forEach(m => {
     const alreadySel = catBrowseSelected.some(s => s.id === m.id);
     const inUse      = usedIds.has(m.id);
+    const isTier1    = (m.tier ?? 1) === 1;
     const row        = document.createElement('div');
-    row.className    = 'conn-movie-row' + (inUse ? ' in-use' : '');
+    row.className    = 'conn-movie-row' + (inUse ? ' in-use' : '') + (isTier1 ? ' conn-movie-row--tier1' : '');
     row.innerHTML    = `
       <input type="checkbox" data-id="${m.id}" ${alreadySel ? 'checked' : ''} ${inUse ? 'disabled' : ''}>
-      <span style="flex:1;">${escHtml(m.title)}</span>
+      <span class="conn-movie-title" style="flex:1;">${escHtml(m.title)}</span>
       <span style="font-size:11px;opacity:0.45;">${m.year || ''}</span>`;
     if (!inUse) {
       const cb = row.querySelector('input');
@@ -653,8 +803,7 @@ function updateBrowseActions() {
   const n    = catBrowseSelected.length;
   const name = document.getElementById('cat-lib-name').value.trim();
   document.getElementById('browse-selected-count').textContent = `${n}/4 selected`;
-  document.getElementById('btn-save-to-lib').disabled    = !(n === 4 && name);
-  document.getElementById('btn-load-to-builder').disabled = n === 0;
+  document.getElementById('btn-save-to-lib').disabled = !(n === 4 && name);
 }
 
 async function onSaveToLibrary() {
@@ -665,9 +814,10 @@ async function onSaveToLibrary() {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       title,
-      movie_ids:    catBrowseSelected.map(m => m.id),
-      movie_titles: catBrowseSelected.map(m => m.title),
-      source: 'manual',
+      movie_ids:       catBrowseSelected.map(m => m.id),
+      movie_titles:    catBrowseSelected.map(m => m.title),
+      source:          'manual',
+      connection_type: (document.getElementById('browse-conn-type')?.value || '').trim(),
     }),
   });
   const data = await res.json();
@@ -676,6 +826,8 @@ async function onSaveToLibrary() {
     renderCategoryLibrary();
     catBrowseSelected = [];
     document.getElementById('cat-lib-name').value = '';
+    const ctEl = document.getElementById('browse-conn-type');
+    if (ctEl) ctEl.value = '';
     updateBrowseActions();
     renderConnectionMovies();
     const btn = document.getElementById('btn-save-to-lib');
@@ -684,61 +836,331 @@ async function onSaveToLibrary() {
   }
 }
 
-function onLoadBrowseToBuilder() {
-  if (!catBrowseSelected.length) return;
-  const name = document.getElementById('cat-lib-name').value.trim();
-  slots[activeSlot].movies = [...catBrowseSelected];
-  if (name) slots[activeSlot].title = name;
-  switchToPanel('builder');
-  renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
-}
 
 /* ── Library list ── */
 function renderCategoryLibrary() {
   const $list = document.getElementById('category-library-list');
   const q     = catLibraryQuery.toLowerCase();
-  let shown   = q ? savedCategories.filter(c => c.title.toLowerCase().includes(q)) : savedCategories;
-  if (catLibraryHideUsed) shown = shown.filter(c => !c.times_used || c.times_used === 0);
+
+  // Filter
+  let shown = q ? savedCategories.filter(c => c.title.toLowerCase().includes(q)) : [...savedCategories];
+  if (catLibraryHideUsed)       shown = shown.filter(c => !c.times_used || c.times_used === 0);
+  if (catLibraryFilterDiff !== null) shown = shown.filter(c => c.difficulty === catLibraryFilterDiff);
+  if (catLibraryFilterType)     shown = shown.filter(c => (c.connection_type || '') === catLibraryFilterType);
+
+  // Sort
+  if (catLibrarySort === 'recent') {
+    shown.sort((a, b) => (b.created_at || '') > (a.created_at || '') ? 1 : -1);
+  } else if (catLibrarySort === 'used') {
+    shown.sort((a, b) => (b.times_used || 0) - (a.times_used || 0));
+  } else if (catLibrarySort === 'least') {
+    shown.sort((a, b) => (a.times_used || 0) - (b.times_used || 0));
+  } else if (catLibrarySort === 'diff') {
+    shown.sort((a, b) => (a.difficulty || 5) - (b.difficulty || 5));
+  } else {
+    shown.sort((a, b) => a.title.localeCompare(b.title));
+  }
 
   document.getElementById('lib-count').textContent = `${shown.length} saved`;
+
+  // Refresh connection type filter options
+  const $typeFilter = document.getElementById('lib-filter-type');
+  if ($typeFilter) {
+    const typeSet = new Set(savedCategories.map(c => c.connection_type).filter(Boolean));
+    const currentVal = $typeFilter.value;
+    $typeFilter.innerHTML = '<option value="">All types</option>' +
+      [...typeSet].sort().map(t =>
+        `<option value="${escHtml(t)}"${t === currentVal ? ' selected' : ''}>${escHtml(t)}</option>`
+      ).join('');
+  }
+
   $list.innerHTML = '';
 
   if (!shown.length) {
-    $list.innerHTML = '<p style="opacity:0.5;font-size:13px;">No categories yet. Browse the connections index and save a group.</p>';
+    $list.innerHTML = '<p style="opacity:0.5;font-size:13px;">No categories match the current filters.</p>';
     return;
   }
 
   shown.forEach(cat => {
     const div = document.createElement('div');
+
+    // ── View mode ──
+    const diffIdx   = (cat.difficulty || 0) - 1;
+    const diffColor = diffIdx >= 0 ? COLOR_ORDER[diffIdx] : null;
     div.className = 'cat-library-card';
     div.innerHTML = `
-      <div class="cat-library-card__title">${escHtml(cat.title)}</div>
-      <div class="cat-library-card__movies">${(cat.movie_titles || []).map(t => escHtml(t)).join(' · ')}</div>
-      <div class="cat-library-card__footer">
-        <span class="source-badge source-badge--${cat.source || 'manual'}">${cat.source || 'manual'}</span>
-        ${cat.times_used > 0 ? `<span style="font-size:11px;opacity:0.5;margin-left:4px;">used ${cat.times_used}×</span>` : ''}
-        <button class="btn btn--sm load-lib-btn" data-cat="${cat.id}"
-                style="margin-left:auto;font-size:11px;padding:4px 10px;">→ Builder</button>
-        <button class="btn btn--ghost btn--sm del-lib-btn" data-cat="${cat.id}"
-                style="font-size:11px;padding:4px 10px;color:#cc2200;">Delete</button>
+      <div class="cat-card__header">
+        <div class="cat-library-card__title">${escHtml(cat.title)}</div>
+        ${diffColor ? `<span class="diff-badge diff-badge--${diffColor}">
+          <span class="pick-dot" style="background:${COLOR_HEX[diffColor]};border:1px solid rgba(0,0,0,.15);"></span>
+          ${DIFF_LABELS[diffIdx]}
+        </span>` : ''}
+      </div>
+      ${cat.connection_type ? `<div class="cat-connection-tag">${escHtml(cat.connection_type)}</div>` : ''}
+      <div class="cat-library-card__movies">${(cat.movie_titles||[]).map(t=>escHtml(t)).join(' · ')}</div>
+      <div class="cat-card__footer">
+        <div class="cat-card__meta">
+          <span class="source-badge source-badge--${cat.source||'manual'}">${cat.source||'manual'}</span>
+          ${cat.times_used > 0 ? `<span class="cat-used-count">used ${cat.times_used}×</span>` : ''}
+        </div>
+        <div class="cat-card__actions">
+          <button class="send-to-builder-btn" data-cat="${cat.id}" aria-label="Send to Builder">→ Builder</button>
+          <button class="cat-edit-btn" data-cat="${cat.id}" aria-label="Edit category">Edit</button>
+        </div>
       </div>`;
+
+    // Send to builder — next empty slot
+    div.querySelector('.send-to-builder-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      const c        = savedCategories.find(c => c.id === cat.id);
+      if (!c) return;
+      const emptyIdx = slots.findIndex(s => !s.title && s.movies.length === 0);
+      if (emptyIdx === -1) {
+        const btn  = e.currentTarget;
+        const orig = btn.textContent;
+        btn.textContent = 'No empty slots';
+        btn.disabled    = true;
+        btn.style.color = '#cc2200';
+        setTimeout(() => { btn.textContent = orig; btn.disabled = false; btn.style.color = ''; }, 1800);
+        return;
+      }
+      loadCategoryIntoSlot(c, emptyIdx);
+      // Advance activeSlot to next empty after the one we just filled
+      const next = slots.findIndex((s, i) => i > emptyIdx && !s.title && s.movies.length === 0);
+      activeSlot = next !== -1 ? next : emptyIdx;
+      switchToPanel('builder');
+    });
+
+    // Edit — opens the modal
+    div.querySelector('.cat-edit-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      openCatEditModal(cat);
+    });
+
     $list.appendChild(div);
   });
+}
 
-  $list.querySelectorAll('.load-lib-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const cat = savedCategories.find(c => c.id === btn.dataset.cat);
-      if (cat) { loadCategoryIntoSlot(cat, activeSlot); switchToPanel('builder'); }
+async function suggestAndApplyDifficulty($btn, title, movieTitles, onResult) {
+  const orig = $btn.textContent;
+  $btn.textContent = '…';
+  $btn.disabled    = true;
+  try {
+    const res  = await fetch('/admin/ai/suggest-difficulty', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, movie_titles: movieTitles }),
+    });
+    const data = await res.json();
+    if (data.difficulty) {
+      onResult(data.difficulty);
+      $btn.textContent = '✓';
+      setTimeout(() => { $btn.textContent = orig; $btn.disabled = false; }, 1200);
+    } else {
+      $btn.textContent = '—';
+      setTimeout(() => { $btn.textContent = orig; $btn.disabled = false; }, 1500);
+    }
+  } catch {
+    $btn.textContent = '—';
+    setTimeout(() => { $btn.textContent = orig; $btn.disabled = false; }, 1500);
+  }
+}
+
+// ── Edit Category Modal ────────────────────────────────────────────
+
+function openCatEditModal(cat) {
+  editingCatId = cat.id;
+  _editDraft = { ...cat, movie_ids: [...cat.movie_ids], movie_titles: [...(cat.movie_titles||[])] };
+
+  // Title
+  document.getElementById('modal-cat-title').value = _editDraft.title;
+
+  // Connection type (select — try to match existing value, else leave blank)
+  const ctypeEl = document.getElementById('modal-cat-ctype');
+  ctypeEl.value = _editDraft.connection_type || '';
+  // If value not in select options, add it temporarily
+  if (_editDraft.connection_type && !ctypeEl.value) {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = _editDraft.connection_type;
+    opt.dataset.custom = '1';
+    ctypeEl.insertBefore(opt, ctypeEl.options[1]);
+    ctypeEl.value = _editDraft.connection_type;
+  }
+
+  // Source toggle
+  document.querySelectorAll('#modal-cat-source .source-toggle__btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.val === (_editDraft.source || 'manual'));
+  });
+
+  // Difficulty pills
+  _renderModalDiffPills();
+
+  // Movie chips + search
+  _renderModalChips();
+
+  document.getElementById('cat-edit-modal-overlay').style.display = 'flex';
+  document.getElementById('modal-cat-title').focus();
+}
+
+function closeCatEditModal() {
+  editingCatId = null;
+  _editDraft   = null;
+  document.getElementById('cat-edit-modal-overlay').style.display = 'none';
+  // Remove any custom options added temporarily
+  document.querySelectorAll('#modal-cat-ctype option[data-custom]').forEach(o => o.remove());
+}
+
+function _renderModalDiffPills() {
+  const $diff  = document.getElementById('modal-cat-diff');
+  const diffVal = _editDraft.difficulty || null;
+  $diff.innerHTML = COLOR_ORDER.map((c, i) => `
+    <button class="diff-pill diff-pill--${c}${diffVal === i + 1 ? ' selected' : ''}" data-diff="${i + 1}"
+            aria-label="${DIFF_LABELS[i]}" title="${DIFF_LABELS[i]}">
+      <span class="pick-dot" style="background:${COLOR_HEX[c]};border:1.5px solid rgba(0,0,0,.2);"></span>
+      ${DIFF_LABELS[i]}
+    </button>`).join('') +
+    '<button class="diff-suggest-btn" id="modal-diff-suggest" aria-label="AI-suggest difficulty">Suggest</button>';
+
+  $diff.querySelectorAll('.diff-pill').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      $diff.querySelectorAll('.diff-pill').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      _editDraft.difficulty = +btn.dataset.diff;
     });
   });
 
-  $list.querySelectorAll('.del-lib-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Delete this category?')) return;
-      await fetch(`/admin/categories/${btn.dataset.cat}`, { method: 'DELETE' });
-      savedCategories = savedCategories.filter(c => c.id !== btn.dataset.cat);
-      renderCategoryLibrary();
+  document.getElementById('modal-diff-suggest').addEventListener('click', async e => {
+    e.stopPropagation();
+    const title = document.getElementById('modal-cat-title').value.trim() || _editDraft.title;
+    if (!title || _editDraft.movie_titles.length < 4) return;
+    await suggestAndApplyDifficulty(
+      document.getElementById('modal-diff-suggest'),
+      title,
+      _editDraft.movie_titles,
+      diff => {
+        _editDraft.difficulty = diff;
+        $diff.querySelectorAll('.diff-pill').forEach(b =>
+          b.classList.toggle('selected', +b.dataset.diff === diff)
+        );
+      }
+    );
+  });
+}
+
+function _renderModalChips() {
+  const $chips = document.getElementById('modal-cat-chips');
+  $chips.innerHTML = _editDraft.movie_titles.map((t, mi) => `
+    <span class="cat-edit-chip">
+      <span>${escHtml(t)}</span>
+      <button class="cat-edit-chip__remove" data-mi="${mi}" aria-label="Remove ${escHtml(t)}">×</button>
+    </span>`).join('');
+  $chips.querySelectorAll('.cat-edit-chip__remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const mi = +btn.dataset.mi;
+      _editDraft.movie_ids.splice(mi, 1);
+      _editDraft.movie_titles.splice(mi, 1);
+      _renderModalChips();
+      _renderModalMovieSearch();
     });
+  });
+  _renderModalMovieSearch();
+}
+
+function _renderModalMovieSearch() {
+  const wrap = document.getElementById('modal-movie-search-wrap');
+  const $msearch  = document.getElementById('modal-cat-msearch');
+  const $mresults = document.getElementById('modal-cat-mresults');
+  if (!wrap) return;
+  wrap.style.display = _editDraft.movie_ids.length < 4 ? 'block' : 'none';
+  if ($msearch) {
+    // Re-attach input listener (clone to remove old listeners)
+    const fresh = $msearch.cloneNode(true);
+    $msearch.replaceWith(fresh);
+    fresh.value = '';
+    fresh.addEventListener('input', () => {
+      const q2 = fresh.value.toLowerCase().trim();
+      if (!q2) { $mresults.style.display = 'none'; return; }
+      const usedIds = new Set(_editDraft.movie_ids);
+      const matches = allMovies.filter(m =>
+        !usedIds.has(m.id) && m.title.toLowerCase().includes(q2)
+      ).slice(0, 8);
+      if (!matches.length) { $mresults.style.display = 'none'; return; }
+      $mresults.innerHTML = matches.map(m =>
+        `<div class="cat-movie-search-item" data-id="${m.id}" data-title="${escHtml(m.title)}">${escHtml(m.title)} <span style="opacity:.4;font-size:11px;">${m.year||''}</span></div>`
+      ).join('');
+      $mresults.style.display = 'block';
+      $mresults.querySelectorAll('.cat-movie-search-item').forEach(item => {
+        item.addEventListener('mousedown', e => {
+          e.preventDefault();
+          _editDraft.movie_ids.push(item.dataset.id);
+          _editDraft.movie_titles.push(item.dataset.title);
+          _renderModalChips();
+        });
+      });
+    });
+    fresh.addEventListener('blur', () => setTimeout(() => { $mresults.style.display = 'none'; }, 150));
+  }
+}
+
+function _bindModalEvents() {
+  const overlay = document.getElementById('cat-edit-modal-overlay');
+  if (!overlay) return; // modal HTML not present (cache mismatch) — safe no-op
+
+  // Close on overlay click (outside modal)
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeCatEditModal(); });
+
+  // Cancel
+  document.getElementById('modal-cat-cancel').addEventListener('click', () => closeCatEditModal());
+
+  // Source toggle
+  document.querySelectorAll('#modal-cat-source .source-toggle__btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#modal-cat-source .source-toggle__btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (_editDraft) _editDraft.source = btn.dataset.val;
+    });
+  });
+
+  // Save
+  document.getElementById('modal-cat-save').addEventListener('click', async () => {
+    if (!_editDraft) return;
+    const titleEl   = document.getElementById('modal-cat-title');
+    const ctypeEl   = document.getElementById('modal-cat-ctype');
+    const activeBtn = document.querySelector('#modal-cat-source .source-toggle__btn.active');
+    const payload   = {
+      title:           (titleEl?.value || _editDraft.title).trim(),
+      movie_ids:       _editDraft.movie_ids,
+      movie_titles:    _editDraft.movie_titles,
+      source:          activeBtn?.dataset.val || _editDraft.source || 'manual',
+      connection_type: (ctypeEl?.value || '').trim(),
+      difficulty:      _editDraft.difficulty || null,
+    };
+    if (!payload.title || payload.movie_ids.length !== 4) return;
+    const saveBtn = document.getElementById('modal-cat-save');
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+    const res  = await fetch(`/admin/categories/${editingCatId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    saveBtn.disabled = false; saveBtn.textContent = 'Save';
+    if (data.ok) {
+      const idx = savedCategories.findIndex(c => c.id === editingCatId);
+      if (idx !== -1) savedCategories[idx] = data.category;
+      closeCatEditModal();
+      renderCategoryLibrary();
+    }
+  });
+
+  // Delete
+  document.getElementById('modal-cat-delete').addEventListener('click', async () => {
+    if (!_editDraft) return;
+    if (!confirm('Delete this category?')) return;
+    await fetch(`/admin/categories/${editingCatId}`, { method: 'DELETE' });
+    savedCategories = savedCategories.filter(c => c.id !== editingCatId);
+    closeCatEditModal();
+    renderCategoryLibrary();
   });
 }
 
@@ -749,7 +1171,9 @@ function bindCategoriesEvents() {
       btn.classList.add('active');
       connectionsType  = btn.dataset.conntype;
       connectionsQuery = '';
-      document.getElementById('conn-search').value = '';
+      const $connSearch = document.getElementById('conn-search');
+      $connSearch.value = '';
+      $connSearch.placeholder = connectionsType === 'keywords' ? 'Filter keywords…' : 'Filter…';
       selectedConnection = null;
       renderConnectionsIndex();
       document.getElementById('conn-movie-list').innerHTML =
@@ -765,7 +1189,6 @@ function bindCategoriesEvents() {
   });
   document.getElementById('cat-lib-name').addEventListener('input', updateBrowseActions);
   document.getElementById('btn-save-to-lib').addEventListener('click', onSaveToLibrary);
-  document.getElementById('btn-load-to-builder').addEventListener('click', onLoadBrowseToBuilder);
   document.getElementById('lib-search').addEventListener('input', e => {
     catLibraryQuery = e.target.value; renderCategoryLibrary();
   });
@@ -781,13 +1204,42 @@ function bindCategoriesEvents() {
     this.style.color          = catLibraryHideUsed ? '#fff' : '';
     renderCategoryLibrary();
   });
+
+  // Sort select
+  document.getElementById('lib-sort').addEventListener('change', e => {
+    catLibrarySort = e.target.value;
+    renderCategoryLibrary();
+  });
+
+  // Difficulty filter pills
+  document.querySelectorAll('.lib-diff-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.lib-diff-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      catLibraryFilterDiff = pill.dataset.diff ? +pill.dataset.diff : null;
+      renderCategoryLibrary();
+    });
+  });
+
+  // Connection type filter
+  document.getElementById('lib-filter-type').addEventListener('change', e => {
+    catLibraryFilterType = e.target.value;
+    renderCategoryLibrary();
+  });
 }
 
 async function deletePuzzle(puzzleDate) {
   if (!confirm(`Delete puzzle for ${puzzleDate}? This cannot be undone.`)) return;
   const res = await fetch(`/admin/puzzles/${puzzleDate}`, { method: 'DELETE' });
   if (res.ok) {
-    document.querySelector(`.pub-row[data-date="${puzzleDate}"]`)?.remove();
+    delete pubPuzzleDates[puzzleDate];
+    delete publishedDetailCache[puzzleDate];
+    if (pubExpandedDate === puzzleDate) {
+      pubExpandedDate = null;
+      const $detail = document.getElementById('pub-detail-area');
+      if ($detail) $detail.innerHTML = '';
+    }
+    renderPublishedCalendar();
   } else {
     alert('Delete failed.');
   }
@@ -807,6 +1259,11 @@ async function renumberAll() {
     alert('Renumber failed.');
   }
 }
+
+// ══════════════════════════════════════════════════════════════════
+// SLOT PICKERS (shared across Browse, Search, Random panels)
+// ══════════════════════════════════════════════════════════════════
+
 
 // ══════════════════════════════════════════════════════════════════
 // CATEGORY MOVIE SEARCH
@@ -837,11 +1294,12 @@ function renderCatMovieSearch(query) {
   $list.innerHTML = '';
   matches.forEach(m => {
     const alreadySel = catSearchSelected.some(s => s.id === m.id);
+    const isTier1    = (m.tier ?? 1) === 1;
     const row = document.createElement('div');
-    row.className = 'conn-movie-row' + (alreadySel ? ' in-use' : '');
+    row.className = 'conn-movie-row' + (alreadySel ? ' in-use' : '') + (isTier1 ? ' conn-movie-row--tier1' : '');
     row.innerHTML = `
       <input type="checkbox" data-id="${m.id}" ${alreadySel ? 'checked disabled' : ''}>
-      <span style="flex:1;">${escHtml(m.title)}</span>
+      <span class="conn-movie-title" style="flex:1;">${escHtml(m.title)}</span>
       <span style="font-size:11px;opacity:0.45;">${m.year || ''}</span>`;
     if (!alreadySel) {
       const cb = row.querySelector('input');
@@ -890,9 +1348,7 @@ function renderCatSearchSelected() {
 function updateCatSearchActions() {
   const count = catSearchSelected.length;
   document.getElementById('cat-search-sub').textContent = `${count}/4 selected`;
-  const ready = count >= 1;
   document.getElementById('btn-cat-search-save').disabled = count !== 4;
-  document.getElementById('btn-cat-search-load').disabled = !ready;
 }
 
 function bindCatSearchEvents() {
@@ -917,10 +1373,11 @@ function bindCatSearchEvents() {
     await fetch('/admin/categories', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title:        name,
-        movie_ids:    catSearchSelected.map(m => m.id),
-        movie_titles: catSearchSelected.map(m => m.title),
-        source:       'manual',
+        title:           name,
+        movie_ids:       catSearchSelected.map(m => m.id),
+        movie_titles:    catSearchSelected.map(m => m.title),
+        source:          'manual',
+        connection_type: (document.getElementById('search-conn-type')?.value || '').trim(),
       }),
     });
     await loadCategoryLibrary();
@@ -928,19 +1385,14 @@ function bindCatSearchEvents() {
     setTimeout(() => { btn.textContent = '★ Save'; btn.disabled = false; }, 2000);
     catSearchSelected = [];
     document.getElementById('cat-search-name').value = '';
+    const ctEl = document.getElementById('search-conn-type');
+    if (ctEl) ctEl.value = '';
     document.getElementById('cat-movie-search').value = '';
     renderCatMovieSearch('');
     renderCatSearchSelected();
     updateCatSearchActions();
   });
 
-  document.getElementById('btn-cat-search-load').addEventListener('click', () => {
-    const name = document.getElementById('cat-search-name').value.trim();
-    slots[activeSlot].title  = name;
-    slots[activeSlot].movies = catSearchSelected.map(m => ({ id: m.id, title: m.title, year: m.year || '' }));
-    switchToPanel('builder');
-    renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
-  });
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -952,7 +1404,7 @@ let randomPickSelected = new Set();  // selected movie ids
 
 function pickRandomMovies() {
   if (!allMovies.length) return;
-  const pool = [...allMovies];
+  const pool = allMovies.filter(m => randomTiers.includes(m.tier ?? 1));
   // Fisher-Yates shuffle, take first 8
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -1023,7 +1475,7 @@ function refreshUnselected() {
   );
   const selectedMovies = randomPickMovies.filter(m => selectedIds.has(m.id));
   const needed = 8 - selectedMovies.length;
-  const pool = allMovies.filter(m => !selectedIds.has(m.id));
+  const pool = allMovies.filter(m => randomTiers.includes(m.tier ?? 1) && !selectedIds.has(m.id));
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -1038,7 +1490,6 @@ function updateRandomActions() {
   document.getElementById('random-sel-count').textContent = `${count}/4 selected`;
   const ready = count === 4;
   document.getElementById('btn-random-save').disabled = !ready;
-  document.getElementById('btn-random-load').disabled = !ready;
   document.getElementById('btn-random-refresh-unselected').disabled = count === 0;
 }
 
@@ -1055,30 +1506,73 @@ function bindRandomDiscoveryEvents() {
     await fetch('/admin/categories', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title:        name,
-        movie_ids:    selectedMovies.map(m => m.id),
-        movie_titles: selectedMovies.map(m => m.title),
-        source:       'manual',
+        title:           name,
+        movie_ids:       selectedMovies.map(m => m.id),
+        movie_titles:    selectedMovies.map(m => m.title),
+        source:          'manual',
+        connection_type: (document.getElementById('random-conn-type')?.value || '').trim(),
       }),
     });
     await loadCategoryLibrary();
     btn.textContent = '✓ Saved!';
     setTimeout(() => { btn.textContent = '★ Save'; btn.disabled = false; }, 2000);
     document.getElementById('random-cat-name').value = '';
+    const rcEl = document.getElementById('random-conn-type');
+    if (rcEl) rcEl.value = '';
     randomPickSelected = new Set();
     renderRandomPick();
     updateRandomActions();
   });
 
-  document.getElementById('btn-random-load').addEventListener('click', () => {
-    const name = document.getElementById('random-cat-name').value.trim();
-    const selectedMovies = randomPickMovies.filter(m => randomPickSelected.has(m.id));
-    slots[activeSlot].title  = name;
-    slots[activeSlot].movies = selectedMovies.map(m => ({ id: m.id, title: m.title, year: m.year || '' }));
-    switchToPanel('builder');
-    renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// KEYWORDS BROWSER
+// ══════════════════════════════════════════════════════════════════
+
+
+function getKeywordMap() {
+  const map = {};
+  allMovies.forEach(m => {
+    if (!m.tier && m.tier !== undefined) return; // skip non-tier-1 when tier present
+    if (m.tier !== undefined && m.tier !== 1) return;
+    const kws = Array.isArray(m.keywords) ? m.keywords : [];
+    kws.forEach(kw => {
+      if (!map[kw]) map[kw] = [];
+      map[kw].push(m);
+    });
+  });
+  return map;
+}
+
+function renderKeywordsBrowser(query) {
+  const $list = document.getElementById('conn-list');
+  if (!$list) return;
+  const map = getKeywordMap();
+  // filter to ≥4 movies, sort by count descending
+  let keywords = Object.keys(map)
+    .filter(k => map[k].length >= 4)
+    .sort((a, b) => map[b].length - map[a].length);
+  if (query && query.trim()) {
+    const q = query.toLowerCase();
+    keywords = keywords.filter(k => k.toLowerCase().includes(q));
+  }
+  if (!keywords.length) {
+    $list.innerHTML = '<div class="conn-empty">No keywords found</div>';
+    return;
+  }
+  $list.innerHTML = '';
+  keywords.forEach(kw => {
+    const isActive = selectedConnection && selectedConnection.type === 'keywords' && selectedConnection.name === kw;
+    const row = document.createElement('div');
+    row.className = 'conn-item' + (isActive ? ' active' : '');
+    row.innerHTML = `<span class="conn-item__name">${escHtml(kw)}</span>
+      <span class="conn-item__count enough">${map[kw].length}</span>`;
+    row.addEventListener('click', () => onConnectionClick({ type: 'keywords', name: kw, movies: map[kw] }));
+    $list.appendChild(row);
   });
 }
+
 
 // ══════════════════════════════════════════════════════════════════
 // SETTINGS PANEL
@@ -1092,6 +1586,23 @@ function bindSettingsEvents() {
     const data = await res.json();
     if (data.ok) alert(`Done. All players will start fresh (version ${data.progress_version}).`);
   });
+
+  document.querySelectorAll('.random-tier-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      randomTiers = Array.from(document.querySelectorAll('.random-tier-cb:checked')).map(c => +c.value);
+      if (!randomTiers.length) { randomTiers = [1]; applyTierFilterUI(); }
+      pickRandomMovies();
+      saveTierFilters();
+    });
+  });
+
+  document.querySelectorAll('.ai-tier-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      aiTiers = Array.from(document.querySelectorAll('.ai-tier-cb:checked')).map(c => +c.value);
+      if (!aiTiers.length) { aiTiers = [1]; applyTierFilterUI(); }
+      saveTierFilters();
+    });
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1099,42 +1610,8 @@ function bindSettingsEvents() {
 // ══════════════════════════════════════════════════════════════════
 
 function bindPublishedEvents() {
-  document.querySelectorAll('.pub-row__summary').forEach(summary => {
-    summary.addEventListener('click', async () => {
-      const row    = summary.closest('.pub-row');
-      const date   = row.dataset.date;
-      const detail = document.getElementById(`detail-${date}`);
-      const icon   = summary.querySelector('.pub-row__expand');
-      const isOpen = detail.classList.contains('open');
-
-      if (isOpen) {
-        detail.classList.remove('open');
-        icon.textContent = '▶ Expand';
-        return;
-      }
-      detail.classList.add('open');
-      icon.textContent = '▼ Collapse';
-
-      if (publishedDetailCache[date]) {
-        renderPublishedDetail(detail, publishedDetailCache[date]);
-        return;
-      }
-
-      detail.innerHTML = '<div style="opacity:0.5;font-size:12px;padding:8px 0;">Loading…</div>';
-      const res  = await fetch(`/admin/published-detail/${date}`);
-      const data = await res.json();
-      publishedDetailCache[date] = data;
-      renderPublishedDetail(detail, data);
-    });
-  });
-
-  document.querySelectorAll('.pub-redate-btn').forEach(btn => {
-    btn.addEventListener('click', () => redatePuzzle(btn.dataset.date));
-  });
-  document.querySelectorAll('.pub-delete-btn').forEach(btn => {
-    btn.addEventListener('click', () => deletePuzzle(btn.dataset.date));
-  });
-
+  // Calendar is initialized on first nav to 'published' panel (see bindNav)
+  // Nothing to bind here at page load for the old row-based UI
 }
 
 async function redatePuzzle(oldDate) {
@@ -1180,7 +1657,7 @@ function renderPublishedDetail(container, data) {
       slots[i].movies = cat.movies.map(m => ({ id: m.id, title: m.title, year: '' }));
     });
     switchToPanel('builder');
-    renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
+    renderSlots(); renderBuilderLibrary(); renderPreview();
   });
   row.appendChild(loadBtn);
 
@@ -1208,46 +1685,36 @@ function renderPublishedDetail(container, data) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// DATASET TOGGLE
+// SETTINGS / TIER FILTERS
 // ══════════════════════════════════════════════════════════════════
 
-async function initDataset() {
+async function loadSettings() {
   const res  = await fetch('/admin/settings');
   const data = await res.json();
-  updateDatasetUI(data.active_dataset, data.full_available);
+  randomTiers = data.random_tiers || [1];
+  aiTiers     = data.ai_tiers     || [1];
+  applyTierFilterUI();
 }
 
-function updateDatasetUI(active, fullAvailable) {
-  const curBtn  = document.getElementById('btn-dataset-curated');
-  const fullBtn = document.getElementById('btn-dataset-full');
-  const status  = document.getElementById('dataset-status');
-
-  curBtn.classList.toggle('active', active === 'curated');
-  fullBtn.classList.toggle('active', active === 'full');
-  if (!fullAvailable) {
-    fullBtn.disabled = true;
-    fullBtn.title    = 'Run build_full_dataset.py first';
-  }
-  status.textContent = active === 'full' ? 'Full dataset active' : 'Curated dataset active';
-}
-
-function bindDatasetEvents() {
-  document.querySelectorAll('.dataset-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const dataset = btn.dataset.dataset;
-      const status  = document.getElementById('dataset-status');
-      status.textContent = 'Switching…';
-      const res  = await fetch('/admin/settings', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ active_dataset: dataset }),
-      });
-      const data = await res.json();
-      if (data.error) { status.textContent = `Error: ${data.error}`; return; }
-      updateDatasetUI(dataset, true);
-      status.textContent = `${data.movie_count} movies loaded`;
-      await loadMovies();
-    });
+function applyTierFilterUI() {
+  document.querySelectorAll('.random-tier-cb').forEach(cb => {
+    cb.checked = randomTiers.includes(+cb.value);
   });
+  document.querySelectorAll('.ai-tier-cb').forEach(cb => {
+    cb.checked = aiTiers.includes(+cb.value);
+  });
+}
+
+async function saveTierFilters() {
+  const status = document.getElementById('tier-filter-status');
+  if (status) status.textContent = 'Saving…';
+  const res  = await fetch('/admin/settings', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ random_tiers: randomTiers, ai_tiers: aiTiers }),
+  });
+  const data = await res.json();
+  if (status) status.textContent = data.ok ? 'Saved.' : 'Error saving.';
+  setTimeout(() => { if (status) status.textContent = ''; }, 2000);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1299,7 +1766,7 @@ async function onAISuggest() {
   try {
     const res  = await fetch('/admin/ai/suggest', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, exclude_ids: getExcludeIds() }),
+      body: JSON.stringify({ prompt, exclude_ids: getExcludeIds(), ai_tiers: aiTiers }),
     });
     const data = await res.json();
     if (data.error) {
@@ -1408,21 +1875,6 @@ function renderSuggestFooter(footer) {
   footer.appendChild(count);
 
   if (n === 4) {
-    // Load into slot buttons
-    slots.forEach((slot, i) => {
-      const btn = document.createElement('button');
-      btn.className   = 'btn btn--ghost btn--sm';
-      btn.textContent = `→ Slot ${i + 1}`;
-      btn.style.borderLeft = `3px solid ${COLOR_HEX[slot.color]}`;
-      btn.addEventListener('click', () => {
-        const selected = suggestPicks.filter(p => suggestSelected.has(p.id));
-        slot.movies = selected.map(p => ({ id: p.id, title: p.title, year: p.year || '' }));
-        activeSlot = i;
-        renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
-      });
-      footer.appendChild(btn);
-    });
-
     // Save to library
     const saveBtn = document.createElement('button');
     saveBtn.className   = 'btn btn--ghost btn--sm';
@@ -1460,7 +1912,7 @@ async function onAIWorkshop() {
   try {
     const res  = await fetch('/admin/ai/workshop', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ connection_types: types, exclude_ids: getExcludeIds() }),
+      body: JSON.stringify({ connection_types: types, exclude_ids: getExcludeIds(), ai_tiers: aiTiers }),
     });
     const data = await res.json();
     if (data.error) {
@@ -1522,23 +1974,6 @@ function renderWorkshopCard(cat) {
   }
   footer.appendChild(metaRow);
 
-  // Load into slot buttons
-  slots.forEach((slot, i) => {
-    const btn = document.createElement('button');
-    btn.className   = 'btn btn--ghost btn--sm';
-    btn.textContent = `→ Slot ${i + 1}`;
-    btn.style.borderLeft = `3px solid ${COLOR_HEX[slot.color]}`;
-    btn.addEventListener('click', () => {
-      slot.title  = cat.title;
-      slot.movies = (cat.movie_ids || []).map((id, j) => ({
-        id, title: cat.movie_titles?.[j] || String(id), year: '',
-      }));
-      activeSlot = i;
-      renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
-    });
-    footer.appendChild(btn);
-  });
-
   // Save to library
   const saveBtn = document.createElement('button');
   saveBtn.className   = 'btn btn--ghost btn--sm';
@@ -1580,6 +2015,12 @@ function bindNav() {
     item.addEventListener('click', () => {
       const panelId = item.dataset.panel;
       switchToPanel(panelId);
+      if (panelId === 'builder') {
+        renderBuilderLibrary();
+      }
+      if (panelId === 'published') {
+        initPublishedCalendar();
+      }
       if ((panelId === 'create' || panelId === 'library') && !categoriesLoaded) {
         categoriesLoaded = true;
         loadCategoryLibrary();
@@ -1604,7 +2045,9 @@ function switchToSubTab(name) {
 
 function bindSubTabs() {
   document.querySelectorAll('.sub-tab').forEach(tab => {
-    tab.addEventListener('click', () => switchToSubTab(tab.dataset.subtab));
+    tab.addEventListener('click', () => {
+      switchToSubTab(tab.dataset.subtab);
+    });
   });
 }
 
@@ -2425,7 +2868,263 @@ async function editUpcomingMarqueePuzzle(date) {
   if (dateEl) dateEl.value = date;
 
   switchToPanel('builder');
-  renderSlotSelector(); renderSlots(); renderPool(); renderPreview();
+  renderSlots(); renderBuilderLibrary(); renderPreview();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PUBLISHED CALENDAR
+// ══════════════════════════════════════════════════════════════════
+
+function initPublishedCalendar() {
+  if (pubCalInitialized) {
+    renderPublishedCalendar();
+    return;
+  }
+
+  // Read data from hidden data-source divs
+  pubPuzzleDates = {};
+  document.querySelectorAll('#pub-data-source [data-date]').forEach(el => {
+    const d = el.dataset.date;
+    pubPuzzleDates[d] = {
+      num:    parseInt(el.dataset.num, 10),
+      future: el.dataset.future === 'true',
+    };
+  });
+
+  // Detect gaps and show warning
+  const gaps = detectPublishedGaps();
+  if (gaps.length) {
+    const $warning = document.getElementById('pub-gap-warning');
+    const $text    = document.getElementById('pub-gap-text');
+    if ($warning && $text) {
+      $text.textContent = `${gaps.length} gap${gaps.length > 1 ? 's' : ''} detected: ${gaps.slice(0, 3).join(', ')}${gaps.length > 3 ? ` +${gaps.length - 3} more` : ''}`;
+      $warning.style.display = '';
+    }
+  }
+
+  // Default month: most recent published date (non-future)
+  const publishedDates = Object.keys(pubPuzzleDates)
+    .filter(d => !pubPuzzleDates[d].future)
+    .sort();
+  if (publishedDates.length) {
+    const latest = publishedDates[publishedDates.length - 1];
+    const d = new Date(latest + 'T00:00:00');
+    pubCalYear  = d.getFullYear();
+    pubCalMonth = d.getMonth();
+  }
+
+  // Bind prev/next buttons
+  document.getElementById('btn-pub-prev-month')?.addEventListener('click', () => {
+    pubCalMonth--;
+    if (pubCalMonth < 0) { pubCalMonth = 11; pubCalYear--; }
+    renderPublishedCalendar();
+  });
+  document.getElementById('btn-pub-next-month')?.addEventListener('click', () => {
+    pubCalMonth++;
+    if (pubCalMonth > 11) { pubCalMonth = 0; pubCalYear++; }
+    renderPublishedCalendar();
+  });
+
+  pubCalInitialized = true;
+  renderPublishedCalendar();
+}
+
+function renderPublishedCalendar() {
+  const $cal = document.getElementById('pub-calendar');
+  if (!$cal) return;
+
+  const MONTHS = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  const labelEl = document.getElementById('pub-cal-month-label');
+  if (labelEl) labelEl.textContent = `${MONTHS[pubCalMonth]} ${pubCalYear}`;
+
+  $cal.innerHTML = '';
+
+  // Day-of-week headers
+  DAYS.forEach(d => {
+    const hd = document.createElement('div');
+    hd.className = 'pub-cal__dow';
+    hd.textContent = d;
+    $cal.appendChild(hd);
+  });
+
+  const todayStr     = new Date().toISOString().slice(0, 10);
+  const firstDay     = new Date(pubCalYear, pubCalMonth, 1);
+  const startPad     = firstDay.getDay();   // 0=Sun
+  const daysInMonth  = new Date(pubCalYear, pubCalMonth + 1, 0).getDate();
+
+  // Padding cells
+  for (let i = 0; i < startPad; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'pub-cal__day pub-cal__day--empty-month';
+    $cal.appendChild(cell);
+  }
+
+  // Day cells
+  for (let day = 1; day <= daysInMonth; day++) {
+    const mm  = String(pubCalMonth + 1).padStart(2, '0');
+    const dd  = String(day).padStart(2, '0');
+    const dateStr = `${pubCalYear}-${mm}-${dd}`;
+    const info    = pubPuzzleDates[dateStr];
+    const isToday = dateStr === todayStr;
+    const isSelected = dateStr === pubExpandedDate;
+
+    const cell = document.createElement('div');
+    cell.className = 'pub-cal__day';
+
+    if (info) {
+      if (info.future) {
+        cell.classList.add('pub-cal__day--scheduled');
+      } else {
+        cell.classList.add('pub-cal__day--published');
+      }
+      if (isSelected) cell.classList.add('selected');
+      if (isToday) cell.classList.add('pub-cal__day--today');
+
+      cell.innerHTML = `<div class="pub-cal__day-num">${day}</div>`;
+
+      // Puzzle number badge
+      const badge = document.createElement('div');
+      badge.className = 'pub-cal__num-badge';
+      badge.textContent = `#${info.num}`;
+      cell.appendChild(badge);
+
+      // Colored dots
+      const dots = document.createElement('div');
+      dots.className = 'pub-cal__dots';
+      COLOR_ORDER.forEach(color => {
+        const dot = document.createElement('div');
+        dot.className = 'pub-cal__dot';
+        dot.style.background = COLOR_HEX[color];
+        dots.appendChild(dot);
+      });
+      cell.appendChild(dots);
+
+      cell.addEventListener('click', () => {
+        // Deselect if already expanded
+        if (pubExpandedDate === dateStr) {
+          pubExpandedDate = null;
+          renderPublishedCalendar();
+          const $detail = document.getElementById('pub-detail-area');
+          if ($detail) $detail.innerHTML = '';
+        } else {
+          pubExpandedDate = dateStr;
+          renderPublishedCalendar();
+          renderExpandedPubDetail(dateStr);
+        }
+      });
+    } else {
+      // Check if it's a gap day (past date, no puzzle)
+      if (dateStr < todayStr && Object.keys(pubPuzzleDates).length > 0) {
+        // Only mark as gap if there are puzzles before and after
+        const allDates = Object.keys(pubPuzzleDates).sort();
+        const earliest = allDates[0];
+        if (dateStr >= earliest) {
+          cell.classList.add('pub-cal__day--gap');
+        } else {
+          cell.classList.add('pub-cal__day--empty');
+        }
+      } else {
+        cell.classList.add('pub-cal__day--empty');
+      }
+      if (isToday) cell.classList.add('pub-cal__day--today');
+      cell.innerHTML = `<div class="pub-cal__day-num">${day}</div>`;
+    }
+
+    $cal.appendChild(cell);
+  }
+
+  // Remove any old empty-state message
+  const oldMsg = document.getElementById('pub-cal-empty-msg');
+  if (oldMsg) oldMsg.remove();
+
+  if (!Object.keys(pubPuzzleDates).length) {
+    const msg = document.createElement('p');
+    msg.id = 'pub-cal-empty-msg';
+    msg.style.cssText = 'font-size:13px;opacity:0.45;text-align:center;margin-top:18px;';
+    msg.textContent = 'No published puzzles yet. Use the Puzzle Builder to publish your first.';
+    document.getElementById('pub-calendar').after(msg);
+  }
+}
+
+async function renderExpandedPubDetail(date) {
+  const $area = document.getElementById('pub-detail-area');
+  if (!$area) return;
+
+  $area.innerHTML = '<div class="loading-state">Loading…</div>';
+
+  let data = publishedDetailCache[date];
+  if (!data) {
+    const res = await fetch(`/admin/published-detail/${date}`);
+    data = await res.json();
+    publishedDetailCache[date] = data;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'pub-detail-card';
+
+  const info = pubPuzzleDates[date];
+  card.innerHTML = `<div class="pub-detail-card__date">${date}${info ? ` — Puzzle #${info.num}` : ''}</div>`;
+
+  // Category detail blocks
+  renderPublishedDetail(card, data);
+
+  // Action buttons row
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;';
+
+  if (info?.future) {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn--ghost btn--sm';
+    editBtn.textContent = 'Edit in Builder';
+    editBtn.addEventListener('click', () => editUpcomingMarqueePuzzle(date));
+    actions.appendChild(editBtn);
+  }
+
+  const playLink = document.createElement('a');
+  playLink.className = 'btn btn--ghost btn--sm';
+  playLink.textContent = 'Play ↗';
+  playLink.href = `/marquee/${date}`;
+  playLink.target = '_blank';
+  actions.appendChild(playLink);
+
+  const redateBtn = document.createElement('button');
+  redateBtn.className = 'btn btn--ghost btn--sm';
+  redateBtn.textContent = 'Change Date';
+  redateBtn.addEventListener('click', () => redatePuzzle(date));
+  actions.appendChild(redateBtn);
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'btn btn--ghost btn--sm';
+  deleteBtn.style.cssText = 'color:#cc2200;border-color:#cc2200;';
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.addEventListener('click', () => deletePuzzle(date));
+  actions.appendChild(deleteBtn);
+
+  card.appendChild(actions);
+  $area.innerHTML = '';
+  $area.appendChild(card);
+}
+
+function detectPublishedGaps() {
+  const dates    = Object.keys(pubPuzzleDates).sort();
+  if (!dates.length) return [];
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const start    = dates[0];
+  const end      = todayStr < dates[dates.length - 1] ? todayStr : dates[dates.length - 1];
+  const set      = new Set(dates);
+  const gaps     = [];
+
+  let cur = new Date(start + 'T00:00:00');
+  const endDate = new Date(end + 'T00:00:00');
+  while (cur <= endDate) {
+    const ds = cur.toISOString().slice(0, 10);
+    if (!set.has(ds)) gaps.push(ds);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return gaps;
 }
 
 // ── Start ──────────────────────────────────────────────────────────

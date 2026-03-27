@@ -166,7 +166,8 @@
   box-shadow: 2px 2px 0 var(--border);
   font-weight: 700;
 }
-.nav-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.nav-icon svg { display: block; }
 
 /* ── Sidebar footer ─────────────────────────────────────────────── */
 .sidebar-footer {
@@ -200,6 +201,8 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1.5px solid rgba(17,17,17,0.08);
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -281,10 +284,14 @@
 .cat-slot__title::placeholder { color: var(--text2); font-weight: 400; }
 .cat-difficulty    { font-size: 11px; opacity: 0.5; white-space: nowrap; flex-shrink: 0; }
 .cat-slot__actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
-.slot-reorder-btn  { background: none; border: 1.5px solid #ccc; border-radius: 5px;
-                     padding: 2px 6px; font-size: 13px; cursor: pointer; color: var(--text2); line-height: 1.2; }
-.slot-reorder-btn:hover   { background: #f0ebe5; border-color: #999; }
-.slot-reorder-btn:disabled{ opacity: 0.2; pointer-events: none; }
+.slot-drag-handle  { cursor: grab; color: var(--text2); font-size: 14px; flex-shrink: 0;
+                     padding: 2px 4px; opacity: 0.4; line-height: 1; user-select: none; }
+.slot-drag-handle:hover { opacity: 0.8; }
+.slot-drag-handle:active { cursor: grabbing; }
+.slot-clear-btn    { background: none; border: 1.5px solid #e0b0b0; border-radius: 5px;
+                     padding: 2px 6px; font-size: 13px; cursor: pointer; color: #c0392b; line-height: 1.2; }
+.slot-clear-btn:hover   { background: #fdf0ef; border-color: #c0392b; }
+.slot-clear-btn:disabled{ opacity: 0.2; pointer-events: none; }
 .cat-slot__movies  { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px; min-height: 46px; }
 .cat-movie-chip    { display: flex; align-items: center; gap: 6px; background: #f0ebe5;
                      border: 1.5px solid #ccc; border-radius: 20px; padding: 4px 10px 4px 12px;
@@ -326,16 +333,94 @@
 /* ── Category Library ───────────────────────────────────────────── */
 .lib-search-input  { padding: 6px 10px; border: 1.5px solid #ccc; border-radius: 8px;
                      font-family: inherit; font-size: 13px; width: 180px; }
+#category-library-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+#category-library-list > p,
+#category-library-list > .loading-state { grid-column: 1 / -1; }
+@media (max-width: 1100px) { #category-library-list { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px)  { #category-library-list { grid-template-columns: 1fr; } }
 .cat-library-card  { background: var(--surface); border: var(--bw) solid var(--border);
-                     border-radius: 10px; box-shadow: var(--shadow-xs); padding: 12px 14px; margin-bottom: 10px; }
-.cat-library-card__title  { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+                     border-radius: 10px; box-shadow: var(--shadow-xs); padding: 10px 12px;
+                     display: flex; flex-direction: column; }
+.cat-card__header  { display: flex; align-items: flex-start; justify-content: space-between;
+                     gap: 6px; margin-bottom: 3px; }
+.cat-library-card__title  { font-size: 14px; font-weight: 700; line-height: 1.3; flex: 1; min-width: 0; }
 .cat-library-card__movies { font-size: 12px; color: var(--text2); margin-bottom: 8px; line-height: 1.5; }
-.cat-library-card__footer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.source-badge      { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-                     padding: 2px 7px; border-radius: 8px; }
-.source-badge--manual     { background: #f0ebe5; color: #666; }
-.source-badge--submission { background: #fff3cd; color: #7a5c00; }
-.source-badge--ai         { background: #e8d5ff; color: #4a0080; }
+.cat-card__footer  { display: flex; align-items: center; justify-content: space-between;
+                     gap: 6px; margin-top: auto; padding-top: 6px; flex-wrap: wrap; }
+.cat-card__meta    { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.cat-card__actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.cat-used-count    { font-size: 10px; opacity: 0.45; white-space: nowrap; }
+.source-badge      { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+                     padding: 1px 5px; border-radius: 5px;
+                     background: #e0d8d0; color: var(--text2); opacity: 0.6; }
+.source-badge--manual, .source-badge--ai, .source-badge--submission { background: #e0d8d0; color: var(--text2); }
+
+/* ── Card edit mode ─────────────────────────────────────────── */
+.cat-library-card--editing    { box-shadow: var(--shadow), 0 0 0 2px #333; position: relative; z-index: 2; }
+.cat-edit-field               { margin-bottom: 7px; }
+.cat-edit-input               { width: 100%; box-sizing: border-box; padding: 5px 8px;
+                                 border: 1.5px solid #ccc; border-radius: 6px; font-family: inherit;
+                                 font-size: 13px; font-weight: 700; background: var(--bg); color: var(--text); }
+.cat-edit-input:focus         { border-color: #333; outline: none; box-shadow: 0 0 0 2px rgba(0,0,0,.08); }
+.cat-edit-input--light        { font-weight: 400; font-size: 12px; }
+
+/* Source toggle */
+.source-toggle                { display: flex; border: 1.5px solid #ccc; border-radius: 6px;
+                                 overflow: hidden; width: fit-content; margin-bottom: 8px; }
+.source-toggle__btn           { padding: 4px 12px; font-size: 11px; font-weight: 700;
+                                 text-transform: uppercase; letter-spacing: .04em;
+                                 background: none; border: none; cursor: pointer;
+                                 font-family: inherit; color: var(--text2);
+                                 min-height: 28px; transition: background .12s; }
+.source-toggle__btn.active    { background: #333; color: #fff; }
+
+/* Movie chips in edit mode */
+.cat-edit-movies              { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; min-height: 24px; }
+.cat-edit-chip                { display: flex; align-items: center; gap: 3px; background: #f0ebe5;
+                                 border: 1.5px solid #ccc; border-radius: 14px;
+                                 padding: 2px 6px 2px 8px; font-size: 11px; font-weight: 600; }
+.cat-edit-chip__remove        { background: none; border: none; cursor: pointer; font-size: 13px;
+                                 color: var(--text2); padding: 0 1px; line-height: 1; }
+.cat-edit-chip__remove:hover  { color: #cc2200; }
+
+/* Movie search dropdown */
+.cat-movie-search-wrap        { position: relative; margin-bottom: 6px; }
+.cat-movie-search-input       { width: 100%; box-sizing: border-box; padding: 4px 8px;
+                                 border: 1.5px solid #ccc; border-radius: 6px; font-family: inherit;
+                                 font-size: 12px; background: var(--bg); }
+.cat-movie-search-input:focus { border-color: #333; outline: none; }
+.cat-movie-search-results     { position: absolute; top: calc(100% + 2px); left: 0; right: 0;
+                                 z-index: 100; background: var(--surface);
+                                 border: var(--bw) solid var(--border);
+                                 border-radius: 6px; box-shadow: var(--shadow);
+                                 max-height: 140px; overflow-y: auto; }
+.cat-movie-search-item        { padding: 6px 10px; font-size: 12px; cursor: pointer; }
+.cat-movie-search-item:hover  { background: var(--bg); }
+
+/* Edit trigger + action buttons */
+.cat-edit-btn                 { background: none; border: 1.5px solid #ccc; border-radius: 5px;
+                                 cursor: pointer; font-size: 11px; font-family: inherit;
+                                 color: var(--text2); padding: 3px 8px; min-height: 28px; }
+.cat-edit-btn:hover           { background: #f0ebe5; border-color: #999; color: var(--text); }
+.cat-edit-actions             { display: flex; gap: 6px; margin-top: 8px; }
+.cat-edit-save                { padding: 6px 14px; font-size: 12px; font-weight: 700;
+                                 font-family: inherit; background: #333; color: #fff;
+                                 border: 1.5px solid #333; border-radius: 6px; cursor: pointer;
+                                 min-height: 32px; }
+.cat-edit-save:hover          { background: #111; }
+.cat-edit-cancel              { padding: 6px 14px; font-size: 12px; font-weight: 700;
+                                 font-family: inherit; background: none; color: var(--text2);
+                                 border: 1.5px solid #ccc; border-radius: 6px; cursor: pointer;
+                                 min-height: 32px; }
+.cat-edit-cancel:hover        { border-color: #999; }
+.cat-connection-tag           { display: inline-block; font-size: 10px; font-weight: 600;
+                                 color: var(--text2); background: #ede5dc; border-radius: 4px;
+                                 padding: 1px 6px; margin-bottom: 5px; letter-spacing: .02em; }
 
 /* ── Published panel ────────────────────────────────────────────── */
 .pub-row__summary  { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
@@ -353,20 +438,19 @@
                      margin-bottom: 16px; max-width: 580px; }
 .settings-card h3  { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
 .settings-card p   { font-size: 13px; color: var(--text2); margin: 0 0 14px; line-height: 1.5; }
-.dataset-btn       { padding: 7px 14px; font-size: 13px; font-weight: 700; border-radius: 8px;
-                     border: 1.5px solid #ccc; background: none; cursor: pointer; font-family: inherit;
-                     color: var(--text2); transition: all .15s; }
-.dataset-btn:hover:not(.active) { background: #f0ebe5; }
-.dataset-btn.active{ background: #111; color: #fff; border-color: #111; }
-.dataset-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-#dataset-status    { font-size: 12px; opacity: 0.5; margin-left: 8px; }
+.tier-filter-group  { display: flex; flex-direction: column; gap: 6px; }
+.tier-filter-label  { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+                      opacity: 0.55; margin-bottom: 2px; }
+.tier-filter-opt    { display: flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer;
+                      user-select: none; }
+.tier-filter-opt input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #333; }
 .danger-card       { background: var(--surface); border: 2px solid #cc2200;
                      border-radius: 12px; padding: 20px 22px; max-width: 580px; }
 .danger-card h3    { font-size: 15px; font-weight: 700; color: #cc2200; margin: 0 0 4px; }
 .danger-card p     { font-size: 13px; color: var(--text2); margin: 0 0 14px; line-height: 1.5; }
 
 /* ── Browse panel ───────────────────────────────────────────────── */
-.conn-layout-2col  { display: grid; grid-template-columns: 240px 1fr; gap: 16px; align-items: start; }
+.conn-layout-2col  { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; align-items: start; }
 @media (max-width: 700px) { .conn-layout-2col { grid-template-columns: 1fr; } }
 .conn-index        { background: var(--surface); border: var(--bw) solid var(--border);
                      border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
@@ -398,6 +482,8 @@
 .conn-movie-row:hover { background: #f0ebe5; }
 .conn-movie-row input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
 .conn-movie-row.in-use { opacity: 0.35; }
+.conn-movie-row--tier1 .conn-movie-title { font-weight: 700; }
+.conn-movie-row--tier1::before { content: '★'; font-size: 9px; color: #c89a2a; flex-shrink: 0; margin-right: -4px; }
 .conn-movies-footer{ padding: 12px 14px; border-top: 1px solid #e5ddd5; }
 .conn-empty        { padding: 24px; text-align: center; font-size: 13px; opacity: 0.4; }
 
@@ -798,6 +884,286 @@
 .trivia-pub-q__cat { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; margin-top: 10px; }
 .trivia-pub-q__text { font-size: 13px; font-weight: 600; line-height: 1.4; }
 .trivia-pub-q__answer { font-size: 12px; color: var(--text2); }
+
+/* ── Builder split pane ─────────────────────────────────────────── */
+.builder-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 960px) { .builder-layout { grid-template-columns: 1fr; } }
+
+.builder-library-pane {
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  position: sticky;
+  top: 70px;
+}
+.builder-lib__hd {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5ddd5;
+}
+.builder-lib__list {
+  max-height: 540px;
+  overflow-y: auto;
+  padding: 6px;
+}
+.blib-card {
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+  margin-bottom: 4px;
+}
+.blib-card:hover { background: #f0ebe5; border-color: #ccc; }
+.blib-card.dragging { opacity: 0.4; }
+.blib-card.used { opacity: 0.35; }
+.blib-card__title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+.blib-card__movies { font-size: 11px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blib-card__footer { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+
+.source-pill {
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 20px;
+  border: 1.5px solid #ccc;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text2);
+  transition: all .12s;
+}
+.source-pill.active { background: #111; color: #fff; border-color: #111; }
+.source-pill:hover:not(.active) { background: #f0ebe5; border-color: #999; }
+
+.cat-slot--yellow { border-left: 4px solid var(--yellow); }
+.cat-slot--green  { border-left: 4px solid var(--green); }
+.cat-slot--blue   { border-left: 4px solid var(--blue); }
+.cat-slot--purple { border-left: 4px solid var(--purple); }
+
+.cat-slot__placeholder-empty {
+  font-size: 13px;
+  opacity: 0.35;
+  font-style: italic;
+  padding: 10px;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+}
+.cat-slot.drag-over { box-shadow: var(--shadow), 0 0 0 3px #333; }
+
+/* ── Published calendar ─────────────────────────────────────────── */
+.pub-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 20px;
+}
+.pub-cal__dow {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  padding: 6px 0;
+}
+.pub-cal__day {
+  min-height: 52px;
+  border-radius: 8px;
+  padding: 5px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  position: relative;
+  transition: background 0.1s;
+}
+.pub-cal__day--empty { background: transparent; }
+.pub-cal__day--empty-month { background: transparent; opacity: 0.2; }
+.pub-cal__day--published {
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+}
+.pub-cal__day--published:hover { background: #f0ebe5; }
+.pub-cal__day--published.selected { box-shadow: var(--shadow), 0 0 0 3px #111; }
+.pub-cal__day--scheduled {
+  background: #f5f0ff;
+  border: var(--bw) solid #b07ecf;
+  cursor: pointer;
+}
+.pub-cal__day--scheduled:hover { background: #ede5ff; }
+.pub-cal__day--scheduled.selected { box-shadow: var(--shadow), 0 0 0 3px #7B61FF; }
+.pub-cal__day--gap {
+  background: transparent;
+  border: 2px dashed #cc2200;
+}
+.pub-cal__day--today { outline: 2px solid #111; outline-offset: -2px; font-weight: 700; }
+.pub-cal__day-num { font-size: 12px; font-weight: 700; }
+.pub-cal__day--today .pub-cal__day-num { text-decoration: underline; }
+.pub-cal__dots {
+  display: flex;
+  gap: 2px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.pub-cal__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pub-cal__num-badge {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  opacity: 0.4;
+}
+.pub-detail-card {
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.pub-detail-card__date {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.pub-gap-strip {
+  background: #ffeaea;
+  border: 2px solid #cc2200;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #cc2200;
+  margin-bottom: 14px;
+}
+
+.pick-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Send to Builder button ──────────────────────────────────────── */
+.send-to-builder-btn {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  border: 1.5px solid #ccc; background: none; cursor: pointer; font-family: inherit;
+  color: var(--text2); transition: background .12s, border-color .12s, color .12s;
+  min-height: 28px; white-space: nowrap;
+}
+.send-to-builder-btn:hover:not(:disabled) { background: #f0ebe5; border-color: #999; color: var(--text); }
+.send-to-builder-btn:disabled { cursor: default; opacity: 0.75; }
+.send-to-builder-btn:focus-visible { outline: 2px solid #333; outline-offset: 2px; }
+
+/* ── Difficulty badge (view mode) ────────────────────────────────── */
+.diff-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  padding: 1px 6px; border-radius: 5px; background: #f0ebe5; color: var(--text2);
+}
+
+/* ── Difficulty pills (edit mode) ────────────────────────────────── */
+.cat-edit-diff-row {
+  display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-bottom: 8px;
+}
+.diff-pill {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  border: 1.5px solid #ccc; background: none; cursor: pointer; font-family: inherit;
+  color: var(--text2); transition: background .1s, border-color .1s;
+  min-height: 28px;
+}
+.diff-pill:hover { background: #f0ebe5; border-color: #aaa; }
+.diff-pill.selected { background: #222; border-color: #222; color: #fff; }
+.diff-pill.selected .pick-dot { border-color: rgba(255,255,255,.4) !important; }
+.diff-pill:focus-visible { outline: 2px solid #333; outline-offset: 2px; }
+.diff-suggest-btn {
+  padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  border: 1.5px solid #aaa; background: none; cursor: pointer; font-family: inherit;
+  color: var(--text2); transition: background .1s; min-height: 28px;
+}
+.diff-suggest-btn:hover:not(:disabled) { background: #f0ebe5; border-color: #888; }
+.diff-suggest-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Library filter row ──────────────────────────────────────────── */
+.lib-filters-row {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start;
+  padding: 10px 0 14px; border-bottom: 1px solid rgba(0,0,0,.07); margin-bottom: 14px;
+}
+.lib-filter-group { display: flex; flex-direction: column; gap: 5px; }
+.lib-filter-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+                     letter-spacing: .05em; opacity: 0.45; }
+.lib-filter-select {
+  font-size: 12px; border: 1.5px solid #ccc; border-radius: 6px;
+  padding: 4px 8px; font-family: inherit; background: var(--bg); color: var(--text);
+  cursor: pointer; min-height: 30px;
+}
+.lib-filter-select:focus { border-color: #333; outline: none; }
+.lib-diff-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+.lib-diff-pill {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  border: 1.5px solid #ccc; background: none; cursor: pointer; font-family: inherit;
+  color: var(--text2); transition: background .1s, border-color .1s; min-height: 30px;
+}
+.lib-diff-pill:hover:not(.active) { background: #f0ebe5; border-color: #aaa; }
+.lib-diff-pill.active { background: #222; border-color: #222; color: #fff; }
+.lib-diff-pill.active .pick-dot { border-color: rgba(255,255,255,.4) !important; }
+.lib-diff-pill:focus-visible { outline: 2px solid #333; outline-offset: 2px; }
+
+/* ── Edit Category Modal ──────────────────────────────────────────── */
+#cat-edit-modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.5);
+  align-items: center; justify-content: center;
+  padding: 16px;
+}
+#cat-edit-modal {
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: 16px;
+  box-shadow: 6px 6px 0 var(--border);
+  width: min(600px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+#cat-edit-modal h2 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+.modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1.5px solid var(--border);
+}
+.modal-footer .modal-delete-btn {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 4px 10px;
+  color: #cc2200;
+  border-color: #cc2200;
+}
 </style>
 {% endblock %}
 
@@ -837,40 +1203,40 @@
       <div class="nav-section" id="nav-marquee">
         <span class="nav-label">Marquee</span>
         <button class="nav-item active" data-panel="builder">
-          <span class="nav-icon">⬛</span> Puzzle Builder
+          <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span> Puzzle Builder
         </button>
         <button class="nav-item" data-panel="create">
-          <span class="nav-icon">✦</span> Create Category
+          <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span> Create Category
         </button>
         <button class="nav-item" data-panel="library">
-          <span class="nav-icon">★</span> Category Library
+          <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span> Category Library
         </button>
         <button class="nav-item" data-panel="published">
-          <span class="nav-icon">📋</span> Published Puzzles
+          <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span> Published Puzzles
         </button>
       </div>
       <div class="nav-section" id="nav-trivia" style="display:none;">
         <span class="nav-label">Trivia</span>
         <button class="nav-item" data-panel="trivia-builder">
-          <span class="nav-icon">📝</span> Puzzle Builder
+          <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span> Puzzle Builder
         </button>
         <button class="nav-item" data-panel="trivia-questions">
-          <span class="nav-icon">🧠</span> Question Bank
+          <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg></span> Question Bank
         </button>
         <button class="nav-item" data-panel="trivia-published">
-          <span class="nav-icon">📋</span> Published Puzzles
+          <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span> Published Puzzles
         </button>
       </div>
       <div class="nav-section">
         <span class="nav-label">System</span>
         <button class="nav-item" data-panel="settings">
-          <span class="nav-icon">⚙</span> Settings
+          <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Settings
         </button>
       </div>
     </nav>
 
     <div class="sidebar-footer">
-      <a href="/admin/logout" class="sidebar-logout">← Log out</a>
+      <a href="/admin/logout" class="sidebar-logout" style="display:flex;align-items:center;gap:7px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Log out</a>
     </div>
 
   </aside>
@@ -884,36 +1250,43 @@
       <div class="panel-hd">
         <h1 class="panel-hd__title">Puzzle Builder</h1>
         <div class="panel-hd__actions">
-          <button class="btn btn--ghost btn--sm" id="btn-load-draft">Load Draft ▾</button>
           <button class="btn btn--ghost btn--sm" id="btn-clear-builder">Clear All</button>
         </div>
       </div>
 
-      <!-- Slot selector bar -->
-      <div class="slot-bar">
-        <span class="slot-bar__label">Adding to:</span>
-        <div class="slot-selector" id="slot-selector"></div>
-      </div>
+      <div class="builder-layout">
 
-      <div class="split-layout">
-
-        <!-- Left: Movie Pool -->
-        <div class="admin-card">
-          <div class="pool-header">
-            <div class="pool-header__top">
-              <span class="pool-header__name">Movie Pool</span>
-              <span class="pool-header__count" id="pool-count"></span>
+        <!-- Left: Category Library Pane -->
+        <div class="builder-library-pane">
+          <div class="builder-lib__hd">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <span style="font-size:13px;font-weight:700;">Category Library</span>
+              <span class="trivia-count-badge" id="builder-lib-count"></span>
             </div>
-            <input class="pool-search" id="pool-search" type="text"
-                   placeholder="Search title, actor, director, genre…" autocomplete="off">
+            <input type="text" id="builder-lib-search" placeholder="Search library…"
+                   class="pool-search" style="width:100%;box-sizing:border-box;margin-bottom:8px;"
+                   autocomplete="off">
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">
+              <button class="source-pill active" data-source="all">All</button>
+              <button class="source-pill" data-source="manual">Manual</button>
+              <button class="source-pill" data-source="ai">AI</button>
+              <button class="source-pill" data-source="submission">Submission</button>
+            </div>
+            <select id="builder-lib-sort" style="font-size:11px;border:1.5px solid #ccc;border-radius:6px;padding:2px 6px;font-family:inherit;width:100%;margin-bottom:6px;">
+              <option value="az">A → Z</option>
+              <option value="recent">Newest First</option>
+              <option value="used">Most Used</option>
+            </select>
+            <button class="btn btn--ghost btn--sm" id="builder-lib-hide-used-btn"
+                    style="font-size:11px;width:100%;">Show All</button>
           </div>
-          <div class="pool-list" id="pool-list">
+          <div class="builder-lib__list" id="builder-lib-list">
             <div class="loading-state">Loading…</div>
           </div>
         </div>
 
         <!-- Right: Slots + Preview + Publish -->
-        <div>
+        <div class="builder-slots-pane">
           <div class="categories-area" id="categories-area"></div>
           <div id="validation-msg"></div>
 
@@ -926,6 +1299,7 @@
             <label for="pub-date">Date</label>
             <input type="date" id="pub-date">
             <input type="text" id="pub-note" class="pub-note-input" placeholder="Author note (optional)">
+            <button class="btn btn--ghost btn--sm" id="btn-load-draft" style="font-size:11px;">Load Draft ▾</button>
             <button class="btn btn--ghost btn--sm" id="btn-save-draft">Save Draft</button>
             <button class="btn btn--primary" id="btn-publish">Publish Puzzle</button>
             <span class="publish-msg" id="publish-msg"></span>
@@ -944,7 +1318,8 @@
 
       <div class="sub-tabs">
         <button class="sub-tab active" data-subtab="browse">Browse</button>
-        <button class="sub-tab" data-subtab="random">🎲 Random</button>
+        <button class="sub-tab" data-subtab="search"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Search</button>
+        <button class="sub-tab" data-subtab="random"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;"><polyline points="16 3 21 3 21 8"/><path d="m4 20 17-17"/><polyline points="21 16 21 21 16 21"/><path d="m4 4 5 5"/></svg>Random</button>
         <button class="sub-tab" data-subtab="ai">✦ AI</button>
       </div>
 
@@ -977,47 +1352,68 @@
             </div>
             <div class="conn-movies-footer">
               <input type="text" id="cat-lib-name" placeholder="Name this connection…" maxlength="80"
-                     style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:10px;">
-              <div style="display:flex;align-items:center;gap:8px;">
+                     style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:6px;">
+              <select id="browse-conn-type" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:12px;margin-bottom:10px;background:#fff;cursor:pointer;">
+                <option value="">Connection type…</option>
+                <option value="Director">Director</option>
+                <option value="Actor">Actor / Cast</option>
+                <option value="Writer">Writer</option>
+                <option value="Award">Award / Oscar</option>
+                <option value="Theme">Theme</option>
+                <option value="Genre">Genre</option>
+                <option value="Era">Era / Decade</option>
+                <option value="Studio">Studio</option>
+                <option value="Franchise">Franchise / Series</option>
+                <option value="Other">Other</option>
+              </select>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <span style="font-size:12px;opacity:0.5;" id="browse-selected-count">0/4 selected</span>
-                <button class="btn btn--ghost btn--sm" id="btn-load-to-builder" disabled style="margin-left:auto;">→ Builder</button>
-                <button class="btn btn--sm" id="btn-save-to-lib" disabled>★ Save</button>
+                <button class="btn btn--sm" id="btn-save-to-lib" disabled style="margin-left:auto;">★ Save</button>
               </div>
             </div>
           </div>
 
         </div>
 
-        <!-- Movie Search -->
-        <div style="margin-top:20px;border-top:1px solid #e5ddd5;padding-top:20px;">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-            <strong style="font-size:14px;">Movie Search</strong>
-            <span style="font-size:12px;opacity:0.5;">Search by title, director, actor, writer, genre — select up to 4</span>
-          </div>
-          <div class="conn-layout-2col">
-            <div class="conn-index">
-              <input class="conn-search" id="cat-movie-search" type="text"
-                     placeholder="Search movies…" autocomplete="off">
-              <div class="conn-list" id="cat-movie-results" style="max-height:380px;">
-                <div class="conn-empty">Type to search movies</div>
-              </div>
+      </div>
+
+      <!-- ── Search sub-panel ── -->
+      <div class="sub-panel" id="sub-search">
+        <div class="conn-layout-2col">
+          <div class="conn-index">
+            <input class="conn-search" id="cat-movie-search" type="text"
+                   placeholder="Search movies…" autocomplete="off">
+            <div class="conn-list" id="cat-movie-results" style="max-height:380px;">
+              <div class="conn-empty">Type to search movies</div>
             </div>
-            <div class="conn-movies-panel">
-              <div class="conn-movies-header">
-                <div class="conn-movies-title" id="cat-search-title">Selected movies</div>
-                <div class="conn-movies-sub" id="cat-search-sub">0/4 selected</div>
-              </div>
-              <div class="conn-movie-list" id="cat-search-selected">
-                <div class="conn-empty">Select movies from the search results.</div>
-              </div>
-              <div class="conn-movies-footer">
-                <input type="text" id="cat-search-name" placeholder="Name this connection…" maxlength="80"
-                       style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:10px;">
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <button class="btn btn--ghost btn--sm" id="btn-cat-search-clear" style="color:#cc2200;border-color:#cc2200;">Clear</button>
-                  <button class="btn btn--ghost btn--sm" id="btn-cat-search-load" disabled style="margin-left:auto;">→ Builder</button>
-                  <button class="btn btn--sm" id="btn-cat-search-save" disabled>★ Save</button>
-                </div>
+          </div>
+          <div class="conn-movies-panel">
+            <div class="conn-movies-header">
+              <div class="conn-movies-title" id="cat-search-title">Selected movies</div>
+              <div class="conn-movies-sub" id="cat-search-sub">0/4 selected</div>
+            </div>
+            <div class="conn-movie-list" id="cat-search-selected">
+              <div class="conn-empty">Select movies from the search results.</div>
+            </div>
+            <div class="conn-movies-footer">
+              <input type="text" id="cat-search-name" placeholder="Name this connection…" maxlength="80"
+                     style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:6px;">
+              <select id="search-conn-type" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:12px;margin-bottom:10px;background:#fff;cursor:pointer;">
+                <option value="">Connection type…</option>
+                <option value="Director">Director</option>
+                <option value="Actor">Actor / Cast</option>
+                <option value="Writer">Writer</option>
+                <option value="Award">Award / Oscar</option>
+                <option value="Theme">Theme</option>
+                <option value="Genre">Genre</option>
+                <option value="Era">Era / Decade</option>
+                <option value="Studio">Studio</option>
+                <option value="Franchise">Franchise / Series</option>
+                <option value="Other">Other</option>
+              </select>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn--ghost btn--sm" id="btn-cat-search-clear" style="color:#cc2200;border-color:#cc2200;">Clear</button>
+                <button class="btn btn--sm" id="btn-cat-search-save" disabled style="margin-left:auto;">★ Save</button>
               </div>
             </div>
           </div>
@@ -1034,12 +1430,28 @@
           </div>
         </div>
         <div id="random-pick-grid" class="random-pick-grid"></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap;">
-          <span style="font-size:12px;opacity:0.5;" id="random-sel-count">0/4 selected</span>
-          <input type="text" id="random-cat-name" placeholder="Name this connection…" maxlength="80"
-                 style="flex:1;min-width:180px;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;">
-          <button class="btn btn--ghost btn--sm" id="btn-random-load" disabled>→ Builder</button>
-          <button class="btn btn--sm" id="btn-random-save" disabled>★ Save</button>
+        <div style="margin-top:14px;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+            <span style="font-size:12px;opacity:0.5;" id="random-sel-count">0/4 selected</span>
+            <input type="text" id="random-cat-name" placeholder="Name this connection…" maxlength="80"
+                   style="flex:1;min-width:180px;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <select id="random-conn-type" style="flex:1;min-width:180px;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:12px;background:#fff;cursor:pointer;">
+              <option value="">Connection type…</option>
+              <option value="Director">Director</option>
+              <option value="Actor">Actor / Cast</option>
+              <option value="Writer">Writer</option>
+              <option value="Award">Award / Oscar</option>
+              <option value="Theme">Theme</option>
+              <option value="Genre">Genre</option>
+              <option value="Era">Era / Decade</option>
+              <option value="Studio">Studio</option>
+              <option value="Franchise">Franchise / Series</option>
+              <option value="Other">Other</option>
+            </select>
+            <button class="btn btn--sm" id="btn-random-save" disabled>★ Save</button>
+          </div>
         </div>
       </div>
 
@@ -1092,8 +1504,38 @@
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-        <span id="lib-count" style="font-size:13px;opacity:0.5;"></span>
+      <!-- Filter / Sort row -->
+      <div class="lib-filters-row">
+        <div class="lib-filter-group">
+          <span class="lib-filter-label">Sort</span>
+          <select id="lib-sort" class="lib-filter-select" aria-label="Sort categories">
+            <option value="az">A → Z</option>
+            <option value="recent">Newest First</option>
+            <option value="used">Most Used</option>
+            <option value="least">Least Used</option>
+            <option value="diff">By Difficulty</option>
+          </select>
+        </div>
+        <div class="lib-filter-group">
+          <span class="lib-filter-label">Difficulty</span>
+          <div class="lib-diff-pills" role="group" aria-label="Filter by difficulty">
+            <button class="lib-diff-pill active" data-diff="">All</button>
+            <button class="lib-diff-pill" data-diff="1" aria-label="Easiest"><span class="pick-dot" style="background:#f9df6d;border:1px solid rgba(0,0,0,.2);"></span>Easiest</button>
+            <button class="lib-diff-pill" data-diff="2" aria-label="Easy"><span class="pick-dot" style="background:#6abf69;border:1px solid rgba(0,0,0,.2);"></span>Easy</button>
+            <button class="lib-diff-pill" data-diff="3" aria-label="Hard"><span class="pick-dot" style="background:#6ab0d4;border:1px solid rgba(0,0,0,.2);"></span>Hard</button>
+            <button class="lib-diff-pill" data-diff="4" aria-label="Hardest"><span class="pick-dot" style="background:#b07ecf;border:1px solid rgba(0,0,0,.2);"></span>Hardest</button>
+          </div>
+        </div>
+        <div class="lib-filter-group">
+          <span class="lib-filter-label">Type</span>
+          <select id="lib-filter-type" class="lib-filter-select" aria-label="Filter by connection type">
+            <option value="">All types</option>
+          </select>
+        </div>
+        <div class="lib-filter-group" style="justify-content:flex-end;margin-left:auto;">
+          <span class="lib-filter-label">&nbsp;</span>
+          <span id="lib-count" style="font-size:12px;opacity:0.5;padding:5px 0;"></span>
+        </div>
       </div>
 
       <div id="category-library-list">
@@ -1107,36 +1549,31 @@
 
       <div class="panel-hd">
         <h1 class="panel-hd__title">Published Puzzles</h1>
+        <div>
+          <button id="btn-pub-prev-month" class="btn btn--ghost btn--sm">← Prev</button>
+          <span id="pub-cal-month-label" style="font-size:14px;font-weight:700;margin:0 8px;"></span>
+          <button id="btn-pub-next-month" class="btn btn--ghost btn--sm">Next →</button>
+        </div>
       </div>
 
-      {% if puzzle_dates_numbered %}
-      <div class="admin-card">
-        {% for d, num in puzzle_dates_numbered | reverse %}
-        <div class="pub-row" data-date="{{ d }}">
-          <div class="pub-row__summary">
-            <strong>{{ d }}</strong>
-            <span style="font-size:12px;opacity:0.5;">#{{ num }}</span>
-            {% if d > today %}<span style="font-size:10px;font-weight:700;color:#7B61FF;background:#F0EDFF;padding:2px 6px;border-radius:20px;">SCHEDULED</span>{% endif %}
-            <a href="/marquee/{{ d }}" class="btn btn--ghost btn--sm" target="_blank"
-               onclick="event.stopPropagation()">Play ↗</a>
-            {% if d > today %}<button class="btn btn--ghost btn--sm" data-date="{{ d }}"
-                    onclick="event.stopPropagation();editUpcomingMarqueePuzzle('{{ d }}')" style="font-size:11px;">Edit</button>{% endif %}
-            <button class="btn btn--ghost btn--sm pub-redate-btn" data-date="{{ d }}"
-                    onclick="event.stopPropagation()" style="font-size:11px;">Change Date</button>
-            <button class="btn btn--ghost btn--sm pub-delete-btn" data-date="{{ d }}"
-                    onclick="event.stopPropagation()"
-                    style="color:#cc2200;border-color:#cc2200;font-size:11px;">Delete</button>
-            <span class="pub-row__expand">▶ Expand</span>
-          </div>
-          <div class="pub-row__detail" id="detail-{{ d }}">
-            <div style="opacity:0.5;font-size:12px;padding:8px 0;">Click to load details…</div>
-          </div>
-        </div>
+      <!-- Gap warning strip -->
+      <div id="pub-gap-warning" class="pub-gap-strip" style="display:none;">
+        <span id="pub-gap-text"></span>
+      </div>
+
+      <!-- Calendar grid -->
+      <div id="pub-calendar" class="pub-calendar"></div>
+
+      <!-- Expanded detail area -->
+      <div id="pub-detail-area"></div>
+
+      <!-- Hidden data source — Jinja outputs data-attributes only -->
+      <div id="pub-data-source" style="display:none;">
+        {% for d, num in puzzle_dates_numbered %}
+        <div data-date="{{ d }}" data-num="{{ num }}"
+             data-future="{% if d > today %}true{% endif %}"></div>
         {% endfor %}
       </div>
-      {% else %}
-      <p style="opacity:0.5;font-size:13px;">No puzzles published yet.</p>
-      {% endif %}
 
     </div>
 
@@ -1147,14 +1584,16 @@
         <h1 class="panel-hd__title">Settings</h1>
       </div>
 
-      <div class="settings-card" id="settings-movie-dataset">
-        <h3>Movie Dataset</h3>
-        <p>Switch the active movie pool used in Puzzle Builder and Category tools. The full dataset includes ~600 films; curated is a hand-picked set of ~170.</p>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button class="dataset-btn active" data-dataset="curated" id="btn-dataset-curated">Curated</button>
-          <button class="dataset-btn" data-dataset="full" id="btn-dataset-full">Full</button>
-          <span id="dataset-status"></span>
+      <div class="settings-card" id="settings-tier-filters">
+        <h3>Tier Filters</h3>
+        <p>Select which movie tiers are included in the generator and AI features. Tier 1 = most popular films; Tier 2 = well-known.</p>
+        <div style="margin-top:10px;">
+          <div class="tier-filter-group">
+            <label class="tier-filter-opt"><input type="checkbox" class="random-tier-cb ai-tier-cb" value="1"> Tier 1</label>
+            <label class="tier-filter-opt"><input type="checkbox" class="random-tier-cb ai-tier-cb" value="2"> Tier 2</label>
+          </div>
         </div>
+        <span id="tier-filter-status" style="font-size:12px;opacity:0.5;margin-top:8px;display:block;"></span>
       </div>
 
       <div class="settings-card">
@@ -1295,8 +1734,59 @@
 
   </main>
 </div>
+
+<!-- ── Edit Category Modal ── -->
+<div id="cat-edit-modal-overlay" style="display:none;">
+  <div id="cat-edit-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cat-heading">
+    <h2 id="modal-cat-heading">Edit Category</h2>
+
+    <div>
+      <input class="cat-edit-input" id="modal-cat-title" placeholder="Category name…" maxlength="80"
+             style="width:100%;box-sizing:border-box;" aria-label="Category title">
+    </div>
+
+    <div id="modal-cat-chips" class="cat-edit-movies"></div>
+
+    <div id="modal-movie-search-wrap" class="cat-movie-search-wrap">
+      <input class="cat-movie-search-input" id="modal-cat-msearch"
+             placeholder="Add movie…" autocomplete="off" aria-label="Search movies to add">
+      <div class="cat-movie-search-results" id="modal-cat-mresults" style="display:none;"></div>
+    </div>
+
+    <div>
+      <select id="modal-cat-ctype" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:12px;background:#fff;cursor:pointer;">
+        <option value="">Connection type…</option>
+        <option value="Director">Director</option>
+        <option value="Actor">Actor / Cast</option>
+        <option value="Writer">Writer</option>
+        <option value="Award">Award / Oscar</option>
+        <option value="Theme">Theme</option>
+        <option value="Genre">Genre</option>
+        <option value="Era">Era / Decade</option>
+        <option value="Studio">Studio</option>
+        <option value="Franchise">Franchise / Series</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="cat-edit-diff-row" id="modal-cat-diff" role="group" aria-label="Difficulty"></div>
+
+    <div class="source-toggle" id="modal-cat-source" aria-label="Source type">
+      <button class="source-toggle__btn active" data-val="manual">Manual</button>
+      <button class="source-toggle__btn" data-val="ai">AI</button>
+    </div>
+
+    <div class="modal-footer">
+      <button class="cat-edit-save" id="modal-cat-save">Save</button>
+      <button class="cat-edit-cancel" id="modal-cat-cancel">Cancel</button>
+      <button class="btn btn--ghost btn--sm modal-delete-btn" id="modal-cat-delete">Delete</button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1/Sortable.min.js"></script>
 <script src="{{ url_for('static', filename='admin.js') }}"></script>
 {% endblock %}

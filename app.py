@@ -102,11 +102,7 @@ def save_settings(settings: dict):
 def get_movies() -> list:
     global _movies_cache
     if _movies_cache is None:
-        settings = get_settings()
-        if settings.get("active_dataset") == "full" and MOVIES_FULL_PATH.exists():
-            path = MOVIES_FULL_PATH
-        else:
-            path = MOVIES_PATH
+        path = MOVIES_FULL_PATH if MOVIES_FULL_PATH.exists() else MOVIES_PATH
         with open(path, "r", encoding="utf-8") as f:
             _movies_cache = json.load(f)["movies"]
     return _movies_cache
@@ -627,7 +623,12 @@ def admin_create_category():
     title        = (data.get("title") or "").strip()[:80]
     movie_ids    = data.get("movie_ids", [])
     movie_titles = data.get("movie_titles", [])
-    source       = data.get("source", "manual")   # manual | submission | ai
+    source          = data.get("source", "manual")   # manual | submission | ai
+    connection_type = str(data.get("connection_type") or "").strip()[:40]
+    try:
+        difficulty = max(1, min(4, int(data.get("difficulty") or 0))) or None
+    except (ValueError, TypeError):
+        difficulty = None
 
     if not title or len(movie_ids) != 4:
         return jsonify({"error": "invalid"}), 400
@@ -642,13 +643,15 @@ def admin_create_category():
 
     cats = get_saved_categories()
     cat  = {
-        "id":           str(uuid.uuid4())[:8],
-        "title":        title,
-        "movie_ids":    movie_ids,
-        "movie_titles": movie_titles,
-        "source":       source,
-        "created_at":   datetime.now().isoformat(timespec="seconds"),
-        "times_used":   0,
+        "id":              str(uuid.uuid4())[:8],
+        "title":           title,
+        "movie_ids":       movie_ids,
+        "movie_titles":    movie_titles,
+        "source":          source,
+        "connection_type": connection_type,
+        "difficulty":      difficulty,
+        "created_at":      datetime.now().isoformat(timespec="seconds"),
+        "times_used":      0,
     }
     cats.append(cat)
     save_saved_categories(cats)
@@ -660,6 +663,32 @@ def admin_delete_category(cat_id: str):
     cats = [c for c in get_saved_categories() if c["id"] != cat_id]
     save_saved_categories(cats)
     return jsonify({"ok": True})
+
+@app.patch("/admin/categories/<cat_id>")
+@admin_required
+def admin_update_category(cat_id: str):
+    data = request.get_json(force=True)
+    cats = get_saved_categories()
+    cat  = next((c for c in cats if c["id"] == cat_id), None)
+    if not cat:
+        return jsonify({"error": "not_found"}), 404
+    if "title" in data:
+        cat["title"] = str(data["title"]).strip()[:80]
+    if "movie_ids" in data and "movie_titles" in data:
+        if len(data["movie_ids"]) == 4:
+            cat["movie_ids"]    = data["movie_ids"]
+            cat["movie_titles"] = data["movie_titles"]
+    if "source" in data and data["source"] in ("manual", "ai", "submission"):
+        cat["source"] = data["source"]
+    if "connection_type" in data:
+        cat["connection_type"] = str(data.get("connection_type") or "").strip()[:40]
+    if "difficulty" in data:
+        try:
+            cat["difficulty"] = max(1, min(4, int(data["difficulty"]))) if data["difficulty"] else None
+        except (ValueError, TypeError):
+            pass
+    save_saved_categories(cats)
+    return jsonify({"ok": True, "category": cat})
 
 
 # ── Drafts ────────────────────────────────────────────────────────────────────
@@ -756,30 +785,26 @@ def admin_connections():
 @admin_required
 def admin_get_settings():
     settings = get_settings()
-    full_available = MOVIES_FULL_PATH.exists()
     return jsonify({
-        "active_dataset": settings.get("active_dataset", "curated"),
-        "full_available": full_available,
-        "curated_count": None,   # computed client-side after fetch
+        "ai_tiers":     settings.get("ai_tiers",     [1]),
+        "random_tiers": settings.get("random_tiers", [1]),
     })
 
 @app.post("/admin/settings")
 @admin_required
 def admin_update_settings():
-    global _movies_cache
-    data    = request.get_json(force=True)
-    dataset = data.get("active_dataset", "curated")
-    if dataset not in ("curated", "full"):
-        return jsonify({"error": "invalid dataset"}), 400
-    if dataset == "full" and not MOVIES_FULL_PATH.exists():
-        return jsonify({"error": "movies_full.json not found — run build_full_dataset.py first"}), 400
-
+    data     = request.get_json(force=True)
     settings = get_settings()
-    settings["active_dataset"] = dataset
+
+    if "ai_tiers" in data:
+        tiers = [int(t) for t in data["ai_tiers"] if int(t) in (1, 2)]
+        settings["ai_tiers"] = tiers or [1]
+    if "random_tiers" in data:
+        tiers = [int(t) for t in data["random_tiers"] if int(t) in (1, 2)]
+        settings["random_tiers"] = tiers or [1]
+
     save_settings(settings)
-    _movies_cache = None   # invalidate cache
-    movie_count   = len(get_movies())
-    return jsonify({"ok": True, "active_dataset": dataset, "movie_count": movie_count})
+    return jsonify({"ok": True, "ai_tiers": settings["ai_tiers"], "random_tiers": settings["random_tiers"]})
 
 
 # ── AI Puzzle Builder ──────────────────────────────────────────────────────────
@@ -864,18 +889,17 @@ def admin_ai_suggest():
     data        = request.get_json(force=True)
     prompt      = (data.get("prompt") or "").strip()[:200]
     exclude_ids = set(data.get("exclude_ids", []))
+    ai_tiers    = data.get("ai_tiers") or get_settings().get("ai_tiers", [1])
+    ai_tiers    = set(int(t) for t in ai_tiers if int(t) in (1, 2))
 
     if not prompt:
         return jsonify({"error": "prompt required"}), 400
 
-    # Load full movie list
-    if MOVIES_FULL_PATH.exists():
-        with open(MOVIES_FULL_PATH, "r", encoding="utf-8") as f:
-            full_movies = json.load(f)["movies"]
-    else:
-        full_movies = get_movies()
+    full_movies = get_movies()
 
-    pool = [m for m in full_movies if m["id"] not in exclude_ids]
+    # Filter by selected tiers; movies with no tier field (curated fallback) are treated as tier 1
+    pool = [m for m in full_movies
+            if m["id"] not in exclude_ids and (m.get("tier") or 1) in ai_tiers]
 
     # Pre-filter: score each movie by how many prompt tokens appear in its metadata
     prompt_tokens = set(re.sub(r"[^a-z0-9 ]", " ", prompt.lower()).split())
@@ -894,10 +918,8 @@ def admin_ai_suggest():
         return sum(1 for t in prompt_tokens if len(t) > 2 and t in blob)
 
     scored = sorted(pool, key=score_movie, reverse=True)
-    # Take top 120 keyword-matched + 30 stratified tier-1 for broad coverage
-    top_matched = scored[:120]
-    tier1 = [m for m in pool if m.get("tier") == 1 and m not in top_matched]
-    candidates = top_matched + random.sample(tier1, min(30, len(tier1)))
+    # Take top 150 keyword-matched for broad coverage
+    candidates = scored[:150]
 
     # Build compact metadata block for Claude
     movies_by_id    = {m["id"]: m for m in full_movies}
@@ -973,15 +995,14 @@ def admin_ai_workshop():
     data             = request.get_json(force=True)
     exclude_ids      = set(data.get("exclude_ids", []))
     connection_types = data.get("connection_types", ["plot", "meta", "tonal", "subverted", "thematic"])
+    ai_tiers         = data.get("ai_tiers") or get_settings().get("ai_tiers", [1])
+    ai_tiers         = set(int(t) for t in ai_tiers if int(t) in (1, 2))
 
-    # Always sample & validate against the full dataset for maximum coverage
-    if MOVIES_FULL_PATH.exists():
-        with open(MOVIES_FULL_PATH, "r", encoding="utf-8") as f:
-            full_movies = json.load(f)["movies"]
-    else:
-        full_movies = get_movies()
+    full_movies = get_movies()
 
-    pool            = [m for m in full_movies if m["id"] not in exclude_ids]
+    # Filter by selected tiers; movies with no tier field (curated fallback) are treated as tier 1
+    pool            = [m for m in full_movies
+                       if m["id"] not in exclude_ids and (m.get("tier") or 1) in ai_tiers]
     movies_by_title = {m["title"].lower(): m for m in full_movies}
     movies_by_id    = {m["id"]: m for m in full_movies}
     titles_list     = _titles_only_list(pool)
@@ -1043,6 +1064,34 @@ def admin_ai_workshop():
     except (json.JSONDecodeError, KeyError) as e:
         return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
 
+
+@app.post("/admin/ai/suggest-difficulty")
+@admin_required
+def admin_ai_suggest_difficulty():
+    """Ultra-minimal call: given category title + 4 movie titles, return difficulty 1–4."""
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "no_key"}), 503
+    data = request.get_json(force=True)
+    title = (data.get("title") or "").strip()[:80]
+    movie_titles = [str(t).strip() for t in (data.get("movie_titles") or [])[:4]]
+    if not title or len(movie_titles) != 4:
+        return jsonify({"error": "invalid"}), 400
+    films = ", ".join(f'"{t}"' for t in movie_titles)
+    raw = _call_claude(
+        "You rate the difficulty of movie connection puzzles.",
+        f'Category: "{title}"\nFilms: {films}\n\n'
+        f'How hard is this connection for an average movie fan to spot? '
+        f'Reply with ONLY one word: yellow green blue purple',
+        max_tokens=5,
+    )
+    if not raw:
+        return jsonify({"error": "ai_unavailable"}), 503
+    word = raw.strip().lower().split()[0] if raw.strip() else ""
+    mapping = {"yellow": 1, "green": 2, "blue": 3, "purple": 4}
+    diff = mapping.get(word)
+    if diff is None:
+        return jsonify({"error": "bad_response", "raw": raw}), 500
+    return jsonify({"difficulty": diff, "label": word})
 
 
 # ── Trivia Admin Routes ───────────────────────────────────────────────────────
