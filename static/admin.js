@@ -77,6 +77,14 @@ let triviaQBankHideUsed  = true;
 // ── Active Game ────────────────────────────────────────────────────
 let activeGame = 'marquee'; // 'marquee' | 'trivia'
 
+// ── Duplicate Detection State ───────────────────────────────────────
+let duplicatePairs  = [];      // [{id1, id2, rules, dismissed}, ...]
+let dismissedPairs  = new Set(); // Set of "id1:id2" canonical keys
+let aiCheckResults  = {};      // { "id1:id2": {is_duplicate, reason} }
+
+// ── Import State ────────────────────────────────────────────────────
+let _importPending  = null;    // { file, format, count } while confirm modal is open
+
 // ══════════════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════════════
@@ -705,10 +713,30 @@ function bindBuilderEvents() {
 // ══════════════════════════════════════════════════════════════════
 
 async function loadCategoryLibrary() {
-  const res   = await fetch('/admin/categories');
-  savedCategories = await res.json();
+  const [catRes] = await Promise.all([
+    fetch('/admin/categories'),
+    loadDuplicates(),
+  ]);
+  savedCategories = await catRes.json();
   renderCategoryLibrary();
   renderBuilderLibrary();
+}
+
+async function loadDuplicates() {
+  try {
+    const [pairsRes, dismissedRes] = await Promise.all([
+      fetch('/admin/categories/duplicates'),
+      fetch('/admin/categories/dismissed-duplicates'),
+    ]);
+    const pairsData = await pairsRes.json();
+    const dismissedData = await dismissedRes.json();
+    duplicatePairs = pairsData.pairs || [];
+    dismissedPairs = new Set(
+      dismissedData.map(d => `${[d.id1, d.id2].sort().join(':')}`)
+    );
+  } catch (_) {
+    // non-fatal — badges just won't show
+  }
 }
 
 /* ── Connections Index ── */
@@ -883,13 +911,18 @@ function renderCategoryLibrary() {
   shown.forEach(cat => {
     const div = document.createElement('div');
 
+    // ── Duplicate badge check ──
+    const hasDup = duplicatePairs.some(p =>
+      !p.dismissed && (p.id1 === cat.id || p.id2 === cat.id)
+    );
+
     // ── View mode ──
     const diffIdx   = (cat.difficulty || 0) - 1;
     const diffColor = diffIdx >= 0 ? COLOR_ORDER[diffIdx] : null;
     div.className = 'cat-library-card';
     div.innerHTML = `
       <div class="cat-card__header">
-        <div class="cat-library-card__title">${escHtml(cat.title)}</div>
+        <div class="cat-library-card__title">${escHtml(cat.title)}${hasDup ? '<span class="dup-warning" title="Possible duplicate in library">⚠</span>' : ''}</div>
         ${diffColor ? `<span class="diff-badge diff-badge--${diffColor}">
           <span class="pick-dot" style="background:${COLOR_HEX[diffColor]};border:1px solid rgba(0,0,0,.15);"></span>
           ${DIFF_LABELS[diffIdx]}
@@ -1641,6 +1674,348 @@ function bindSettingsEvents() {
       saveTierFilters();
     });
   });
+
+  // ── Import Library ──
+  const chooseBtn   = document.getElementById('btn-import-library-choose');
+  const fileInput   = document.getElementById('import-library-file-input');
+  const statusSpan  = document.getElementById('import-library-status');
+  const confirmOver   = document.getElementById('import-confirm-overlay');
+  const confirmBody   = document.getElementById('import-confirm-body');
+  const confirmGo     = document.getElementById('btn-import-confirm-go');
+  const confirmMerge  = document.getElementById('btn-import-confirm-merge');
+  const confirmCancel = document.getElementById('btn-import-confirm-cancel');
+
+  if (chooseBtn && fileInput) {
+    chooseBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      statusSpan.textContent = 'Reading…';
+      const reader = new FileReader();
+      reader.onload = e => {
+        let data;
+        try { data = JSON.parse(e.target.result); }
+        catch (_) { statusSpan.textContent = '✗ Invalid JSON'; return; }
+        if (!Array.isArray(data) || !data.length) {
+          statusSpan.textContent = '✗ Unrecognized format';
+          return;
+        }
+        const first = data[0] || {};
+        let format, count;
+        if (Array.isArray(first.categories)) {
+          format = 'Puzzles export';
+          // Count unique category movie-id sets
+          const seen = new Set();
+          data.forEach(p => (p.categories || []).forEach(c => seen.add(JSON.stringify((c.movie_ids||[]).slice().sort()))));
+          count = seen.size;
+        } else if (first.title && first.movie_ids) {
+          format = 'Categories export';
+          count = data.length;
+        } else {
+          statusSpan.textContent = '✗ Unrecognized format';
+          return;
+        }
+        statusSpan.textContent = '';
+        _importPending = { file, format, count };
+        confirmBody.innerHTML = `
+          <strong>Format:</strong> ${escHtml(format)}<br>
+          <strong>Categories to import:</strong> ${count}<br>
+          <strong>Current library size:</strong> ${savedCategories.length}<br><br>
+          This will <strong>wipe and replace</strong> your entire category library. This cannot be undone.`;
+        confirmOver.style.display = 'flex';
+        fileInput.value = '';
+      };
+      reader.readAsText(file);
+    });
+
+    confirmCancel.addEventListener('click', () => {
+      confirmOver.style.display = 'none';
+      _importPending = null;
+    });
+
+    async function _runImport(merge) {
+      if (!_importPending) return;
+      const btn = merge ? confirmMerge : confirmGo;
+      btn.disabled = true;
+      btn.textContent = 'Importing…';
+      const fd = new FormData();
+      fd.append('file', _importPending.file);
+      if (merge) fd.append('merge', 'true');
+      const res  = await fetch('/admin/categories/import', { method: 'POST', body: fd });
+      const data = await res.json();
+      confirmOver.style.display = 'none';
+      _importPending = null;
+      confirmGo.disabled = false;
+      confirmMerge.disabled = false;
+      confirmGo.textContent = 'Replace Library';
+      confirmMerge.textContent = 'Add New Only';
+      if (data.ok) {
+        const modeLabel = data.mode === 'merge' ? 'merged' : 'imported';
+        statusSpan.textContent = `✓ ${modeLabel.charAt(0).toUpperCase() + modeLabel.slice(1)} ${data.imported} categories${data.skipped ? ` (${data.skipped} skipped)` : ''}`;
+        await loadCategoryLibrary();
+      } else {
+        statusSpan.textContent = `✗ ${data.error || 'Import failed'}`;
+      }
+    }
+
+    confirmGo.addEventListener('click', () => _runImport(false));
+    confirmMerge.addEventListener('click', () => _runImport(true));
+  }
+
+  // ── Bulk Classify Connection Types ──
+  let _bulkClassifyStop = false;
+
+  const classifyBtn   = document.getElementById('btn-bulk-classify');
+  const classifyStop  = document.getElementById('btn-bulk-classify-stop');
+  const classifyStatus = document.getElementById('bulk-classify-status');
+  const classifyBarWrap = document.getElementById('bulk-classify-bar-wrap');
+  const classifyBar   = document.getElementById('bulk-classify-bar');
+
+  if (classifyBtn) {
+    classifyBtn.addEventListener('click', async () => {
+      const unclassified = savedCategories.filter(c => !c.connection_type);
+      if (!unclassified.length) {
+        classifyStatus.textContent = 'All categories already have a connection type.';
+        return;
+      }
+      _bulkClassifyStop = false;
+      classifyBtn.style.display = 'none';
+      classifyStop.style.display = '';
+      classifyBarWrap.style.display = '';
+      classifyBar.style.width = '0%';
+
+      let done = 0, failed = 0;
+      const total = unclassified.length;
+
+      for (const cat of unclassified) {
+        if (_bulkClassifyStop) break;
+        classifyStatus.textContent = `Classifying ${done + 1} / ${total}… "${cat.title}"`;
+        try {
+          const res  = await fetch('/admin/ai/suggest-connection-type', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: cat.title, movie_titles: cat.movie_titles }),
+          });
+          const data = await res.json();
+          if (data.connection_type) {
+            await fetch(`/admin/categories/${cat.id}`, {
+              method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ connection_type: data.connection_type }),
+            });
+            const local = savedCategories.find(c => c.id === cat.id);
+            if (local) local.connection_type = data.connection_type;
+            done++;
+          } else {
+            failed++;
+          }
+        } catch (_) {
+          failed++;
+        }
+        classifyBar.style.width = `${Math.round((done + failed) / total * 100)}%`;
+      }
+
+      classifyBtn.style.display = '';
+      classifyStop.style.display = 'none';
+      const stopped = _bulkClassifyStop && (done + failed) < total;
+      classifyStatus.textContent = stopped
+        ? `Stopped. Classified ${done} / ${total}${failed ? `, ${failed} failed` : ''}.`
+        : `Done! Classified ${done}${failed ? `, ${failed} failed` : ''} of ${total}.`;
+      _bulkClassifyStop = false;
+      renderCategoryLibrary();
+    });
+
+    classifyStop.addEventListener('click', () => { _bulkClassifyStop = true; });
+  }
+
+  // ── Scan for Duplicates ──
+  const scanBtn   = document.getElementById('btn-scan-duplicates');
+  const scanOver  = document.getElementById('dup-scan-overlay');
+  const scanClose = document.getElementById('dup-scan-close');
+
+  if (scanBtn) {
+    scanBtn.addEventListener('click', async () => {
+      scanBtn.textContent = 'Scanning…';
+      scanBtn.disabled = true;
+      await loadDuplicates();
+      renderDupScanModal();
+      scanOver.style.display = 'flex';
+      scanBtn.textContent = 'Scan for Duplicates';
+      scanBtn.disabled = false;
+    });
+  }
+  if (scanClose) {
+    scanClose.addEventListener('click', () => { scanOver.style.display = 'none'; });
+  }
+  if (scanOver) {
+    scanOver.addEventListener('click', e => {
+      if (e.target === scanOver) scanOver.style.display = 'none';
+    });
+  }
+}
+
+// ── Duplicate Scan Modal Renderer ───────────────────────────────────
+function renderDupScanModal() {
+  const body    = document.getElementById('dup-scan-body');
+  const summary = document.getElementById('dup-scan-summary');
+  const total   = duplicatePairs.length;
+  const dismissed = duplicatePairs.filter(p => p.dismissed).length;
+  summary.textContent = `${total} pair${total !== 1 ? 's' : ''} found. ${dismissed} dismissed.`;
+  body.innerHTML = '';
+
+  const active = duplicatePairs.filter(p => !p.dismissed);
+  if (!active.length) {
+    body.innerHTML = '<p style="opacity:0.5;font-size:13px;">No active duplicate pairs found.</p>';
+    return;
+  }
+
+  const groups = ['exact_ids', 'title_similarity', 'connection_type_overlap', 'ai_check'];
+  const groupLabels = {
+    exact_ids:              'Exact Movie IDs',
+    title_similarity:       'Similar Titles',
+    connection_type_overlap:'Connection Type Overlap',
+    ai_check:               'AI Confirmed',
+  };
+
+  groups.forEach(rule => {
+    const pairsInGroup = active.filter(p => p.rules.includes(rule));
+    if (!pairsInGroup.length) return;
+
+    const hd = document.createElement('div');
+    hd.className = 'dup-group-hd';
+    hd.textContent = groupLabels[rule];
+    body.appendChild(hd);
+
+    pairsInGroup.forEach(pair => {
+      const c1 = savedCategories.find(c => c.id === pair.id1);
+      const c2 = savedCategories.find(c => c.id === pair.id2);
+      if (!c1 || !c2) return;
+
+      const pairKey = [pair.id1, pair.id2].sort().join(':');
+      const card = document.createElement('div');
+      card.className = 'dup-pair-card';
+      card.dataset.pairKey = pairKey;
+
+      card.innerHTML = `
+        <div class="dup-pair-sides">
+          ${_dupMiniCard(c1)}
+          ${_dupMiniCard(c2)}
+        </div>
+        <div class="dup-pair-actions">
+          <button class="btn btn--ghost btn--sm dup-delete-btn" data-id="${escHtml(c1.id)}" style="color:#cc2200;border-color:#cc2200;">Delete A</button>
+          <button class="btn btn--ghost btn--sm dup-delete-btn" data-id="${escHtml(c2.id)}" style="color:#cc2200;border-color:#cc2200;">Delete B</button>
+          <button class="btn btn--ghost btn--sm dup-ai-btn" data-id1="${escHtml(pair.id1)}" data-id2="${escHtml(pair.id2)}">AI Check</button>
+          <button class="btn btn--ghost btn--sm dup-dismiss-btn" data-id1="${escHtml(pair.id1)}" data-id2="${escHtml(pair.id2)}">Not a duplicate →</button>
+          <span class="dup-ai-result" id="dup-ai-${escHtml(pairKey)}"></span>
+        </div>`;
+
+      // Restore previous AI check result if any
+      if (aiCheckResults[pairKey]) {
+        _applyAiResult(card, pairKey, aiCheckResults[pairKey]);
+      }
+
+      // Delete button
+      card.querySelectorAll('.dup-delete-btn').forEach(delBtn => {
+        delBtn.addEventListener('click', async () => {
+          const catId = delBtn.dataset.id;
+          if (!confirm('Delete this category from the library?')) return;
+          delBtn.disabled = true;
+          await fetch(`/admin/categories/${catId}`, { method: 'DELETE' });
+          savedCategories = savedCategories.filter(c => c.id !== catId);
+          await loadDuplicates();
+          renderCategoryLibrary();
+          renderBuilderLibrary();
+          // Remove any pairs involving this category from the modal
+          document.querySelectorAll('.dup-pair-card').forEach(c => {
+            const [a, b] = c.dataset.pairKey.split(':');
+            if (a === catId || b === catId) c.remove();
+          });
+          // Update summary
+          const remaining = document.querySelectorAll('.dup-pair-card').length;
+          document.getElementById('dup-scan-summary').textContent =
+            `${duplicatePairs.length} pair${duplicatePairs.length !== 1 ? 's' : ''} found. ${duplicatePairs.filter(p => p.dismissed).length} dismissed. (Showing ${remaining} active)`;
+        });
+      });
+
+      // AI Check button
+      card.querySelector('.dup-ai-btn').addEventListener('click', async btn => {
+        const el   = btn.currentTarget;
+        const id1  = el.dataset.id1;
+        const id2  = el.dataset.id2;
+        el.textContent = '…';
+        el.disabled = true;
+        const res  = await fetch('/admin/categories/duplicates/ai-check', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id1, id2 }),
+        });
+        const data = await res.json();
+        el.textContent = 'AI Check';
+        el.disabled = false;
+        if (data.is_duplicate !== undefined) {
+          aiCheckResults[pairKey] = data;
+          _applyAiResult(card, pairKey, data);
+          if (data.is_duplicate) {
+            // Add ai_check rule so badge updates
+            const existing = duplicatePairs.find(p =>
+              (p.id1 === id1 && p.id2 === id2) || (p.id1 === id2 && p.id2 === id1)
+            );
+            if (existing && !existing.rules.includes('ai_check')) {
+              existing.rules.push('ai_check');
+              renderCategoryLibrary();
+            }
+          }
+        } else {
+          const resultEl = card.querySelector(`#dup-ai-${CSS.escape(pairKey)}`);
+          if (resultEl) { resultEl.textContent = data.error || 'AI unavailable'; resultEl.style.display = 'block'; }
+        }
+      });
+
+      // Dismiss button
+      card.querySelector('.dup-dismiss-btn').addEventListener('click', async btn => {
+        const el  = btn.currentTarget;
+        const id1 = el.dataset.id1;
+        const id2 = el.dataset.id2;
+        el.disabled = true;
+        await fetch('/admin/categories/duplicates/dismiss', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id1, id2 }),
+        });
+        const key = [id1, id2].sort().join(':');
+        dismissedPairs.add(key);
+        const p = duplicatePairs.find(p =>
+          (p.id1 === id1 && p.id2 === id2) || (p.id1 === id2 && p.id2 === id1)
+        );
+        if (p) p.dismissed = true;
+        card.remove();
+        renderCategoryLibrary();
+        // Update summary
+        const remaining = document.querySelectorAll('.dup-pair-card').length;
+        const dism = duplicatePairs.filter(p => p.dismissed).length;
+        document.getElementById('dup-scan-summary').textContent =
+          `${duplicatePairs.length} pair${duplicatePairs.length !== 1 ? 's' : ''} found. ${dism} dismissed.`;
+      });
+
+      body.appendChild(card);
+    });
+  });
+}
+
+function _dupMiniCard(cat) {
+  const diffIdx   = (cat.difficulty || 0) - 1;
+  const diffColor = diffIdx >= 0 ? COLOR_ORDER[diffIdx] : null;
+  return `<div class="dup-mini-card">
+    <div class="dup-mini-card__title">${escHtml(cat.title)}</div>
+    <div class="dup-mini-card__meta">${
+      diffColor ? `<span class="diff-badge diff-badge--${diffColor}" style="font-size:10px;padding:1px 6px;">${DIFF_LABELS[diffIdx]}</span> ` : ''
+    }${cat.connection_type ? escHtml(cat.connection_type) : ''}</div>
+    <div class="dup-mini-card__movies">${(cat.movie_titles || []).map(t => escHtml(t)).join(' · ')}</div>
+  </div>`;
+}
+
+function _applyAiResult(card, pairKey, data) {
+  const resultEl = card.querySelector(`#dup-ai-${CSS.escape(pairKey)}`);
+  if (!resultEl) return;
+  resultEl.textContent = (data.is_duplicate ? '⚠ Duplicate: ' : '✓ Not duplicate: ') + (data.reason || '');
+  resultEl.className = 'dup-ai-result ' + (data.is_duplicate ? 'dup-ai-result--dup' : 'dup-ai-result--safe');
+  resultEl.style.display = 'block';
 }
 
 // ══════════════════════════════════════════════════════════════════

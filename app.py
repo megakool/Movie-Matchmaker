@@ -34,9 +34,10 @@ TRIVIA_PATH       = BASE_DIR / "trivia" / "trivia.json"
 TRIVIA_DATA_PATH  = DATA_DIR / "trivia_questions.json"
 TRIVIA_PUZZLES_DIR = DATA_DIR / "trivia_puzzles"
 SUBMISSIONS_PATH  = DATA_DIR / "community_submissions.json"
-CATEGORIES_PATH   = DATA_DIR / "saved_categories.json"
-DRAFTS_PATH       = DATA_DIR / "drafts.json"
-SETTINGS_PATH     = DATA_DIR / "settings.json"
+CATEGORIES_PATH           = DATA_DIR / "saved_categories.json"
+DISMISSED_DUPLICATES_PATH = DATA_DIR / "dismissed_duplicates.json"
+DRAFTS_PATH               = DATA_DIR / "drafts.json"
+SETTINGS_PATH             = DATA_DIR / "settings.json"
 
 
 def _init_persistent_disk() -> None:
@@ -177,6 +178,17 @@ def save_saved_categories(cats: list):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     with open(CATEGORIES_PATH, "w", encoding="utf-8") as f:
         json.dump(cats, f, indent=2, ensure_ascii=False)
+
+def get_dismissed_duplicates() -> list:
+    if not DISMISSED_DUPLICATES_PATH.exists():
+        return []
+    with open(DISMISSED_DUPLICATES_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_dismissed_duplicates(pairs: list) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(DISMISSED_DUPLICATES_PATH, "w", encoding="utf-8") as f:
+        json.dump(pairs, f, indent=2, ensure_ascii=False)
 
 def get_drafts() -> list:
     if not DRAFTS_PATH.exists():
@@ -691,6 +703,204 @@ def admin_create_category():
     save_saved_categories(cats)
     return jsonify({"ok": True, "category": cat}), 201
 
+@app.post("/admin/categories/import")
+@admin_required
+def admin_import_categories():
+    """Replace the entire category library from an uploaded JSON file.
+    Accepts either a puzzles export (list of puzzles with embedded categories)
+    or a categories export (list of category objects).
+    """
+    if "file" not in request.files:
+        return jsonify({"error": "no file uploaded"}), 400
+    f = request.files["file"]
+    try:
+        raw = json.loads(f.read().decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        return jsonify({"error": f"invalid JSON: {e}"}), 400
+
+    if not isinstance(raw, list) or not raw:
+        return jsonify({"error": "unrecognized_format"}), 400
+
+    first = raw[0] if isinstance(raw[0], dict) else {}
+    if isinstance(first.get("categories"), list):
+        mode = "puzzles"
+    elif "title" in first and "movie_ids" in first:
+        mode = "categories"
+    else:
+        return jsonify({"error": "unrecognized_format"}), 400
+
+    movies_by_id = get_movies_by_id()
+    imported, skipped, warnings = [], 0, []
+
+    if mode == "puzzles":
+        # Deduplicate by frozenset(movie_ids); count appearances for times_used
+        seen: dict = {}  # frozenset -> {"cat": first_cat, "count": int, "ids": [original order]}
+        for puzzle in raw:
+            for cat in puzzle.get("categories", []):
+                ids = cat.get("movie_ids", [])
+                key = frozenset(ids)
+                if key not in seen:
+                    seen[key] = {"cat": cat, "count": 1, "ids": ids}
+                else:
+                    seen[key]["count"] += 1
+
+        for key, entry in seen.items():
+            cat, times_used, movie_ids = entry["cat"], entry["count"], entry["ids"]
+            movie_titles, all_found = [], True
+            for mid in movie_ids:
+                if mid in movies_by_id:
+                    movie_titles.append(movies_by_id[mid]["title"])
+                else:
+                    all_found = False
+                    warnings.append(f"Movie ID {mid} not found (cat: {cat.get('title','?')})")
+            if not all_found:
+                skipped += 1
+                continue
+            cat_id = cat.get("id", "")
+            if not (isinstance(cat_id, str) and len(cat_id) == 8):
+                cat_id = str(uuid.uuid4())[:8]
+            try:
+                diff = int(cat.get("difficulty") or 0)
+                difficulty = diff if 1 <= diff <= 4 else None
+            except (ValueError, TypeError):
+                difficulty = None
+            title = (cat.get("title") or "").strip()[:80]
+            if not title:
+                skipped += 1
+                continue
+            imported.append({
+                "id":              cat_id,
+                "title":           title,
+                "movie_ids":       movie_ids,
+                "movie_titles":    movie_titles,
+                "connection_type": str(cat.get("connection_type") or "").strip()[:40],
+                "difficulty":      difficulty,
+                "source":          "import",
+                "created_at":      cat.get("created_at") or datetime.now().isoformat(timespec="seconds"),
+                "times_used":      times_used,
+            })
+
+    else:  # categories mode
+        for cat in raw:
+            movie_ids = cat.get("movie_ids", [])
+            if len(movie_ids) != 4:
+                skipped += 1
+                continue
+            title = (cat.get("title") or "").strip()[:80]
+            if not title:
+                skipped += 1
+                continue
+            movie_titles = cat.get("movie_titles", [])
+            if len(movie_titles) != 4:
+                movie_titles, all_found = [], True
+                for mid in movie_ids:
+                    if mid in movies_by_id:
+                        movie_titles.append(movies_by_id[mid]["title"])
+                    else:
+                        all_found = False
+                        warnings.append(f"Movie ID {mid} not found (cat: {title})")
+                if not all_found:
+                    skipped += 1
+                    continue
+            cat_id = cat.get("id", "")
+            if not (isinstance(cat_id, str) and len(cat_id) == 8):
+                cat_id = str(uuid.uuid4())[:8]
+            try:
+                diff = int(cat.get("difficulty") or 0)
+                difficulty = diff if 1 <= diff <= 4 else None
+            except (ValueError, TypeError):
+                difficulty = None
+            source = cat.get("source", "manual")
+            if source not in ("manual", "ai", "submission", "import"):
+                source = "manual"
+            imported.append({
+                "id":              cat_id,
+                "title":           title,
+                "movie_ids":       movie_ids,
+                "movie_titles":    movie_titles,
+                "connection_type": str(cat.get("connection_type") or "").strip()[:40],
+                "difficulty":      difficulty,
+                "source":          source,
+                "created_at":      cat.get("created_at") or datetime.now().isoformat(timespec="seconds"),
+                "times_used":      int(cat.get("times_used") or 0),
+            })
+
+    merge = request.form.get("merge", "false").lower() == "true"
+    if merge:
+        existing = get_saved_categories()
+        existing_keys = {frozenset(c.get("movie_ids", [])) for c in existing}
+        new_cats = [c for c in imported if frozenset(c["movie_ids"]) not in existing_keys]
+        save_saved_categories(existing + new_cats)
+        return jsonify({"ok": True, "imported": len(new_cats), "skipped": skipped + (len(imported) - len(new_cats)), "warnings": warnings, "mode": "merge"})
+    else:
+        save_saved_categories(imported)
+        return jsonify({"ok": True, "imported": len(imported), "skipped": skipped, "warnings": warnings, "mode": "replace"})
+
+
+@app.get("/admin/categories/duplicates")
+@admin_required
+def admin_get_category_duplicates():
+    cats = get_saved_categories()
+    dismissed = get_dismissed_duplicates()
+    pairs = _detect_duplicates(cats, dismissed)
+    return jsonify({"pairs": pairs})
+
+
+@app.get("/admin/categories/dismissed-duplicates")
+@admin_required
+def admin_get_dismissed_category_duplicates():
+    return jsonify(get_dismissed_duplicates())
+
+
+@app.post("/admin/categories/duplicates/dismiss")
+@admin_required
+def admin_dismiss_category_duplicate():
+    data = request.get_json(force=True)
+    id1, id2 = data.get("id1", ""), data.get("id2", "")
+    if not id1 or not id2:
+        return jsonify({"error": "id1 and id2 required"}), 400
+    canonical = {"id1": min(id1, id2), "id2": max(id1, id2)}
+    dismissed = get_dismissed_duplicates()
+    existing = {(d["id1"], d["id2"]) for d in dismissed}
+    if (canonical["id1"], canonical["id2"]) not in existing:
+        dismissed.append(canonical)
+        save_dismissed_duplicates(dismissed)
+    return jsonify({"ok": True})
+
+
+@app.post("/admin/categories/duplicates/ai-check")
+@admin_required
+def admin_ai_check_duplicate():
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 503
+    data = request.get_json(force=True)
+    id1, id2 = data.get("id1", ""), data.get("id2", "")
+    cats_by_id = {c["id"]: c for c in get_saved_categories()}
+    c1, c2 = cats_by_id.get(id1), cats_by_id.get(id2)
+    if not c1 or not c2:
+        return jsonify({"error": "category not found"}), 404
+
+    def fmt(c):
+        return (f'Title: {c["title"]}\n'
+                f'Connection type: {c.get("connection_type") or "(none)"}\n'
+                f'Movies: {", ".join(c.get("movie_titles", []))}')
+
+    raw = _call_claude(
+        "You are a strict duplicate checker for a movie connections puzzle game. "
+        "Two categories are duplicates if a player would find them conceptually interchangeable.",
+        f"Category A:\n{fmt(c1)}\n\nCategory B:\n{fmt(c2)}\n\n"
+        "Are these duplicates? Respond ONLY with valid JSON:\n"
+        '{"is_duplicate": true, "reason": "one sentence"}',
+        max_tokens=256,
+    )
+    if not raw:
+        return jsonify({"error": "AI unavailable"}), 503
+    try:
+        return jsonify(json.loads(_extract_json(raw)))
+    except (json.JSONDecodeError, KeyError) as e:
+        return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
+
+
 @app.delete("/admin/categories/<cat_id>")
 @admin_required
 def admin_delete_category(cat_id: str):
@@ -781,6 +991,17 @@ def admin_published_detail(puzzle_date: str):
                        for mid in cat["movie_ids"] if mid in movies_by_id],
         })
     return jsonify({"date": puzzle_date, "categories": detail})
+
+
+@app.get("/admin/export/categories/unused")
+@admin_required
+def admin_export_unused_categories():
+    unused = [c for c in get_saved_categories() if not c.get("times_used")]
+    return Response(
+        json.dumps(unused, indent=2, ensure_ascii=False),
+        mimetype="application/json",
+        headers={"Content-Disposition": "attachment; filename=unused_categories_export.json"},
+    )
 
 
 @app.get("/admin/export/puzzles")
@@ -923,6 +1144,73 @@ def _call_claude(system: str, user: str, max_tokens: int = 1024) -> str | None:
     except Exception as e:
         print(f"Claude API error: {e}")
         return None
+
+# ── Duplicate Detection Helpers ───────────────────────────────────────────────
+_STOPWORDS = {
+    "a","an","the","of","in","on","at","to","and","or","but","is","are","was",
+    "were","be","been","being","have","has","had","do","does","did","will","would",
+    "could","should","may","might","shall","with","for","from","by","about","into",
+    "through","during","before","after","above","below","between","out","off","over",
+    "under","again","further","then","once","that","this","these","those","it","its",
+    "i","you","he","she","we","they","film","films","movie","movies",
+}
+
+def _title_tokens(title: str) -> set:
+    t = re.sub(r"[^a-z0-9 ]", " ", title.lower())
+    return {w for w in t.split() if w and w not in _STOPWORDS}
+
+def _word_overlap(t1: str, t2: str) -> bool:
+    s1, s2 = _title_tokens(t1), _title_tokens(t2)
+    if not s1 or not s2:
+        return False
+    return len(s1 & s2) / min(len(s1), len(s2)) >= 0.5
+
+def _levenshtein(a: str, b: str) -> int:
+    a, b = a.lower(), b.lower()
+    m, n = len(a), len(b)
+    dp = list(range(n + 1))
+    for i in range(1, m + 1):
+        prev = dp[:]
+        dp[0] = i
+        for j in range(1, n + 1):
+            dp[j] = prev[j-1] if a[i-1] == b[j-1] else 1 + min(prev[j], dp[j-1], prev[j-1])
+    return dp[n]
+
+def _title_similar(t1: str, t2: str) -> bool:
+    return _word_overlap(t1, t2) or _levenshtein(t1, t2) <= 3
+
+def _connection_type_overlap(c1: dict, c2: dict) -> bool:
+    ct1 = (c1.get("connection_type") or "").strip().lower()
+    ct2 = (c2.get("connection_type") or "").strip().lower()
+    if not ct1 or not ct2 or ct1 != ct2:
+        return False
+    return len(set(c1.get("movie_ids", [])) & set(c2.get("movie_ids", []))) >= 2
+
+def _detect_duplicates(cats: list, dismissed: list) -> list:
+    dismissed_set = {(min(p["id1"], p["id2"]), max(p["id1"], p["id2"])) for p in dismissed}
+    pairs = []
+    for i in range(len(cats)):
+        for j in range(i + 1, len(cats)):
+            c1, c2 = cats[i], cats[j]
+            rules = []
+            ids1 = frozenset(c1.get("movie_ids", []))
+            ids2 = frozenset(c2.get("movie_ids", []))
+            if ids1 == ids2 and ids1:
+                rules.append("exact_ids")
+            if _title_similar(c1.get("title", ""), c2.get("title", "")):
+                rules.append("title_similarity")
+            if _connection_type_overlap(c1, c2):
+                rules.append("connection_type_overlap")
+            if rules:
+                key = (min(c1["id"], c2["id"]), max(c1["id"], c2["id"]))
+                pairs.append({
+                    "id1": c1["id"],
+                    "id2": c2["id"],
+                    "rules": rules,
+                    "dismissed": key in dismissed_set,
+                })
+    return pairs
+
 
 @app.post("/admin/ai/suggest")
 @admin_required
