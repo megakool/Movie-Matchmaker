@@ -1477,6 +1477,44 @@ def admin_ai_suggest_connection_type():
     return jsonify({"connection_type": result})
 
 
+@app.post("/admin/ai/suggest-titles")
+@admin_required
+def admin_ai_suggest_titles():
+    """Given a category title, 4 movie titles, and optional connection type,
+    return 3–5 alternative punchy title suggestions."""
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "no_key"}), 503
+    data         = request.get_json(force=True)
+    title        = (data.get("title") or "").strip()[:80]
+    movie_titles = [str(t).strip() for t in (data.get("movie_titles") or [])[:4]]
+    ctype        = (data.get("connection_type") or "").strip()
+    if len(movie_titles) != 4:
+        return jsonify({"error": "invalid"}), 400
+    films = ", ".join(f'"{t}"' for t in movie_titles)
+    ctype_line = f'\nConnection type: {ctype}' if ctype else ''
+    raw = _call_claude(
+        "You write punchy, clever titles for movie connections puzzle categories. "
+        "Titles must be specific enough that a player could guess the connection, "
+        "but playful enough to be satisfying. Never use plain genre labels. "
+        "Never start with 'Films where' or 'Movies that'. Be creative.",
+        f'Current title: "{title}"{ctype_line}\nFilms: {films}\n\n'
+        f'Suggest 5 alternative category titles. Make each one distinct in style or angle. '
+        f'Reply ONLY with a JSON array of 5 strings, no explanation:\n'
+        f'["Title 1", "Title 2", "Title 3", "Title 4", "Title 5"]',
+        max_tokens=300,
+    )
+    if not raw:
+        return jsonify({"error": "ai_unavailable"}), 503
+    try:
+        suggestions = json.loads(_extract_json(raw))
+        if not isinstance(suggestions, list):
+            raise ValueError("not a list")
+        suggestions = [str(s).strip()[:80] for s in suggestions if s][:5]
+        return jsonify({"suggestions": suggestions})
+    except (json.JSONDecodeError, ValueError) as e:
+        return jsonify({"error": f"parse_error: {e}", "raw": raw}), 500
+
+
 # ── Trivia Admin Routes ───────────────────────────────────────────────────────
 
 @app.get("/admin/trivia/questions")

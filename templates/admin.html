@@ -1121,6 +1121,32 @@
 .lib-diff-pill.active .pick-dot { border-color: rgba(255,255,255,.4) !important; }
 .lib-diff-pill:focus-visible { outline: 2px solid #333; outline-offset: 2px; }
 
+/* ── Title Suggestions Popup ─────────────────────────────────────── */
+.title-suggest-wrap { position: relative; }
+.title-suggest-popup {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 var(--border);
+  overflow: hidden;
+  display: none;
+}
+.title-suggest-popup.open { display: block; }
+.title-suggest-item {
+  padding: 9px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0,0,0,.07);
+  line-height: 1.35;
+  transition: background .1s;
+}
+.title-suggest-item:last-child { border-bottom: none; }
+.title-suggest-item:hover { background: #f0ebe5; }
+.title-suggest-loading {
+  padding: 10px 12px; font-size: 12px; color: var(--text2); font-style: italic;
+}
+
 /* ── Duplicate Warning Badge ──────────────────────────────────────── */
 .dup-warning { color: #c97500; font-size: 13px; cursor: default; margin-left: 4px; }
 
@@ -1863,9 +1889,13 @@
   <div id="cat-edit-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cat-heading">
     <h2 id="modal-cat-heading">Edit Category</h2>
 
-    <div>
-      <input class="cat-edit-input" id="modal-cat-title" placeholder="Category name…" maxlength="80"
-             style="width:100%;box-sizing:border-box;" aria-label="Category title">
+    <div class="title-suggest-wrap">
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input class="cat-edit-input" id="modal-cat-title" placeholder="Category name…" maxlength="80"
+               style="flex:1;box-sizing:border-box;" aria-label="Category title">
+        <button class="diff-suggest-btn" id="modal-title-suggest" aria-label="AI-suggest titles">Suggest</button>
+      </div>
+      <div class="title-suggest-popup" id="title-suggest-popup"></div>
     </div>
 
     <div id="modal-cat-chips" class="cat-edit-movies"></div>

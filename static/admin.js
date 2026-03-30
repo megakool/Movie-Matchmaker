@@ -1298,6 +1298,56 @@ function bindCategoriesEvents() {
     catLibraryFilterType = e.target.value;
     renderCategoryLibrary();
   });
+
+  // ── Title Suggest ──
+  const titleSuggestBtn   = document.getElementById('modal-title-suggest');
+  const titleSuggestPopup = document.getElementById('title-suggest-popup');
+
+  titleSuggestBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    if (!_editDraft || _editDraft.movie_titles.length < 4) return;
+    const title = document.getElementById('modal-cat-title').value.trim() || _editDraft.title;
+
+    titleSuggestBtn.textContent = '…';
+    titleSuggestBtn.disabled = true;
+    titleSuggestPopup.innerHTML = '<div class="title-suggest-loading">Thinking…</div>';
+    titleSuggestPopup.classList.add('open');
+
+    const res  = await fetch('/admin/ai/suggest-titles', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        movie_titles: _editDraft.movie_titles,
+        connection_type: _editDraft.connection_type || '',
+      }),
+    });
+    const data = await res.json();
+    titleSuggestBtn.textContent = 'Suggest';
+    titleSuggestBtn.disabled = false;
+
+    if (!data.suggestions || !data.suggestions.length) {
+      titleSuggestPopup.innerHTML = '<div class="title-suggest-loading">No suggestions returned.</div>';
+      return;
+    }
+
+    titleSuggestPopup.innerHTML = data.suggestions.map(s =>
+      `<div class="title-suggest-item">${escHtml(s)}</div>`
+    ).join('');
+
+    titleSuggestPopup.querySelectorAll('.title-suggest-item').forEach((item, i) => {
+      item.addEventListener('click', () => {
+        document.getElementById('modal-cat-title').value = data.suggestions[i];
+        titleSuggestPopup.classList.remove('open');
+      });
+    });
+  });
+
+  // Close popup when clicking outside
+  document.addEventListener('click', e => {
+    if (!titleSuggestPopup.contains(e.target) && e.target !== titleSuggestBtn) {
+      titleSuggestPopup.classList.remove('open');
+    }
+  });
 }
 
 async function deletePuzzle(puzzleDate) {
