@@ -783,6 +783,17 @@ def admin_published_detail(puzzle_date: str):
     return jsonify({"date": puzzle_date, "categories": detail})
 
 
+@app.get("/admin/export/puzzles")
+@admin_required
+def admin_export_puzzles():
+    puzzles = [get_puzzle(d) for d in get_all_puzzle_dates()]
+    return Response(
+        json.dumps([p for p in puzzles if p], indent=2, ensure_ascii=False),
+        mimetype="application/json",
+        headers={"Content-Disposition": "attachment; filename=puzzles_export.json"},
+    )
+
+
 # ── Connections Index ─────────────────────────────────────────────────────────
 @app.get("/admin/connections")
 @admin_required

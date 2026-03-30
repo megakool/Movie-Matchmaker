@@ -482,8 +482,6 @@
 .conn-movie-row:hover { background: #f0ebe5; }
 .conn-movie-row input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
 .conn-movie-row.in-use { opacity: 0.35; }
-.conn-movie-row--tier1 .conn-movie-title { font-weight: 700; }
-.conn-movie-row--tier1::before { content: '★'; font-size: 9px; color: #c89a2a; flex-shrink: 0; margin-right: -4px; }
 .conn-movies-footer{ padding: 12px 14px; border-top: 1px solid #e5ddd5; }
 .conn-empty        { padding: 24px; text-align: center; font-size: 13px; opacity: 0.4; }
 
@@ -1600,6 +1598,15 @@
         <h3>Renumber All Puzzles</h3>
         <p>Renumber all Marquee puzzles chronologically so #1 is the oldest. Use this if puzzle numbers are out of order after edits or deletions.</p>
         <button class="btn btn--ghost btn--sm" id="btn-renumber-all">Renumber All</button>
+      </div>
+
+      <div class="settings-card">
+        <h3>Export Data</h3>
+        <p>Download your published puzzles or saved category library as JSON.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <a class="btn btn--ghost btn--sm" href="/admin/export/puzzles" download>Export Puzzles</a>
+          <a class="btn btn--ghost btn--sm" href="/admin/categories" download="categories_export.json">Export Categories</a>
+        </div>
       </div>
 
       <div class="danger-card">

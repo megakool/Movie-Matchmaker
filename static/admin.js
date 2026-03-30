@@ -774,9 +774,8 @@ function renderConnectionMovies() {
   sorted.forEach(m => {
     const alreadySel = catBrowseSelected.some(s => s.id === m.id);
     const inUse      = usedIds.has(m.id);
-    const isTier1    = (m.tier ?? 1) === 1;
     const row        = document.createElement('div');
-    row.className    = 'conn-movie-row' + (inUse ? ' in-use' : '') + (isTier1 ? ' conn-movie-row--tier1' : '');
+    row.className    = 'conn-movie-row' + (inUse ? ' in-use' : '');
     row.innerHTML    = `
       <input type="checkbox" data-id="${m.id}" ${alreadySel ? 'checked' : ''} ${inUse ? 'disabled' : ''}>
       <span class="conn-movie-title" style="flex:1;">${escHtml(m.title)}</span>
@@ -1294,9 +1293,8 @@ function renderCatMovieSearch(query) {
   $list.innerHTML = '';
   matches.forEach(m => {
     const alreadySel = catSearchSelected.some(s => s.id === m.id);
-    const isTier1    = (m.tier ?? 1) === 1;
     const row = document.createElement('div');
-    row.className = 'conn-movie-row' + (alreadySel ? ' in-use' : '') + (isTier1 ? ' conn-movie-row--tier1' : '');
+    row.className = 'conn-movie-row' + (alreadySel ? ' in-use' : '');
     row.innerHTML = `
       <input type="checkbox" data-id="${m.id}" ${alreadySel ? 'checked disabled' : ''}>
       <span class="conn-movie-title" style="flex:1;">${escHtml(m.title)}</span>
