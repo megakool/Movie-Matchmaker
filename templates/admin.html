@@ -344,21 +344,18 @@
 @media (max-width: 1100px) { #category-library-list { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 700px)  { #category-library-list { grid-template-columns: 1fr; } }
 .cat-library-card  { background: var(--surface); border: var(--bw) solid var(--border);
-                     border-radius: 10px; box-shadow: var(--shadow-xs); padding: 10px 12px;
+                     border-radius: 10px; box-shadow: var(--shadow-xs); padding: 12px 14px;
                      display: flex; flex-direction: column; }
-.cat-card__header  { display: flex; align-items: flex-start; justify-content: space-between;
-                     gap: 6px; margin-bottom: 3px; }
+.cat-card__header  { display: flex; align-items: center; justify-content: space-between;
+                     gap: 6px; margin-bottom: 6px; }
 .cat-library-card__title  { font-size: 14px; font-weight: 700; line-height: 1.3; flex: 1; min-width: 0; }
-.cat-library-card__movies { font-size: 12px; color: var(--text2); margin-bottom: 8px; line-height: 1.5; }
+.cat-library-card__movies { font-size: 13px; color: var(--text2); margin-bottom: 6px; line-height: 1.6; }
 .cat-card__footer  { display: flex; align-items: center; justify-content: space-between;
-                     gap: 6px; margin-top: auto; padding-top: 6px; flex-wrap: wrap; }
+                     gap: 6px; margin-top: auto; padding-top: 8px; flex-wrap: wrap; }
 .cat-card__meta    { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
 .cat-card__actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-.cat-used-count    { font-size: 10px; opacity: 0.45; white-space: nowrap; }
-.source-badge      { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
-                     padding: 1px 5px; border-radius: 5px;
-                     background: #e0d8d0; color: var(--text2); opacity: 0.6; }
-.source-badge--manual, .source-badge--ai, .source-badge--submission { background: #e0d8d0; color: var(--text2); }
+.cat-used-count    { font-size: 10px; color: var(--text2); white-space: nowrap; }
+.source-badge      { display: none; }
 
 /* ── Card edit mode ─────────────────────────────────────────── */
 .cat-library-card--editing    { box-shadow: var(--shadow), 0 0 0 2px #333; position: relative; z-index: 2; }
@@ -380,10 +377,10 @@
 .source-toggle__btn.active    { background: #333; color: #fff; }
 
 /* Movie chips in edit mode */
-.cat-edit-movies              { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; min-height: 24px; }
-.cat-edit-chip                { display: flex; align-items: center; gap: 3px; background: #f0ebe5;
+.cat-edit-movies              { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
+.cat-edit-chip                { display: flex; align-items: center; gap: 4px; background: #f0ebe5;
                                  border: 1.5px solid #ccc; border-radius: 14px;
-                                 padding: 2px 6px 2px 8px; font-size: 11px; font-weight: 600; }
+                                 padding: 4px 8px 4px 10px; font-size: 13px; font-weight: 500; }
 .cat-edit-chip__remove        { background: none; border: none; cursor: pointer; font-size: 13px;
                                  color: var(--text2); padding: 0 1px; line-height: 1; }
 .cat-edit-chip__remove:hover  { color: #cc2200; }
@@ -418,9 +415,12 @@
                                  border: 1.5px solid #ccc; border-radius: 6px; cursor: pointer;
                                  min-height: 32px; }
 .cat-edit-cancel:hover        { border-color: #999; }
-.cat-connection-tag           { display: inline-block; font-size: 10px; font-weight: 600;
-                                 color: var(--text2); background: #ede5dc; border-radius: 4px;
-                                 padding: 1px 6px; margin-bottom: 5px; letter-spacing: .02em; }
+.cat-conn-tags                { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.cat-connection-tag           { display: inline-flex; align-items: center;
+                                 font-size: 11px; font-weight: 500; color: var(--text2);
+                                 background: none; border: 1.5px solid #ccc;
+                                 border-radius: 20px; padding: 1px 8px;
+                                 letter-spacing: .01em; white-space: nowrap; }
 
 /* ── Published panel ────────────────────────────────────────────── */
 .pub-row__summary  { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
@@ -1056,36 +1056,33 @@
 /* ── Send to Builder button ──────────────────────────────────────── */
 .send-to-builder-btn {
   display: flex; align-items: center; gap: 4px;
-  padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 700;
-  border: 1.5px solid #ccc; background: none; cursor: pointer; font-family: inherit;
-  color: var(--text2); transition: background .12s, border-color .12s, color .12s;
+  padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  border: 1.5px solid #333; background: #333; cursor: pointer; font-family: inherit;
+  color: #fff; transition: background .12s, border-color .12s;
   min-height: 28px; white-space: nowrap;
 }
-.send-to-builder-btn:hover:not(:disabled) { background: #f0ebe5; border-color: #999; color: var(--text); }
-.send-to-builder-btn:disabled { cursor: default; opacity: 0.75; }
+.send-to-builder-btn:hover:not(:disabled) { background: #111; border-color: #111; }
+.send-to-builder-btn:disabled { cursor: default; opacity: 0.5; }
 .send-to-builder-btn:focus-visible { outline: 2px solid #333; outline-offset: 2px; }
 
 /* ── Difficulty badge (view mode) ────────────────────────────────── */
 .diff-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-  padding: 1px 6px; border-radius: 5px; background: #f0ebe5; color: var(--text2);
+  display: inline-flex; align-items: center;
+  padding: 0; background: none;
 }
 
-/* ── Difficulty pills (edit mode) ────────────────────────────────── */
+/* ── Difficulty pills (edit mode — dot only) ─────────────────────── */
 .cat-edit-diff-row {
-  display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-bottom: 8px;
+  display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
 }
 .diff-pill {
-  display: flex; align-items: center; gap: 4px;
-  padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
-  border: 1.5px solid #ccc; background: none; cursor: pointer; font-family: inherit;
-  color: var(--text2); transition: background .1s, border-color .1s;
-  min-height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1.5px solid #ccc; background: none; cursor: pointer;
+  transition: border-color .1s, background .1s; padding: 0;
 }
-.diff-pill:hover { background: #f0ebe5; border-color: #aaa; }
-.diff-pill.selected { background: #222; border-color: #222; color: #fff; }
-.diff-pill.selected .pick-dot { border-color: rgba(255,255,255,.4) !important; }
+.diff-pill:hover:not(.selected) { background: #f0ebe5; border-color: #aaa; }
+.diff-pill.selected { border-color: #222; background: rgba(0,0,0,.06); }
 .diff-pill:focus-visible { outline: 2px solid #333; outline-offset: 2px; }
 .diff-suggest-btn {
   padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 700;
@@ -1095,31 +1092,39 @@
 .diff-suggest-btn:hover:not(:disabled) { background: #f0ebe5; border-color: #888; }
 .diff-suggest-btn:disabled { opacity: 0.5; cursor: default; }
 
-/* ── Library filter row ──────────────────────────────────────────── */
-.lib-filters-row {
-  display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start;
-  padding: 10px 0 14px; border-bottom: 1px solid rgba(0,0,0,.07); margin-bottom: 14px;
+/* ── Library filter bar ──────────────────────────────────────────── */
+.lib-count-sub    { font-size: 12px; color: var(--text2); opacity: 0.5; margin-top: 3px; }
+.lib-bar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+  padding: 0 0 16px; border-bottom: 1px solid rgba(0,0,0,.07); margin-bottom: 16px;
 }
-.lib-filter-group { display: flex; flex-direction: column; gap: 5px; }
-.lib-filter-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
-                     letter-spacing: .05em; opacity: 0.45; }
-.lib-filter-select {
-  font-size: 12px; border: 1.5px solid #ccc; border-radius: 6px;
-  padding: 4px 8px; font-family: inherit; background: var(--bg); color: var(--text);
-  cursor: pointer; min-height: 30px;
+.lib-bar-search {
+  flex: 1; min-width: 160px; padding: 5px 10px;
+  border: 1.5px solid #ccc; border-radius: 8px;
+  font-family: inherit; font-size: 13px; background: var(--bg); color: var(--text);
 }
-.lib-filter-select:focus { border-color: #333; outline: none; }
-.lib-diff-pills { display: flex; flex-wrap: wrap; gap: 4px; }
-.lib-diff-pill {
-  display: flex; align-items: center; gap: 4px;
-  padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
-  border: 1.5px solid #ccc; background: none; cursor: pointer; font-family: inherit;
-  color: var(--text2); transition: background .1s, border-color .1s; min-height: 30px;
+.lib-bar-search:focus { border-color: #333; outline: none; }
+.lib-bar-group   { display: flex; flex-direction: column; gap: 4px; }
+.lib-bar-label   { font-size: 10px; font-weight: 700; text-transform: uppercase;
+                    letter-spacing: .05em; opacity: 0.45; }
+.lib-pill-row    { display: flex; gap: 4px; flex-wrap: wrap; }
+.lib-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  border: 1.5px solid #ccc; background: none; cursor: pointer;
+  font-family: inherit; color: var(--text2); white-space: nowrap;
+  transition: background .1s, border-color .1s, color .1s; min-height: 28px;
 }
-.lib-diff-pill:hover:not(.active) { background: #f0ebe5; border-color: #aaa; }
-.lib-diff-pill.active { background: #222; border-color: #222; color: #fff; }
-.lib-diff-pill.active .pick-dot { border-color: rgba(255,255,255,.4) !important; }
-.lib-diff-pill:focus-visible { outline: 2px solid #333; outline-offset: 2px; }
+.lib-pill:hover:not(.active) { background: #f0ebe5; border-color: #aaa; color: var(--text); }
+.lib-pill.active              { background: #222; border-color: #222; color: #fff; }
+.lib-pill.active .pick-dot    { border-color: rgba(255,255,255,.4) !important; }
+.lib-pill:focus-visible       { outline: 2px solid #333; outline-offset: 2px; }
+.lib-bar-select {
+  padding: 4px 8px; border: 1.5px solid #ccc; border-radius: 6px;
+  font-family: inherit; font-size: 12px; background: var(--bg); color: var(--text);
+  cursor: pointer; min-height: 28px;
+}
+.lib-bar-select:focus { border-color: #333; outline: none; }
 
 /* ── Title Suggestions Popup ─────────────────────────────────────── */
 .title-suggest-wrap { position: relative; }
@@ -1246,29 +1251,65 @@
   padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
-#cat-edit-modal h2 {
+.modal-cat-name-input {
   font-family: 'Fraunces', Georgia, serif;
-  font-weight: 900;
-  font-style: italic;
-  font-size: 20px;
-  margin: 0 0 4px;
+  font-weight: 900; font-style: italic;
+  font-size: 20px; line-height: 1.2;
+  color: var(--text); background: transparent;
+  border: none; outline: none;
+  width: 100%; box-sizing: border-box;
+  padding: 0 0 12px; margin: 0;
+  border-bottom: 1.5px solid rgba(0,0,0,.08);
 }
+.modal-cat-name-input:focus { border-bottom-color: #333; }
+.modal-cat-name-input::placeholder { opacity: 0.3; font-style: italic; }
+.modal-section { display: flex; flex-direction: column; gap: 5px; }
+.modal-field-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text2); opacity: 0.55;
+}
+.conn-type-row       { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; min-height: 28px; }
+.conn-type-chip      { display: inline-flex; align-items: center; gap: 3px;
+                        background: #f0ebe5; border: 1.5px solid #ccc; border-radius: 14px;
+                        padding: 3px 6px 3px 9px; font-size: 12px; font-weight: 500; }
+.conn-type-chip__remove { background: none; border: none; cursor: pointer;
+                           font-size: 13px; color: var(--text2); padding: 0 1px; line-height: 1; }
+.conn-type-chip__remove:hover { color: #cc2200; }
+.conn-type-add-wrap  { position: relative; }
+.conn-type-dropdown  { position: fixed; z-index: 1100;
+                        background: var(--surface); border: var(--bw) solid var(--border);
+                        border-radius: 8px; box-shadow: var(--shadow);
+                        min-width: 150px; overflow: hidden; }
+.conn-type-option    { padding: 7px 12px; font-size: 12px; cursor: pointer; }
+.conn-type-option:hover { background: #f0ebe5; }
+.modal-ai-btn {
+  width: 28px; height: 28px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; border: 1.5px solid #ccc; border-radius: 6px;
+  background: none; cursor: pointer; color: var(--text2);
+  transition: background .12s, border-color .12s; padding: 0;
+}
+.modal-ai-btn:hover:not(:disabled) { background: #f0ebe5; border-color: #999; }
+.modal-ai-btn:disabled { opacity: 0.4; cursor: default; }
+.cat-add-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: none; border: 1.5px dashed #bbb; border-radius: 14px;
+  padding: 3px 10px; font-size: 12px; font-weight: 600;
+  color: var(--text2); cursor: pointer; font-family: inherit;
+  transition: background .1s, border-color .1s;
+}
+.cat-add-chip:hover { background: #f0ebe5; border-color: #999; color: var(--text); }
 .modal-footer {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-top: 10px;
-  border-top: 1.5px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  padding-top: 12px; border-top: 1.5px solid var(--border);
 }
 .modal-footer .modal-delete-btn {
-  margin-left: auto;
-  font-size: 11px;
-  padding: 4px 10px;
-  color: #cc2200;
-  border-color: #cc2200;
+  margin-left: auto; font-size: 11px; padding: 4px 10px;
+  color: #cc2200; border-color: rgba(204,34,0,.3);
 }
+.modal-footer .modal-delete-btn:hover { border-color: #cc2200; background: rgba(204,34,0,.04); }
 </style>
 {% endblock %}
 
@@ -1607,45 +1648,44 @@
     <div class="admin-panel" id="panel-library">
 
       <div class="panel-hd">
-        <h1 class="panel-hd__title">Category Library</h1>
-        <div class="panel-hd__actions">
-          <button class="btn btn--ghost btn--sm" id="btn-lib-hide-used">Show All</button>
-          <input type="text" id="lib-search" placeholder="Search library…" class="lib-search-input">
+        <div>
+          <h1 class="panel-hd__title">Category Library</h1>
+          <div class="lib-count-sub" id="lib-count"></div>
         </div>
       </div>
 
-      <!-- Filter / Sort row -->
-      <div class="lib-filters-row">
-        <div class="lib-filter-group">
-          <span class="lib-filter-label">Sort</span>
-          <select id="lib-sort" class="lib-filter-select" aria-label="Sort categories">
-            <option value="az">A → Z</option>
-            <option value="recent">Newest First</option>
-            <option value="used">Most Used</option>
-            <option value="least">Least Used</option>
-            <option value="diff">By Difficulty</option>
-          </select>
-        </div>
-        <div class="lib-filter-group">
-          <span class="lib-filter-label">Difficulty</span>
-          <div class="lib-diff-pills" role="group" aria-label="Filter by difficulty">
-            <button class="lib-diff-pill active" data-diff="">All</button>
-            <button class="lib-diff-pill" data-diff="1" aria-label="Easiest"><span class="pick-dot" style="background:#f9df6d;border:1px solid rgba(0,0,0,.2);"></span>Easiest</button>
-            <button class="lib-diff-pill" data-diff="2" aria-label="Easy"><span class="pick-dot" style="background:#6abf69;border:1px solid rgba(0,0,0,.2);"></span>Easy</button>
-            <button class="lib-diff-pill" data-diff="3" aria-label="Hard"><span class="pick-dot" style="background:#6ab0d4;border:1px solid rgba(0,0,0,.2);"></span>Hard</button>
-            <button class="lib-diff-pill" data-diff="4" aria-label="Hardest"><span class="pick-dot" style="background:#b07ecf;border:1px solid rgba(0,0,0,.2);"></span>Hardest</button>
+      <div class="lib-bar">
+        <input type="text" id="lib-search" placeholder="Search…" class="lib-bar-search" autocomplete="off">
+
+        <div class="lib-bar-group">
+          <span class="lib-bar-label">Sort</span>
+          <div class="lib-pill-row" id="lib-sort-pills" role="group" aria-label="Sort categories">
+            <button class="lib-pill active" data-sort="recent">Newest</button>
+            <button class="lib-pill" data-sort="az">A–Z</button>
+            <button class="lib-pill" data-sort="used">Most Used</button>
+            <button class="lib-pill" data-sort="diff">Difficulty</button>
           </div>
         </div>
-        <div class="lib-filter-group">
-          <span class="lib-filter-label">Type</span>
-          <select id="lib-filter-type" class="lib-filter-select" aria-label="Filter by connection type">
-            <option value="">All types</option>
+
+        <div class="lib-bar-group">
+          <span class="lib-bar-label">Difficulty</span>
+          <div class="lib-pill-row" role="group" aria-label="Filter by difficulty">
+            <button class="lib-pill active" data-diff="">All</button>
+            <button class="lib-pill" data-diff="1" aria-label="Easiest" title="Easiest"><span class="pick-dot" style="background:#f9df6d;border:1px solid rgba(0,0,0,.2);"></span></button>
+            <button class="lib-pill" data-diff="2" aria-label="Easy" title="Easy"><span class="pick-dot" style="background:#6abf69;border:1px solid rgba(0,0,0,.2);"></span></button>
+            <button class="lib-pill" data-diff="3" aria-label="Hard" title="Hard"><span class="pick-dot" style="background:#6ab0d4;border:1px solid rgba(0,0,0,.2);"></span></button>
+            <button class="lib-pill" data-diff="4" aria-label="Hardest" title="Hardest"><span class="pick-dot" style="background:#b07ecf;border:1px solid rgba(0,0,0,.2);"></span></button>
+          </div>
+        </div>
+
+        <div class="lib-bar-group">
+          <span class="lib-bar-label">Type</span>
+          <select id="lib-filter-type" class="lib-bar-select" aria-label="Filter by connection type">
+            <option value="">All</option>
           </select>
         </div>
-        <div class="lib-filter-group" style="justify-content:flex-end;margin-left:auto;">
-          <span class="lib-filter-label">&nbsp;</span>
-          <span id="lib-count" style="font-size:12px;opacity:0.5;padding:5px 0;"></span>
-        </div>
+
+        <button class="lib-pill active" id="btn-lib-hide-used" style="align-self:flex-end;" aria-label="Toggle unused only">Unused Only</button>
       </div>
 
       <div id="category-library-list">
@@ -1886,48 +1926,36 @@
 
 <!-- ── Edit Category Modal ── -->
 <div id="cat-edit-modal-overlay" style="display:none;">
-  <div id="cat-edit-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cat-heading">
-    <h2 id="modal-cat-heading">Edit Category</h2>
+  <div id="cat-edit-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cat-name-display">
 
     <div class="title-suggest-wrap">
-      <div style="display:flex;gap:6px;align-items:center;">
-        <input class="cat-edit-input" id="modal-cat-title" placeholder="Category name…" maxlength="80"
-               style="flex:1;box-sizing:border-box;" aria-label="Category title">
-        <button class="diff-suggest-btn" id="modal-title-suggest" aria-label="AI-suggest titles">Suggest</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input class="modal-cat-name-input" id="modal-cat-title" placeholder="Category name…" maxlength="80"
+               aria-label="Category title">
+        <button class="modal-ai-btn" id="modal-title-suggest" aria-label="AI-suggest titles" title="Suggest titles">✦</button>
       </div>
       <div class="title-suggest-popup" id="title-suggest-popup"></div>
     </div>
 
-    <div id="modal-cat-chips" class="cat-edit-movies"></div>
-
-    <div id="modal-movie-search-wrap" class="cat-movie-search-wrap">
-      <input class="cat-movie-search-input" id="modal-cat-msearch"
-             placeholder="Add movie…" autocomplete="off" aria-label="Search movies to add">
-      <div class="cat-movie-search-results" id="modal-cat-mresults" style="display:none;"></div>
+    <div class="modal-section">
+      <div class="modal-field-label">Movies</div>
+      <div id="modal-cat-chips" class="cat-edit-movies"></div>
+      <div id="modal-movie-search-wrap" class="cat-movie-search-wrap" style="display:none;margin-top:6px;">
+        <input class="cat-movie-search-input" id="modal-cat-msearch"
+               placeholder="Search to add…" autocomplete="off" aria-label="Search movies to add">
+        <div class="cat-movie-search-results" id="modal-cat-mresults" style="display:none;"></div>
+      </div>
     </div>
 
-    <div style="display:flex;gap:6px;align-items:center;">
-      <select id="modal-cat-ctype" style="flex:1;box-sizing:border-box;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:12px;background:#fff;cursor:pointer;">
-        <option value="">Connection type…</option>
-        <option value="Cast">Cast</option>
-        <option value="Director">Director</option>
-        <option value="Award">Award</option>
-        <option value="Genre">Genre</option>
-        <option value="Setting">Setting</option>
-        <option value="Plot">Plot</option>
-        <option value="Trope">Trope</option>
-        <option value="Franchise">Franchise</option>
-        <option value="Cast (Special)">Cast (Special)</option>
-        <option value="Cast (Meta)">Cast (Meta)</option>
-      </select>
-      <button class="diff-suggest-btn" id="modal-ctype-classify" aria-label="AI-classify connection type">Classify</button>
-    </div>
-
-    <div class="cat-edit-diff-row" id="modal-cat-diff" role="group" aria-label="Difficulty"></div>
-
-    <div class="source-toggle" id="modal-cat-source" aria-label="Source type">
-      <button class="source-toggle__btn active" data-val="manual">Manual</button>
-      <button class="source-toggle__btn" data-val="ai">AI</button>
+    <div style="display:flex;gap:16px;align-items:flex-start;">
+      <div class="modal-section" style="flex:1;min-width:0;">
+        <div class="modal-field-label">Connection Type</div>
+        <div class="conn-type-row" id="modal-cat-ctypes"></div>
+      </div>
+      <div class="modal-section">
+        <div class="modal-field-label">Difficulty</div>
+        <div class="cat-edit-diff-row" id="modal-cat-diff" role="group" aria-label="Difficulty"></div>
+      </div>
     </div>
 
     <div class="modal-footer">

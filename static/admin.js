@@ -4,9 +4,10 @@
    ================================================================ */
 
 // ── Constants ──────────────────────────────────────────────────────
-const COLOR_ORDER = ['yellow', 'green', 'blue', 'purple'];
-const DIFF_LABELS = ['Easiest', 'Easy', 'Hard', 'Hardest'];
-const COLOR_HEX   = { yellow: '#f9df6d', green: '#6abf69', blue: '#6ab0d4', purple: '#b07ecf' };
+const COLOR_ORDER      = ['yellow', 'green', 'blue', 'purple'];
+const DIFF_LABELS      = ['Easiest', 'Easy', 'Hard', 'Hardest'];
+const COLOR_HEX        = { yellow: '#f9df6d', green: '#6abf69', blue: '#6ab0d4', purple: '#b07ecf' };
+const CONN_TYPE_OPTIONS = ['Cast', 'Director', 'Award', 'Genre', 'Setting', 'Plot', 'Trope', 'Franchise', 'Cast (Special)', 'Cast (Meta)'];
 const COLOR_TEXT  = { yellow: '#7a5c00', green: '#1a4d19', blue: '#0f3d5a', purple: '#3d1460' };
 
 // ── Builder State ──────────────────────────────────────────────────
@@ -40,7 +41,7 @@ let catBrowseSelected    = [];   // [{id, title, year}] — max 4
 let savedCategories      = [];
 let catLibraryQuery      = '';
 let catLibraryHideUsed   = true;
-let catLibrarySort       = 'az';
+let catLibrarySort       = 'recent';
 let catLibraryFilterDiff = null;   // null = all; 1–4 = specific tier
 let catLibraryFilterType = '';     // '' = all; string = connection_type value
 
@@ -919,20 +920,24 @@ function renderCategoryLibrary() {
     // ── View mode ──
     const diffIdx   = (cat.difficulty || 0) - 1;
     const diffColor = diffIdx >= 0 ? COLOR_ORDER[diffIdx] : null;
+    const connTypes = Array.isArray(cat.connection_types) && cat.connection_types.length
+      ? cat.connection_types
+      : (cat.connection_type ? [cat.connection_type] : []);
+    const connTagsHtml = connTypes.length
+      ? `<div class="cat-conn-tags">${connTypes.map(t => `<span class="cat-connection-tag">${escHtml(t)}</span>`).join('')}</div>`
+      : '';
     div.className = 'cat-library-card';
     div.innerHTML = `
       <div class="cat-card__header">
         <div class="cat-library-card__title">${escHtml(cat.title)}${hasDup ? '<span class="dup-warning" title="Possible duplicate in library">⚠</span>' : ''}</div>
-        ${diffColor ? `<span class="diff-badge diff-badge--${diffColor}">
-          <span class="pick-dot" style="background:${COLOR_HEX[diffColor]};border:1px solid rgba(0,0,0,.15);"></span>
-          ${DIFF_LABELS[diffIdx]}
+        ${diffColor ? `<span class="diff-badge diff-badge--${diffColor}" title="${DIFF_LABELS[diffIdx]}">
+          <span class="pick-dot" style="background:${COLOR_HEX[diffColor]};border:1px solid rgba(0,0,0,.15);width:10px;height:10px;"></span>
         </span>` : ''}
       </div>
-      ${cat.connection_type ? `<div class="cat-connection-tag">${escHtml(cat.connection_type)}</div>` : ''}
       <div class="cat-library-card__movies">${(cat.movie_titles||[]).map(t=>escHtml(t)).join(' · ')}</div>
+      ${connTagsHtml}
       <div class="cat-card__footer">
         <div class="cat-card__meta">
-          <span class="source-badge source-badge--${cat.source||'manual'}">${cat.source||'manual'}</span>
           ${cat.times_used > 0 ? `<span class="cat-used-count">used ${cat.times_used}×</span>` : ''}
         </div>
         <div class="cat-card__actions">
@@ -1027,30 +1032,19 @@ function openCatEditModal(cat) {
   editingCatId = cat.id;
   _editDraft = { ...cat, movie_ids: [...cat.movie_ids], movie_titles: [...(cat.movie_titles||[])] };
 
-  // Title
+  // Title (single editable heading)
   document.getElementById('modal-cat-title').value = _editDraft.title;
 
-  // Connection type (select — try to match existing value, else leave blank)
-  const ctypeEl = document.getElementById('modal-cat-ctype');
-  ctypeEl.value = _editDraft.connection_type || '';
-  // If value not in select options, add it temporarily
-  if (_editDraft.connection_type && !ctypeEl.value) {
-    const opt = document.createElement('option');
-    opt.value = opt.textContent = _editDraft.connection_type;
-    opt.dataset.custom = '1';
-    ctypeEl.insertBefore(opt, ctypeEl.options[1]);
-    ctypeEl.value = _editDraft.connection_type;
-  }
-
-  // Source toggle
-  document.querySelectorAll('#modal-cat-source .source-toggle__btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.val === (_editDraft.source || 'manual'));
-  });
+  // Connection types — normalise to array, render chips
+  _editDraft.connection_types = Array.isArray(_editDraft.connection_types) && _editDraft.connection_types.length
+    ? _editDraft.connection_types
+    : (_editDraft.connection_type ? [_editDraft.connection_type] : []);
+  _renderConnTypeRow();
 
   // Difficulty pills
   _renderModalDiffPills();
 
-  // Movie chips + search
+  // Movie chips
   _renderModalChips();
 
   document.getElementById('cat-edit-modal-overlay').style.display = 'flex';
@@ -1061,8 +1055,105 @@ function closeCatEditModal() {
   editingCatId = null;
   _editDraft   = null;
   document.getElementById('cat-edit-modal-overlay').style.display = 'none';
-  // Remove any custom options added temporarily
-  document.querySelectorAll('#modal-cat-ctype option[data-custom]').forEach(o => o.remove());
+}
+
+function _renderConnTypeRow(keepDropdownOpen = false) {
+  const $wrap = document.getElementById('modal-cat-ctypes');
+  if (!$wrap || !_editDraft) return;
+  const selected  = _editDraft.connection_types || [];
+  const remaining = CONN_TYPE_OPTIONS.filter(t => !selected.includes(t));
+
+  $wrap.innerHTML =
+    selected.map((t, i) => `
+      <span class="conn-type-chip">
+        ${escHtml(t)}<button class="conn-type-chip__remove" data-idx="${i}" aria-label="Remove ${escHtml(t)}">×</button>
+      </span>`).join('') +
+    (remaining.length ? `
+      <div class="conn-type-add-wrap">
+        <button class="cat-add-chip conn-type-add-btn" id="modal-ctypes-add">+ Add</button>
+        <div class="conn-type-dropdown" id="modal-ctypes-dropdown" style="display:${keepDropdownOpen ? 'block' : 'none'};">
+          ${remaining.map(t => `<div class="conn-type-option" data-val="${escHtml(t)}">${escHtml(t)}</div>`).join('')}
+        </div>
+      </div>` : '') +
+    `<button class="modal-ai-btn" id="modal-ctype-classify" aria-label="AI-classify connection type" title="AI classify">✦</button>`;
+
+  $wrap.querySelectorAll('.conn-type-chip__remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _editDraft.connection_types.splice(+btn.dataset.idx, 1);
+      _renderConnTypeRow();
+    });
+  });
+
+  const addBtn = document.getElementById('modal-ctypes-add');
+  if (addBtn) {
+    const dd = document.getElementById('modal-ctypes-dropdown');
+
+    // If re-rendered with dropdown open, reposition and re-attach outside-click listener
+    if (keepDropdownOpen) {
+      _positionConnTypeDropdown(dd, addBtn);
+      _attachConnTypeClose(dd, addBtn);
+    }
+
+    addBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const opening = dd.style.display === 'none';
+      dd.style.display = opening ? 'block' : 'none';
+      if (opening) {
+        _positionConnTypeDropdown(dd, addBtn);
+        _attachConnTypeClose(dd, addBtn);
+      }
+    });
+  }
+
+  $wrap.querySelectorAll('.conn-type-option').forEach(opt => {
+    opt.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!_editDraft.connection_types) _editDraft.connection_types = [];
+      _editDraft.connection_types.push(opt.dataset.val);
+      // Keep dropdown open so user can select multiple in one session
+      _renderConnTypeRow(true);
+    });
+  });
+
+  // Re-bind classify button (now rendered inside the row)
+  const classifyBtn = document.getElementById('modal-ctype-classify');
+  if (classifyBtn) {
+    classifyBtn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const title = document.getElementById('modal-cat-title').value.trim() || _editDraft.title;
+      if (!title || _editDraft.movie_titles.length < 4) return;
+      await suggestAndApplyConnectionType(
+        classifyBtn,
+        title,
+        _editDraft.movie_titles,
+        ctype => {
+          if (!_editDraft.connection_types) _editDraft.connection_types = [];
+          if (!_editDraft.connection_types.includes(ctype)) {
+            _editDraft.connection_types.push(ctype);
+            _renderConnTypeRow();
+          }
+        }
+      );
+    });
+  }
+}
+
+function _positionConnTypeDropdown(dd, addBtn) {
+  const rect = addBtn.getBoundingClientRect();
+  dd.style.top  = (rect.bottom + 4) + 'px';
+  dd.style.left = rect.left + 'px';
+  dd.style.minWidth = rect.width + 'px';
+}
+
+function _attachConnTypeClose(dd, addBtn) {
+  const close = ev => {
+    if (!dd.contains(ev.target) && ev.target !== addBtn) {
+      dd.style.display = 'none';
+      document.removeEventListener('click', close);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', close), 0);
 }
 
 function _renderModalDiffPills() {
@@ -1071,10 +1162,9 @@ function _renderModalDiffPills() {
   $diff.innerHTML = COLOR_ORDER.map((c, i) => `
     <button class="diff-pill diff-pill--${c}${diffVal === i + 1 ? ' selected' : ''}" data-diff="${i + 1}"
             aria-label="${DIFF_LABELS[i]}" title="${DIFF_LABELS[i]}">
-      <span class="pick-dot" style="background:${COLOR_HEX[c]};border:1.5px solid rgba(0,0,0,.2);"></span>
-      ${DIFF_LABELS[i]}
+      <span class="pick-dot" style="background:${COLOR_HEX[c]};border:1.5px solid rgba(0,0,0,.2);width:12px;height:12px;"></span>
     </button>`).join('') +
-    '<button class="diff-suggest-btn" id="modal-diff-suggest" aria-label="AI-suggest difficulty">Suggest</button>';
+    '<button class="modal-ai-btn" id="modal-diff-suggest" aria-label="AI-suggest difficulty" title="AI suggest difficulty">✦</button>';
 
   $diff.querySelectorAll('.diff-pill').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -1102,77 +1192,76 @@ function _renderModalDiffPills() {
     );
   });
 
-  document.getElementById('modal-ctype-classify').addEventListener('click', async e => {
-    e.stopPropagation();
-    const title = document.getElementById('modal-cat-title').value.trim() || _editDraft.title;
-    if (!title || _editDraft.movie_titles.length < 4) return;
-    await suggestAndApplyConnectionType(
-      document.getElementById('modal-ctype-classify'),
-      title,
-      _editDraft.movie_titles,
-      ctype => {
-        const ctypeEl = document.getElementById('modal-cat-ctype');
-        ctypeEl.value = ctype;
-        _editDraft.connection_type = ctype;
-      }
-    );
-  });
 }
 
 function _renderModalChips() {
   const $chips = document.getElementById('modal-cat-chips');
+  const addChip = _editDraft.movie_ids.length < 4
+    ? `<button class="cat-add-chip" id="modal-add-movie-chip" aria-label="Add movie">+ Add</button>`
+    : '';
   $chips.innerHTML = _editDraft.movie_titles.map((t, mi) => `
     <span class="cat-edit-chip">
       <span>${escHtml(t)}</span>
       <button class="cat-edit-chip__remove" data-mi="${mi}" aria-label="Remove ${escHtml(t)}">×</button>
-    </span>`).join('');
+    </span>`).join('') + addChip;
+
   $chips.querySelectorAll('.cat-edit-chip__remove').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const mi = +btn.dataset.mi;
       _editDraft.movie_ids.splice(mi, 1);
       _editDraft.movie_titles.splice(mi, 1);
+      document.getElementById('modal-movie-search-wrap').style.display = 'none';
       _renderModalChips();
-      _renderModalMovieSearch();
     });
   });
-  _renderModalMovieSearch();
+
+  const addBtn = document.getElementById('modal-add-movie-chip');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      const wrap = document.getElementById('modal-movie-search-wrap');
+      wrap.style.display = 'block';
+      _renderModalMovieSearch();
+      document.getElementById('modal-cat-msearch')?.focus();
+    });
+  }
 }
 
 function _renderModalMovieSearch() {
-  const wrap = document.getElementById('modal-movie-search-wrap');
-  const $msearch  = document.getElementById('modal-cat-msearch');
+  const wrap     = document.getElementById('modal-movie-search-wrap');
+  const $msearch = document.getElementById('modal-cat-msearch');
   const $mresults = document.getElementById('modal-cat-mresults');
-  if (!wrap) return;
-  wrap.style.display = _editDraft.movie_ids.length < 4 ? 'block' : 'none';
-  if ($msearch) {
-    // Re-attach input listener (clone to remove old listeners)
-    const fresh = $msearch.cloneNode(true);
-    $msearch.replaceWith(fresh);
-    fresh.value = '';
-    fresh.addEventListener('input', () => {
-      const q2 = fresh.value.toLowerCase().trim();
-      if (!q2) { $mresults.style.display = 'none'; return; }
-      const usedIds = new Set(_editDraft.movie_ids);
-      const matches = allMovies.filter(m =>
-        !usedIds.has(m.id) && m.title.toLowerCase().includes(q2)
-      ).slice(0, 8);
-      if (!matches.length) { $mresults.style.display = 'none'; return; }
-      $mresults.innerHTML = matches.map(m =>
-        `<div class="cat-movie-search-item" data-id="${m.id}" data-title="${escHtml(m.title)}">${escHtml(m.title)} <span style="opacity:.4;font-size:11px;">${m.year||''}</span></div>`
-      ).join('');
-      $mresults.style.display = 'block';
-      $mresults.querySelectorAll('.cat-movie-search-item').forEach(item => {
-        item.addEventListener('mousedown', e => {
-          e.preventDefault();
-          _editDraft.movie_ids.push(item.dataset.id);
-          _editDraft.movie_titles.push(item.dataset.title);
-          _renderModalChips();
-        });
+  if (!wrap || !$msearch) return;
+  // Re-attach input listener (clone to remove old listeners)
+  const fresh = $msearch.cloneNode(true);
+  $msearch.replaceWith(fresh);
+  fresh.value = '';
+  fresh.addEventListener('input', () => {
+    const q2 = fresh.value.toLowerCase().trim();
+    if (!q2) { $mresults.style.display = 'none'; return; }
+    const usedIds = new Set(_editDraft.movie_ids);
+    const matches = allMovies.filter(m =>
+      !usedIds.has(m.id) && m.title.toLowerCase().includes(q2)
+    ).slice(0, 8);
+    if (!matches.length) { $mresults.style.display = 'none'; return; }
+    $mresults.innerHTML = matches.map(m =>
+      `<div class="cat-movie-search-item" data-id="${m.id}" data-title="${escHtml(m.title)}">${escHtml(m.title)} <span style="opacity:.4;font-size:11px;">${m.year||''}</span></div>`
+    ).join('');
+    $mresults.style.display = 'block';
+    $mresults.querySelectorAll('.cat-movie-search-item').forEach(item => {
+      item.addEventListener('mousedown', e => {
+        e.preventDefault();
+        _editDraft.movie_ids.push(item.dataset.id);
+        _editDraft.movie_titles.push(item.dataset.title);
+        wrap.style.display = 'none';
+        _renderModalChips();
       });
     });
-    fresh.addEventListener('blur', () => setTimeout(() => { $mresults.style.display = 'none'; }, 150));
-  }
+  });
+  fresh.addEventListener('blur', () => setTimeout(() => {
+    $mresults.style.display = 'none';
+    wrap.style.display = 'none';
+  }, 150));
 }
 
 function _bindModalEvents() {
@@ -1185,28 +1274,19 @@ function _bindModalEvents() {
   // Cancel
   document.getElementById('modal-cat-cancel').addEventListener('click', () => closeCatEditModal());
 
-  // Source toggle
-  document.querySelectorAll('#modal-cat-source .source-toggle__btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#modal-cat-source .source-toggle__btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      if (_editDraft) _editDraft.source = btn.dataset.val;
-    });
-  });
-
   // Save
   document.getElementById('modal-cat-save').addEventListener('click', async () => {
     if (!_editDraft) return;
-    const titleEl   = document.getElementById('modal-cat-title');
-    const ctypeEl   = document.getElementById('modal-cat-ctype');
-    const activeBtn = document.querySelector('#modal-cat-source .source-toggle__btn.active');
-    const payload   = {
-      title:           (titleEl?.value || _editDraft.title).trim(),
-      movie_ids:       _editDraft.movie_ids,
-      movie_titles:    _editDraft.movie_titles,
-      source:          activeBtn?.dataset.val || _editDraft.source || 'manual',
-      connection_type: (ctypeEl?.value || '').trim(),
-      difficulty:      _editDraft.difficulty || null,
+    const titleEl     = document.getElementById('modal-cat-title');
+    const checkedTypes = [...document.querySelectorAll('#modal-cat-ctypes input:checked')].map(cb => cb.value);
+    const payload     = {
+      title:            (titleEl?.value || _editDraft.title).trim(),
+      movie_ids:        _editDraft.movie_ids,
+      movie_titles:     _editDraft.movie_titles,
+      source:           _editDraft.source || 'manual',
+      connection_types: checkedTypes,
+      connection_type:  checkedTypes[0] || '',
+      difficulty:       _editDraft.difficulty || null,
     };
     if (!payload.title || payload.movie_ids.length !== 4) return;
     const saveBtn = document.getElementById('modal-cat-save');
@@ -1264,29 +1344,28 @@ function bindCategoriesEvents() {
   document.getElementById('lib-search').addEventListener('input', e => {
     catLibraryQuery = e.target.value; renderCategoryLibrary();
   });
-  const hideUsedBtn = document.getElementById('btn-lib-hide-used');
-  // Reflect default state (true)
-  hideUsedBtn.textContent      = 'Show All';
-  hideUsedBtn.style.background = '#2a2a2a';
-  hideUsedBtn.style.color      = '#fff';
-  hideUsedBtn.addEventListener('click', function() {
-    catLibraryHideUsed        = !catLibraryHideUsed;
-    this.textContent          = catLibraryHideUsed ? 'Show All' : 'Hide Used';
-    this.style.background     = catLibraryHideUsed ? '#2a2a2a' : '';
-    this.style.color          = catLibraryHideUsed ? '#fff' : '';
+
+  // Hide-used toggle pill
+  document.getElementById('btn-lib-hide-used').addEventListener('click', function() {
+    catLibraryHideUsed = !catLibraryHideUsed;
+    this.classList.toggle('active', catLibraryHideUsed);
     renderCategoryLibrary();
   });
 
-  // Sort select
-  document.getElementById('lib-sort').addEventListener('change', e => {
-    catLibrarySort = e.target.value;
-    renderCategoryLibrary();
+  // Sort pills
+  document.querySelectorAll('#lib-sort-pills .lib-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('#lib-sort-pills .lib-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      catLibrarySort = pill.dataset.sort;
+      renderCategoryLibrary();
+    });
   });
 
   // Difficulty filter pills
-  document.querySelectorAll('.lib-diff-pill').forEach(pill => {
+  document.querySelectorAll('[data-diff]').forEach(pill => {
     pill.addEventListener('click', () => {
-      document.querySelectorAll('.lib-diff-pill').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('[data-diff]').forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       catLibraryFilterDiff = pill.dataset.diff ? +pill.dataset.diff : null;
       renderCategoryLibrary();
@@ -1322,7 +1401,7 @@ function bindCategoriesEvents() {
       }),
     });
     const data = await res.json();
-    titleSuggestBtn.textContent = 'Suggest';
+    titleSuggestBtn.textContent = '✦';
     titleSuggestBtn.disabled = false;
 
     if (!data.suggestions || !data.suggestions.length) {
