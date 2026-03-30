@@ -1112,9 +1112,11 @@ def admin_ai_suggest_difficulty():
         return jsonify({"error": "invalid"}), 400
     films = ", ".join(f'"{t}"' for t in movie_titles)
     raw = _call_claude(
-        "You rate the difficulty of movie connection puzzles.",
+        "You rate the difficulty of movie connection puzzles. "
+        "yellow=easiest (very obvious), green=easy, blue=hard, purple=hardest (only cinephiles).",
         f'Category: "{title}"\nFilms: {films}\n\n'
         f'How hard is this connection for an average movie fan to spot? '
+        f'Use the full range: most categories should be green or blue, not yellow. '
         f'Reply with ONLY one word: yellow green blue purple',
         max_tokens=5,
     )
