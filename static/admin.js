@@ -964,6 +964,30 @@ async function suggestAndApplyDifficulty($btn, title, movieTitles, onResult) {
   }
 }
 
+async function suggestAndApplyConnectionType($btn, title, movieTitles, onResult) {
+  const orig = $btn.textContent;
+  $btn.textContent = '…';
+  $btn.disabled    = true;
+  try {
+    const res  = await fetch('/admin/ai/suggest-connection-type', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, movie_titles: movieTitles }),
+    });
+    const data = await res.json();
+    if (data.connection_type) {
+      onResult(data.connection_type);
+      $btn.textContent = '✓';
+      setTimeout(() => { $btn.textContent = orig; $btn.disabled = false; }, 1200);
+    } else {
+      $btn.textContent = '—';
+      setTimeout(() => { $btn.textContent = orig; $btn.disabled = false; }, 1500);
+    }
+  } catch {
+    $btn.textContent = '—';
+    setTimeout(() => { $btn.textContent = orig; $btn.disabled = false; }, 1500);
+  }
+}
+
 // ── Edit Category Modal ────────────────────────────────────────────
 
 function openCatEditModal(cat) {
@@ -1041,6 +1065,22 @@ function _renderModalDiffPills() {
         $diff.querySelectorAll('.diff-pill').forEach(b =>
           b.classList.toggle('selected', +b.dataset.diff === diff)
         );
+      }
+    );
+  });
+
+  document.getElementById('modal-ctype-classify').addEventListener('click', async e => {
+    e.stopPropagation();
+    const title = document.getElementById('modal-cat-title').value.trim() || _editDraft.title;
+    if (!title || _editDraft.movie_titles.length < 4) return;
+    await suggestAndApplyConnectionType(
+      document.getElementById('modal-ctype-classify'),
+      title,
+      _editDraft.movie_titles,
+      ctype => {
+        const ctypeEl = document.getElementById('modal-cat-ctype');
+        ctypeEl.value = ctype;
+        _editDraft.connection_type = ctype;
       }
     );
   });

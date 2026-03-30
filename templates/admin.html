@@ -1765,8 +1765,8 @@
       <div class="cat-movie-search-results" id="modal-cat-mresults" style="display:none;"></div>
     </div>
 
-    <div>
-      <select id="modal-cat-ctype" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:12px;background:#fff;cursor:pointer;">
+    <div style="display:flex;gap:6px;align-items:center;">
+      <select id="modal-cat-ctype" style="flex:1;box-sizing:border-box;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:12px;background:#fff;cursor:pointer;">
         <option value="">Connection type…</option>
         <option value="Cast">Cast</option>
         <option value="Director">Director</option>
@@ -1779,6 +1779,7 @@
         <option value="Cast (Special)">Cast (Special)</option>
         <option value="Cast (Meta)">Cast (Meta)</option>
       </select>
+      <button class="diff-suggest-btn" id="modal-ctype-classify" aria-label="AI-classify connection type">Classify</button>
     </div>
 
     <div class="cat-edit-diff-row" id="modal-cat-diff" role="group" aria-label="Difficulty"></div>

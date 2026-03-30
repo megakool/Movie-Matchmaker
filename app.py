@@ -1146,6 +1146,49 @@ def admin_ai_suggest_difficulty():
     return jsonify({"difficulty": diff, "label": word})
 
 
+@app.post("/admin/ai/suggest-connection-type")
+@admin_required
+def admin_ai_suggest_connection_type():
+    """Given category title + 4 movie titles, return the best connection type."""
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "no_key"}), 503
+    data = request.get_json(force=True)
+    title = (data.get("title") or "").strip()[:80]
+    movie_titles = [str(t).strip() for t in (data.get("movie_titles") or [])[:4]]
+    if not title or len(movie_titles) != 4:
+        return jsonify({"error": "invalid"}), 400
+    films = ", ".join(f'"{t}"' for t in movie_titles)
+    raw = _call_claude(
+        "You classify movie connection puzzle categories into exactly one type. "
+        "Cast = all four films feature the same actor. "
+        "Director = all four films by the same director. "
+        "Award = all four won the same Oscar or major award. "
+        "Genre = same genre or subgenre (heist, horror, war, etc.). "
+        "Setting = same location, country, time period, or environment. "
+        "Plot = same plot device, premise, or situation. "
+        "Trope = same narrative trope or character archetype. "
+        "Franchise = connected via sequels, prequels, spinoffs, or shared universe. "
+        "Cast (Special) = notable casting or performance fact (comedian playing it straight, actor doing an accent, etc.). "
+        "Cast (Meta) = real-world fact about the people involved (musician turned actor, directorial debut, etc.).",
+        f'Category: "{title}"\nFilms: {films}\n\n'
+        f'What is the connection type? Reply with ONLY the exact type name: '
+        f'Cast, Director, Award, Genre, Setting, Plot, Trope, Franchise, Cast (Special), Cast (Meta)',
+        max_tokens=10,
+    )
+    if not raw:
+        return jsonify({"error": "ai_unavailable"}), 503
+    valid = {"Cast", "Director", "Award", "Genre", "Setting", "Plot", "Trope", "Franchise", "Cast (Special)", "Cast (Meta)"}
+    result = raw.strip()
+    if result not in valid:
+        for v in valid:
+            if v.lower() in result.lower():
+                result = v
+                break
+        else:
+            return jsonify({"error": "bad_response", "raw": raw}), 500
+    return jsonify({"connection_type": result})
+
+
 # ── Trivia Admin Routes ───────────────────────────────────────────────────────
 
 @app.get("/admin/trivia/questions")
