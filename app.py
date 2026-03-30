@@ -68,6 +68,40 @@ def _init_persistent_disk() -> None:
 
 
 _init_persistent_disk()
+
+
+def _migrate_puzzle_ids() -> None:
+    """One-time migration: remap movie_ids in all puzzle files after the dataset expansion."""
+    remap_path   = BASE_DIR / "id_remap.json"
+    marker_path  = DATA_DIR / "puzzle_id_migration_v1.done"
+    if marker_path.exists() or not remap_path.exists():
+        return
+    if not PUZZLES_DIR.exists():
+        return
+    with open(remap_path, "r", encoding="utf-8") as f:
+        remap = {int(k): v for k, v in json.load(f).items()}
+    changed = 0
+    for puzzle_file in PUZZLES_DIR.glob("*.json"):
+        with open(puzzle_file, "r", encoding="utf-8") as f:
+            puzzle = json.load(f)
+        updated = False
+        for cat in puzzle.get("categories", []):
+            new_ids = []
+            for mid in cat.get("movie_ids", []):
+                new_id = remap.get(mid, mid)
+                new_ids.append(new_id)
+                if new_id != mid:
+                    updated = True
+            cat["movie_ids"] = new_ids
+        if updated:
+            with open(puzzle_file, "w", encoding="utf-8") as f:
+                json.dump(puzzle, f, indent=2, ensure_ascii=False)
+            changed += 1
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    marker_path.write_text("done")
+
+
+_migrate_puzzle_ids()
 # Ensure trivia_puzzles dir always exists locally too
 TRIVIA_PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
 

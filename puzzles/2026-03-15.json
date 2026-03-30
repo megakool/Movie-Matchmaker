@@ -7,10 +7,10 @@
       "difficulty": 1,
       "title": "Best Animated Movie",
       "movie_ids": [
-        1311,
-        1517,
-        813,
-        1233
+        3425,
+        3734,
+        4204,
+        3255
       ]
     },
     {
@@ -41,7 +41,7 @@
       "title": "Best Director",
       "movie_ids": [
         234,
-        772,
+        4134,
         109,
         514
       ]
