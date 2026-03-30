@@ -1039,7 +1039,7 @@ def admin_ai_workshop():
 
     data             = request.get_json(force=True)
     exclude_ids      = set(data.get("exclude_ids", []))
-    connection_types = data.get("connection_types", ["plot", "meta", "tonal", "subverted", "thematic"])
+    connection_types = data.get("connection_types", ["cast", "director", "award", "genre", "setting", "plot", "trope", "franchise", "cast_special", "cast_meta"])
     ai_tiers         = data.get("ai_tiers") or get_settings().get("ai_tiers", [1])
     ai_tiers         = set(int(t) for t in ai_tiers if int(t) in (1, 2))
 
@@ -1053,11 +1053,16 @@ def admin_ai_workshop():
     titles_list     = _titles_only_list(pool)
 
     type_descriptions = {
-        "plot":      "Plot-level — something that specifically happens in the film (a death, a heist, a twist, a setting detail)",
-        "meta":      "Meta connection — a production fact, award win, source material, or behind-the-scenes link",
-        "tonal":     "Tonal/vibe — shared mood, atmosphere, or emotional register across all four films",
-        "subverted": "Subverted expectation — looks like one obvious category, but the real connection is something else entirely",
-        "thematic":  "Thematic — shared philosophical theme, moral question, or symbolic preoccupation",
+        "cast":         "Cast — all four films prominently feature the same actor",
+        "director":     "Director — all four films were directed by the same director",
+        "award":        "Award — all four films won the same Oscar or major award category",
+        "genre":        "Genre — all four films belong to the same genre or subgenre (heist, horror, war, etc.)",
+        "setting":      "Setting — all four films share a specific location, country, time period, or environment",
+        "plot":         "Plot — all four films share a specific plot device, premise, or situation (amnesia, time travel, undercover cop, etc.)",
+        "trope":        "Trope — all four films share a recurring narrative trope or character archetype (chosen one, fish out of water, unlikely duo, etc.)",
+        "franchise":    "Franchise — all four films are connected through sequels, prequels, spinoffs, or a shared film universe",
+        "cast_special": "Cast (Special) — all four films share a notable casting or performance fact (comedian playing it straight, actor doing an accent, one actor in twin roles, etc.)",
+        "cast_meta":    "Cast (Meta) — all four films share a real-world fact about the people involved (musician turned actor, directorial debut, real-life siblings on screen, etc.)",
     }
     active_types = [type_descriptions[t] for t in connection_types if t in type_descriptions]
     if not active_types:
@@ -1080,7 +1085,7 @@ def admin_ai_workshop():
         'Respond ONLY with valid JSON:\n'
         '{"categories": [\n'
         '  {"title": "Punchy name ≤60 chars", "movies": ["Title A","Title B","Title C","Title D"],\n'
-        '   "connection_type": "plot|meta|tonal|subverted|thematic",\n'
+        '   "connection_type": "cast|director|award|genre|setting|plot|trope|franchise|cast_special|cast_meta",\n'
         '   "difficulty": 1,\n'
         '   "reasoning": "One sentence explaining exactly why these 4 films share this connection"}\n'
         ']}',

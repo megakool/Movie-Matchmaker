@@ -1353,16 +1353,16 @@
                      style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:6px;">
               <select id="browse-conn-type" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:12px;margin-bottom:10px;background:#fff;cursor:pointer;">
                 <option value="">Connection type…</option>
+                <option value="Cast">Cast</option>
                 <option value="Director">Director</option>
-                <option value="Actor">Actor / Cast</option>
-                <option value="Writer">Writer</option>
-                <option value="Award">Award / Oscar</option>
-                <option value="Theme">Theme</option>
+                <option value="Award">Award</option>
                 <option value="Genre">Genre</option>
-                <option value="Era">Era / Decade</option>
-                <option value="Studio">Studio</option>
-                <option value="Franchise">Franchise / Series</option>
-                <option value="Other">Other</option>
+                <option value="Setting">Setting</option>
+                <option value="Plot">Plot</option>
+                <option value="Trope">Trope</option>
+                <option value="Franchise">Franchise</option>
+                <option value="Cast (Special)">Cast (Special)</option>
+                <option value="Cast (Meta)">Cast (Meta)</option>
               </select>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <span style="font-size:12px;opacity:0.5;" id="browse-selected-count">0/4 selected</span>
@@ -1398,16 +1398,16 @@
                      style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:6px;">
               <select id="search-conn-type" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:12px;margin-bottom:10px;background:#fff;cursor:pointer;">
                 <option value="">Connection type…</option>
+                <option value="Cast">Cast</option>
                 <option value="Director">Director</option>
-                <option value="Actor">Actor / Cast</option>
-                <option value="Writer">Writer</option>
-                <option value="Award">Award / Oscar</option>
-                <option value="Theme">Theme</option>
+                <option value="Award">Award</option>
                 <option value="Genre">Genre</option>
-                <option value="Era">Era / Decade</option>
-                <option value="Studio">Studio</option>
-                <option value="Franchise">Franchise / Series</option>
-                <option value="Other">Other</option>
+                <option value="Setting">Setting</option>
+                <option value="Plot">Plot</option>
+                <option value="Trope">Trope</option>
+                <option value="Franchise">Franchise</option>
+                <option value="Cast (Special)">Cast (Special)</option>
+                <option value="Cast (Meta)">Cast (Meta)</option>
               </select>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <button class="btn btn--ghost btn--sm" id="btn-cat-search-clear" style="color:#cc2200;border-color:#cc2200;">Clear</button>
@@ -1437,16 +1437,16 @@
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <select id="random-conn-type" style="flex:1;min-width:180px;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:12px;background:#fff;cursor:pointer;">
               <option value="">Connection type…</option>
+              <option value="Cast">Cast</option>
               <option value="Director">Director</option>
-              <option value="Actor">Actor / Cast</option>
-              <option value="Writer">Writer</option>
-              <option value="Award">Award / Oscar</option>
-              <option value="Theme">Theme</option>
+              <option value="Award">Award</option>
               <option value="Genre">Genre</option>
-              <option value="Era">Era / Decade</option>
-              <option value="Studio">Studio</option>
-              <option value="Franchise">Franchise / Series</option>
-              <option value="Other">Other</option>
+              <option value="Setting">Setting</option>
+              <option value="Plot">Plot</option>
+              <option value="Trope">Trope</option>
+              <option value="Franchise">Franchise</option>
+              <option value="Cast (Special)">Cast (Special)</option>
+              <option value="Cast (Meta)">Cast (Meta)</option>
             </select>
             <button class="btn btn--sm" id="btn-random-save" disabled>★ Save</button>
           </div>
@@ -1476,11 +1476,16 @@
             <h3>✦ Category Workshop</h3>
             <p class="ai-desc">Generate 8 standalone category ideas to cherry-pick from. Toggle which connection types you want Claude to explore.</p>
             <div class="conn-type-toggles" id="workshop-toggles">
-              <button class="toggle-btn active" data-type="plot">Plot-level</button>
-              <button class="toggle-btn active" data-type="meta">Meta</button>
-              <button class="toggle-btn active" data-type="tonal">Tonal / Vibe</button>
-              <button class="toggle-btn active" data-type="subverted">Subverted</button>
-              <button class="toggle-btn active" data-type="thematic">Thematic</button>
+              <button class="toggle-btn active" data-type="cast">Cast</button>
+              <button class="toggle-btn active" data-type="director">Director</button>
+              <button class="toggle-btn active" data-type="award">Award</button>
+              <button class="toggle-btn active" data-type="genre">Genre</button>
+              <button class="toggle-btn active" data-type="setting">Setting</button>
+              <button class="toggle-btn active" data-type="plot">Plot</button>
+              <button class="toggle-btn active" data-type="trope">Trope</button>
+              <button class="toggle-btn active" data-type="franchise">Franchise</button>
+              <button class="toggle-btn active" data-type="cast_special">Cast (Special)</button>
+              <button class="toggle-btn active" data-type="cast_meta">Cast (Meta)</button>
             </div>
             <button class="btn btn--primary" id="btn-ai-workshop">Generate 8 Categories ▶</button>
             <div id="ai-workshop-results" class="ai-results"></div>
@@ -1763,16 +1768,16 @@
     <div>
       <select id="modal-cat-ctype" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1.5px solid #ccc;border-radius:8px;font-family:inherit;font-size:12px;background:#fff;cursor:pointer;">
         <option value="">Connection type…</option>
+        <option value="Cast">Cast</option>
         <option value="Director">Director</option>
-        <option value="Actor">Actor / Cast</option>
-        <option value="Writer">Writer</option>
-        <option value="Award">Award / Oscar</option>
-        <option value="Theme">Theme</option>
+        <option value="Award">Award</option>
         <option value="Genre">Genre</option>
-        <option value="Era">Era / Decade</option>
-        <option value="Studio">Studio</option>
-        <option value="Franchise">Franchise / Series</option>
-        <option value="Other">Other</option>
+        <option value="Setting">Setting</option>
+        <option value="Plot">Plot</option>
+        <option value="Trope">Trope</option>
+        <option value="Franchise">Franchise</option>
+        <option value="Cast (Special)">Cast (Special)</option>
+        <option value="Cast (Meta)">Cast (Meta)</option>
       </select>
     </div>
 
