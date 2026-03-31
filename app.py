@@ -250,7 +250,7 @@ def get_marquee_stats() -> dict:
 def save_marquee_stats(stats: dict) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     with open(MARQUEE_STATS_PATH, "w", encoding="utf-8") as f:
-        json.dump(stats, f, indent=2)
+        json.dump(stats, f, indent=2, ensure_ascii=False)
 
 def get_trivia_stats() -> dict:
     if not TRIVIA_STATS_PATH.exists():
@@ -264,7 +264,7 @@ def get_trivia_stats() -> dict:
 def save_trivia_stats(stats: dict) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     with open(TRIVIA_STATS_PATH, "w", encoding="utf-8") as f:
-        json.dump(stats, f, indent=2)
+        json.dump(stats, f, indent=2, ensure_ascii=False)
 
 
 def get_daily_trivia(questions: list, today_str: str, count: int = 3) -> list:
@@ -485,10 +485,15 @@ def api_record_marquee_stats():
     data        = request.get_json(silent=True) or {}
     puzzle_date = data.get("date", "")
     won         = bool(data.get("won", False))
-    mistakes    = int(data.get("mistakes", 0))
+    try:
+        mistakes = int(data.get("mistakes", 0))
+    except (TypeError, ValueError):
+        mistakes = 0
     solve_order = data.get("solve_order", [])  # list of color strings in solve order
+    if not isinstance(solve_order, list):
+        solve_order = []
 
-    if not puzzle_date:
+    if not puzzle_date or not re.match(r"^\d{4}-\d{2}-\d{2}$", puzzle_date):
         return jsonify({"ok": False}), 400
 
     colors = ["yellow", "green", "blue", "purple"]
@@ -541,9 +546,12 @@ def api_record_marquee_stats():
 def api_record_trivia_stats():
     data        = request.get_json(silent=True) or {}
     puzzle_date = data.get("date", "")
-    score       = int(data.get("score", 0))
+    try:
+        score = int(data.get("score", 0))
+    except (TypeError, ValueError):
+        score = 0
 
-    if not puzzle_date:
+    if not puzzle_date or not re.match(r"^\d{4}-\d{2}-\d{2}$", puzzle_date):
         return jsonify({"ok": False}), 400
 
     stats = get_trivia_stats()
