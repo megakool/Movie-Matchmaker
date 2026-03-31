@@ -1400,6 +1400,59 @@
   color: #cc2200; border-color: rgba(204,34,0,.3);
 }
 .modal-footer .modal-delete-btn:hover { border-color: #cc2200; background: rgba(204,34,0,.04); }
+  /* ── Stats panel ─────────────────────────────────────────────────── */
+  .stats-summary-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 16px 0 20px;
+    border-bottom: 1.5px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .stats-chip {
+    background: var(--surface);
+    border: var(--bw) solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 2px 2px 0 var(--border);
+    padding: 10px 16px;
+    min-width: 90px;
+    text-align: center;
+  }
+  .stats-chip__val { font-size: 22px; font-weight: 800; line-height: 1.1; }
+  .stats-chip__lbl { font-size: 11px; opacity: 0.55; text-transform: uppercase;
+                     letter-spacing: .05em; margin-top: 2px; }
+  .stats-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .stats-table th {
+    text-align: left; padding: 8px 10px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .05em; opacity: 0.5;
+    border-bottom: 1.5px solid var(--border);
+  }
+  .stats-table td { padding: 8px 10px; border-bottom: 1px solid #f0ebe5; vertical-align: top; }
+  .stats-table tr:last-child td { border-bottom: none; }
+  .stats-table tr:hover td { background: var(--bg); }
+  .stats-table tr.stats-row--no-data td { opacity: 0.4; font-style: italic; }
+  .stats-cat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    padding: 8px 0 4px;
+  }
+  .stats-cat-cell {
+    background: var(--surface);
+    border: var(--bw) solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  .stats-cat-cell__name { font-weight: 700; font-size: 12px; margin-bottom: 4px;
+                           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stats-cat-cell__row { display: flex; justify-content: space-between;
+                          color: var(--text2); margin-top: 1px; }
+  .stats-cat-cell--yellow { border-left: 3px solid var(--yellow); }
+  .stats-cat-cell--green  { border-left: 3px solid var(--green); }
+  .stats-cat-cell--blue   { border-left: 3px solid var(--blue); }
+  .stats-cat-cell--purple { border-left: 3px solid var(--purple); }
 </style>
 {% endblock %}
 
@@ -1467,6 +1520,9 @@
         <span class="nav-label">System</span>
         <button class="nav-item" data-panel="settings">
           <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Settings
+        </button>
+        <button class="nav-item" data-panel="stats">
+          <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Stats
         </button>
       </div>
     </nav>
@@ -2003,6 +2059,31 @@
       </div>
 
       <div id="trivia-q-list"><div class="loading-state">Loading…</div></div>
+
+    </div>
+
+    <!-- ══════════════ STATS PANEL ══════════════ -->
+    <div class="admin-panel" id="panel-stats">
+
+      <div class="panel-hd">
+        <h1 class="panel-hd__title">Stats</h1>
+      </div>
+
+      <div class="sub-tabs">
+        <button class="sub-tab active" data-subtab="stats-marquee">Marquee</button>
+        <button class="sub-tab" data-subtab="stats-trivia">Trivia</button>
+      </div>
+
+      <!-- ── Marquee stats sub-panel ── -->
+      <div class="sub-panel active" id="sub-stats-marquee">
+        <div id="stats-marquee-summary" class="stats-summary-row"></div>
+        <div id="stats-marquee-body"><div class="loading-state">Loading…</div></div>
+      </div>
+
+      <!-- ── Trivia stats sub-panel ── -->
+      <div class="sub-panel" id="sub-stats-trivia">
+        <div id="stats-trivia-body"><div class="loading-state">Loading…</div></div>
+      </div>
 
     </div>
 
