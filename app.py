@@ -38,6 +38,8 @@ CATEGORIES_PATH           = DATA_DIR / "saved_categories.json"
 DISMISSED_DUPLICATES_PATH = DATA_DIR / "dismissed_duplicates.json"
 DRAFTS_PATH               = DATA_DIR / "drafts.json"
 SETTINGS_PATH             = DATA_DIR / "settings.json"
+MARQUEE_STATS_PATH = DATA_DIR / "marquee_stats.json"
+TRIVIA_STATS_PATH  = DATA_DIR / "trivia_stats.json"
 
 
 def _init_persistent_disk() -> None:
@@ -234,6 +236,35 @@ def save_trivia_questions(questions: list) -> None:
     with open(TRIVIA_DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(questions, f, indent=2, ensure_ascii=False)
     _trivia_cache = questions
+
+
+def get_marquee_stats() -> dict:
+    if not MARQUEE_STATS_PATH.exists():
+        return {}
+    try:
+        with open(MARQUEE_STATS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_marquee_stats(stats: dict) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(MARQUEE_STATS_PATH, "w", encoding="utf-8") as f:
+        json.dump(stats, f, indent=2)
+
+def get_trivia_stats() -> dict:
+    if not TRIVIA_STATS_PATH.exists():
+        return {}
+    try:
+        with open(TRIVIA_STATS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_trivia_stats(stats: dict) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(TRIVIA_STATS_PATH, "w", encoding="utf-8") as f:
+        json.dump(stats, f, indent=2)
 
 
 def get_daily_trivia(questions: list, today_str: str, count: int = 3) -> list:
@@ -447,6 +478,88 @@ def api_random_movies():
         {"id": m["id"], "title": m["title"], "year": m["year"]}
         for m in sample
     ])
+
+
+@app.post("/api/stats/marquee")
+def api_record_marquee_stats():
+    data        = request.get_json(silent=True) or {}
+    puzzle_date = data.get("date", "")
+    won         = bool(data.get("won", False))
+    mistakes    = int(data.get("mistakes", 0))
+    solve_order = data.get("solve_order", [])  # list of color strings in solve order
+
+    if not puzzle_date:
+        return jsonify({"ok": False}), 400
+
+    colors = ["yellow", "green", "blue", "purple"]
+    stats  = get_marquee_stats()
+    entry  = stats.setdefault(puzzle_date, {
+        "plays": 0, "wins": 0, "losses": 0,
+        "mistakes": {"0": 0, "1": 0, "2": 0, "3": 0},
+        "first_solved":    {c: 0 for c in colors},
+        "unsolved":        {c: 0 for c in colors},
+        "solve_positions": {c: [0, 0, 0, 0] for c in colors},
+    })
+
+    # Ensure keys exist for puzzles recorded before schema was finalized
+    for c in colors:
+        entry["first_solved"].setdefault(c, 0)
+        entry["unsolved"].setdefault(c, 0)
+        entry["solve_positions"].setdefault(c, [0, 0, 0, 0])
+    for k in ("0", "1", "2", "3"):
+        entry["mistakes"].setdefault(k, 0)
+
+    entry["plays"] += 1
+    if won:
+        entry["wins"] += 1
+        mk = str(min(mistakes, 3))
+        entry["mistakes"][mk] += 1
+    else:
+        entry["losses"] += 1
+
+    # First-solved tally
+    if solve_order and solve_order[0] in entry["first_solved"]:
+        entry["first_solved"][solve_order[0]] += 1
+
+    # Solve position tally (index 0 = solved 1st, index 3 = solved 4th)
+    for pos, color in enumerate(solve_order):
+        if color in entry["solve_positions"] and pos < 4:
+            entry["solve_positions"][color][pos] += 1
+
+    # Unsolved tally (only on losses — categories the player never cracked)
+    if not won:
+        solved_set = set(solve_order)
+        for color in colors:
+            if color not in solved_set:
+                entry["unsolved"][color] += 1
+
+    save_marquee_stats(stats)
+    return jsonify({"ok": True})
+
+
+@app.post("/api/stats/trivia")
+def api_record_trivia_stats():
+    data        = request.get_json(silent=True) or {}
+    puzzle_date = data.get("date", "")
+    score       = int(data.get("score", 0))
+
+    if not puzzle_date:
+        return jsonify({"ok": False}), 400
+
+    stats = get_trivia_stats()
+    entry = stats.setdefault(puzzle_date, {
+        "plays":  0,
+        "scores": {"0": 0, "1": 0, "2": 0, "3": 0},
+    })
+    for k in ("0", "1", "2", "3"):
+        entry["scores"].setdefault(k, 0)
+
+    entry["plays"] += 1
+    sk = str(min(max(score, 0), 3))
+    entry["scores"][sk] += 1
+
+    save_trivia_stats(stats)
+    return jsonify({"ok": True})
 
 
 @app.post("/marquee/create/submit")
