@@ -8,6 +8,7 @@ let currentIdx      = 0;   // 0–2
 let results         = [];  // [{id, correct, userAnswer, correctAnswer, question, skipped?}]
 let currentParts    = [];  // answer parts for current question (1 = single, 2+ = multi)
 let _justSubmitted  = false; // guard: prevent same Enter from submitting AND advancing
+let _triviaStatsSent = false;  // prevent double-recording on page reload
 
 // ── Static DOM refs ────────────────────────────────────────────────────────────
 const $date             = document.getElementById('trivia-date');
@@ -266,6 +267,15 @@ function showSummary(resultsArr) {
 
   const correct = resultsArr.filter(r => r.correct).length;
   const total   = resultsArr.length;
+
+  if (!_triviaStatsSent) {
+    _triviaStatsSent = true;
+    fetch('/api/stats/trivia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: TODAY, score: correct }),
+    }).catch(() => {});  // fire-and-forget
+  }
 
   $summaryScore.textContent = `${correct} / ${total}`;
   $summaryMsg.textContent   = SCORE_MSGS[correct] || SCORE_MSGS[0];
