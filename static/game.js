@@ -24,13 +24,14 @@ const MAX_MISTAKES = 4;
 
 /* ── State ── */
 const state = {
-  tiles:      [...TILES],   // mutable order (for shuffle)
-  selected:   new Set(),    // Set of movie_ids currently selected
-  solved:     [],           // array of {color, title, movie_ids} in solve order
-  mistakes:   0,
-  guessHistory: [],         // [{movie_ids, color|null}] for emoji grid
-  gameOver:   false,
-  won:        false,
+  tiles:        [...TILES],   // mutable order (for shuffle)
+  selected:     new Set(),    // Set of movie_ids currently selected
+  solved:       [],           // array of {color, title, movie_ids} in solve order
+  solvedColors: [],           // colors in the order they were correctly solved
+  mistakes:     0,
+  guessHistory: [],           // [{movie_ids, color|null}] for emoji grid
+  gameOver:     false,
+  won:          false,
 };
 
 /* ── Canvas context for text measurement (font auto-fit) ── */
@@ -250,6 +251,7 @@ function onCorrectGuess(cat) {
 
   state.guessHistory.push({ movie_ids: [...cat.movie_ids], color: cat.color });
   state.solved.push({ ...cat, movieTitles });
+  state.solvedColors.push(cat.color);
   state.selected.clear();
 
   // Animate tiles popping into color
@@ -277,6 +279,7 @@ function onCorrectGuess(cat) {
       state.gameOver = true;
       saveProgress();
       updateStreak(true);
+      reportStats();
       setTimeout(() => showResult(), 700);
     }
   }, 400);
@@ -306,6 +309,7 @@ function onWrongGuess(guessIds, oneAway) {
     state.selected.clear();
     saveProgress();
     updateStreak(false);
+    reportStats();
     setTimeout(() => revealAll(), 600);
   } else {
     saveProgress();
@@ -437,6 +441,23 @@ function showOneAway() {
   el._hideTimer = setTimeout(() => el.classList.add('hidden'), 2200);
 }
 
+/* ── Stats reporting ── */
+let _statsSent = false;
+function reportStats() {
+  if (_statsSent) return;
+  _statsSent = true;
+  fetch('/api/stats/marquee', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      date:        PUZZLE_DATE,
+      won:         state.won,
+      mistakes:    state.mistakes,
+      solve_order: state.solvedColors,
+    }),
+  }).catch(() => {});  // fire-and-forget; errors are silent
+}
+
 /* ── Toast ── */
 function showToast(msg) {
   const existing = document.querySelector('.share-toast');
@@ -491,6 +512,8 @@ function restoreState(saved) {
   state.gameOver     = saved.gameOver     || false;
   state.won          = saved.won          || false;
   state.guessHistory = saved.guessHistory || [];
+  // Restore solve order from solved categories (in order they appear in state.solved)
+  state.solvedColors = state.solved.map(c => c.color);
 }
 
 function loadHistoryRaw() {
