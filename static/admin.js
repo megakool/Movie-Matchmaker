@@ -2621,6 +2621,9 @@ function bindNav() {
       if (panelId === 'trivia-published') {
         loadTriviaPublished();
       }
+      if (panelId === 'stats') {
+        loadStats();
+      }
     });
   });
 }
@@ -3720,6 +3723,132 @@ function detectPublishedGaps() {
     cur.setDate(cur.getDate() + 1);
   }
   return gaps;
+}
+
+// ── Stats Panel ────────────────────────────────────────────────────
+let statsLoaded = false;
+
+async function loadStats() {
+  if (statsLoaded) return;
+  statsLoaded = true;
+
+  const [mRes, tRes] = await Promise.all([
+    fetch('/admin/stats/marquee').catch(() => null),
+    fetch('/admin/stats/trivia').catch(() => null),
+  ]);
+
+  const mData = mRes?.ok ? await mRes.json() : null;
+  const tData = tRes?.ok ? await tRes.json() : null;
+
+  if (mData) renderMarqueeStats(mData);
+  else document.getElementById('stats-marquee-body').innerHTML =
+    '<div class="loading-state">Failed to load marquee stats.</div>';
+
+  if (tData) renderTriviaScoreStats(tData);
+  else document.getElementById('stats-trivia-body').innerHTML =
+    '<div class="loading-state">Failed to load trivia stats.</div>';
+}
+
+function renderMarqueeStats(puzzles) {
+  // Summary chips — aggregate across all puzzles
+  const totalPlays  = puzzles.reduce((s, p) => s + p.plays, 0);
+  const totalWins   = puzzles.reduce((s, p) => s + p.wins, 0);
+  const played      = puzzles.filter(p => p.plays > 0).length;
+  const overallWin  = totalPlays ? (totalWins / totalPlays * 100).toFixed(1) : '—';
+  const avgMistakes = (() => {
+    const winRows = puzzles.filter(p => p.wins > 0);
+    if (!winRows.length) return '—';
+    const sum = winRows.reduce((s, p) => s + p.avg_mistakes * p.wins, 0);
+    return (sum / totalWins).toFixed(2);
+  })();
+
+  document.getElementById('stats-marquee-summary').innerHTML = `
+    <div class="stats-chip"><div class="stats-chip__val">${totalPlays}</div><div class="stats-chip__lbl">Total Plays</div></div>
+    <div class="stats-chip"><div class="stats-chip__val">${played}</div><div class="stats-chip__lbl">Puzzles Played</div></div>
+    <div class="stats-chip"><div class="stats-chip__val">${overallWin}%</div><div class="stats-chip__lbl">Win Rate</div></div>
+    <div class="stats-chip"><div class="stats-chip__val">${avgMistakes}</div><div class="stats-chip__lbl">Avg Mistakes (wins)</div></div>
+  `;
+
+  // Table
+  const $body = document.getElementById('stats-marquee-body');
+  if (!puzzles.length) {
+    $body.innerHTML = '<p style="opacity:0.5;font-size:13px;">No puzzles yet.</p>';
+    return;
+  }
+
+  const rows = puzzles.map(p => {
+    const noData = p.plays === 0;
+    const cats = p.categories.map(c => {
+      const colorClass = `stats-cat-cell--${c.color}`;
+      const firstIdx   = p.first_solved[c.color];
+      const unsolvedN  = p.unsolved[c.color] || 0;
+      const firstTxt   = firstIdx != null ? `1st solved: #${firstIdx + 1}` : '';
+      const unsTxt     = unsolvedN ? `Unsolved: ${unsolvedN}` : '';
+      return `
+        <div class="stats-cat-cell ${colorClass}">
+          <div class="stats-cat-cell__name" title="${escHtml(c.title)}">${escHtml(c.title)}</div>
+          ${firstTxt ? `<div class="stats-cat-cell__row"><span>${firstTxt}</span></div>` : ''}
+          ${unsTxt   ? `<div class="stats-cat-cell__row"><span>${unsTxt}</span></div>` : ''}
+        </div>`;
+    }).join('');
+
+    return `
+      <tr class="${noData ? 'stats-row--no-data' : ''}">
+        <td>#${p.puzzle_number}</td>
+        <td>${escHtml(p.date)}</td>
+        <td>${p.plays}</td>
+        <td>${noData ? '—' : p.win_pct + '%'}</td>
+        <td>${noData ? '—' : p.perfect_pct + '%'}</td>
+        <td>${noData ? '—' : p.avg_mistakes}</td>
+        <td>${p.categories.length ? `<div class="stats-cat-grid">${cats}</div>` : ''}</td>
+      </tr>`;
+  }).join('');
+
+  $body.innerHTML = `
+    <table class="stats-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Date</th><th>Plays</th>
+          <th>Win%</th><th>Perfect%</th><th>Avg Mistakes</th><th>Categories</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderTriviaScoreStats(puzzles) {
+  const $body = document.getElementById('stats-trivia-body');
+  if (!puzzles.length) {
+    $body.innerHTML = '<p style="opacity:0.5;font-size:13px;">No trivia puzzles yet.</p>';
+    return;
+  }
+
+  const rows = puzzles.map(p => {
+    const noData = p.plays === 0;
+    const s = p.scores || {};
+    const dist = [0,1,2,3].map(n =>
+      `<span style="opacity:0.7">${n}✓ ×${s[n] || 0}</span>`
+    ).join(' ');
+
+    return `
+      <tr class="${noData ? 'stats-row--no-data' : ''}">
+        <td>#${p.puzzle_number}</td>
+        <td>${escHtml(p.date)}</td>
+        <td>${p.plays}</td>
+        <td>${noData ? '—' : p.avg_score + ' / 3'}</td>
+        <td>${noData ? '—' : dist}</td>
+      </tr>`;
+  }).join('');
+
+  $body.innerHTML = `
+    <table class="stats-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Date</th><th>Plays</th><th>Avg Score</th><th>Score Distribution</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 // ── Connection Types Help Modal ────────────────────────────────────
