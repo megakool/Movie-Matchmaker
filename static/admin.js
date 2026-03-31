@@ -8,6 +8,7 @@ const COLOR_ORDER      = ['yellow', 'green', 'blue', 'purple'];
 const DIFF_LABELS      = ['Easiest', 'Easy', 'Hard', 'Hardest'];
 const COLOR_HEX        = { yellow: '#f9df6d', green: '#6abf69', blue: '#6ab0d4', purple: '#b07ecf' };
 const CONN_TYPE_OPTIONS = ['Cast', 'Director', 'Award', 'Genre', 'Setting', 'Plot', 'Trope', 'Franchise', 'Cast (Special)', 'Cast (Meta)'];
+const createConnTypes  = { browse: [], search: [], random: [] };
 const COLOR_TEXT  = { yellow: '#7a5c00', green: '#1a4d19', blue: '#0f3d5a', purple: '#3d1460' };
 
 // ── Builder State ──────────────────────────────────────────────────
@@ -20,7 +21,7 @@ let currentDraftId = null;
 let builderLibQuery    = '';
 let builderLibSource   = 'all';   // 'all' | 'manual' | 'ai' | 'submission'
 let builderLibHideUsed = true;
-let builderLibSort     = 'az';
+let builderLibSort     = 'recent';
 let _draggingCatId     = null;
 let editingCatId       = null;   // id of card in edit mode, or null
 let _editDraft         = null;   // shallow copy of cat being edited; movie_ids/titles mutated live
@@ -100,6 +101,9 @@ async function init() {
   bindCatSearchEvents();
   bindSubTabs();
   bindRandomDiscoveryEvents();
+  renderCreateConnTypeRow('browse');
+  renderCreateConnTypeRow('search');
+  renderCreateConnTypeRow('random');
   bindPublishedEvents();
   bindSettingsEvents();
   bindTriviaEvents();
@@ -224,7 +228,6 @@ function renderSlots() {
         <div class="cat-dot" style="background:${COLOR_HEX[slot.color]};border:2.5px solid #333;"></div>
         <input class="cat-slot__title" type="text" maxlength="80"
                placeholder="Category name…" value="${escHtml(slot.title)}" data-slot="${si}">
-        <span class="cat-difficulty">${DIFF_LABELS[si]}</span>
         <div class="cat-slot__actions">
           <button class="slot-clear-btn" data-slot="${si}"
                   ${!slot.title && slot.movies.length === 0 ? 'disabled' : ''}
@@ -424,12 +427,19 @@ function renderBuilderLibrary() {
     div.draggable = true;
     div.dataset.catId = cat.id;
     if (usedTitles.has(cat.title)) div.classList.add('used');
+    const blibDiffIdx   = (cat.difficulty || 0) - 1;
+    const blibDiffColor = blibDiffIdx >= 0 ? COLOR_ORDER[blibDiffIdx] : null;
+    const blibConnTypes = Array.isArray(cat.connection_types) && cat.connection_types.length
+      ? cat.connection_types : (cat.connection_type ? [cat.connection_type] : []);
+    const blibFooter = (blibDiffColor || blibConnTypes.length) ? `
+      <div class="blib-card__footer">
+        ${blibDiffColor ? `<span class="pick-dot" style="background:${COLOR_HEX[blibDiffColor]};border:1px solid rgba(0,0,0,.15);display:inline-block;" title="${DIFF_LABELS[blibDiffIdx]}"></span>` : ''}
+        ${blibConnTypes.length ? `<span style="font-size:10px;color:var(--text2);">${escHtml(blibConnTypes[0])}${blibConnTypes.length > 1 ? ` +${blibConnTypes.length - 1}` : ''}</span>` : ''}
+      </div>` : '';
     div.innerHTML = `
       <div class="blib-card__title">${escHtml(cat.title)}</div>
       <div class="blib-card__movies">${(cat.movie_titles || []).slice(0, 4).map(t => escHtml(t)).join(' · ')}</div>
-      <div class="blib-card__footer">
-        <span class="source-badge source-badge--${cat.source || 'manual'}">${cat.source || 'manual'}</span>
-      </div>`;
+      ${blibFooter}`;
     div.addEventListener('dragstart', e => {
       _draggingCatId = cat.id;
       div.classList.add('dragging');
@@ -694,6 +704,10 @@ function bindBuilderEvents() {
 
   // Library pane: hide-used toggle
   const hideUsedBtn = document.getElementById('builder-lib-hide-used-btn');
+  // Apply initial visual state (builderLibHideUsed starts true)
+  hideUsedBtn.textContent      = 'Show All';
+  hideUsedBtn.style.background = '#2a2a2a';
+  hideUsedBtn.style.color      = '#fff';
   hideUsedBtn.addEventListener('click', function() {
     builderLibHideUsed        = !builderLibHideUsed;
     this.textContent          = builderLibHideUsed ? 'Show All' : 'Hide Used';
@@ -702,10 +716,14 @@ function bindBuilderEvents() {
     renderBuilderLibrary();
   });
 
-  // Library pane: sort select
-  document.getElementById('builder-lib-sort').addEventListener('change', e => {
-    builderLibSort = e.target.value;
-    renderBuilderLibrary();
+  // Library pane: sort pills
+  document.querySelectorAll('#builder-lib-sort-pills .lib-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('#builder-lib-sort-pills .lib-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      builderLibSort = pill.dataset.sort;
+      renderBuilderLibrary();
+    });
   });
 }
 
@@ -845,7 +863,8 @@ async function onSaveToLibrary() {
       movie_ids:       catBrowseSelected.map(m => m.id),
       movie_titles:    catBrowseSelected.map(m => m.title),
       source:          'manual',
-      connection_type: (document.getElementById('browse-conn-type')?.value || '').trim(),
+      connection_types: createConnTypes.browse,
+      connection_type:  createConnTypes.browse[0] || '',
     }),
   });
   const data = await res.json();
@@ -854,8 +873,8 @@ async function onSaveToLibrary() {
     renderCategoryLibrary();
     catBrowseSelected = [];
     document.getElementById('cat-lib-name').value = '';
-    const ctEl = document.getElementById('browse-conn-type');
-    if (ctEl) ctEl.value = '';
+    createConnTypes.browse = [];
+    renderCreateConnTypeRow('browse');
     updateBrowseActions();
     renderConnectionMovies();
     const btn = document.getElementById('btn-save-to-lib');
@@ -965,7 +984,12 @@ function renderCategoryLibrary() {
       // Advance activeSlot to next empty after the one we just filled
       const next = slots.findIndex((s, i) => i > emptyIdx && !s.title && s.movies.length === 0);
       activeSlot = next !== -1 ? next : emptyIdx;
-      switchToPanel('builder');
+      // Dim the card and show confirmation without navigating away
+      const btn = e.currentTarget;
+      div.style.opacity = '0.4';
+      const orig = btn.textContent;
+      btn.textContent = '✓ Sent';
+      btn.disabled = true;
     });
 
     // Edit — opens the modal
@@ -1156,6 +1180,55 @@ function _attachConnTypeClose(dd, addBtn) {
   setTimeout(() => document.addEventListener('click', close), 0);
 }
 
+function renderCreateConnTypeRow(panelKey) {
+  const wrapperId = panelKey + '-ctypes';
+  const $wrap = document.getElementById(wrapperId);
+  if (!$wrap) return;
+  const selected  = createConnTypes[panelKey] || [];
+  const remaining = CONN_TYPE_OPTIONS.filter(t => !selected.includes(t));
+  const ddId  = wrapperId + '-dd';
+  const addId = wrapperId + '-add';
+
+  $wrap.innerHTML =
+    selected.map((t, i) => `
+      <span class="conn-type-chip">${escHtml(t)}
+        <button class="conn-type-chip__remove" data-panel="${panelKey}" data-idx="${i}" tabindex="-1" aria-label="Remove ${escHtml(t)}">×</button>
+      </span>`).join('') +
+    (remaining.length ? `
+      <div class="conn-type-add-wrap">
+        <button class="cat-add-chip conn-type-add-btn" id="${addId}">+ Type</button>
+        <div class="conn-type-dropdown" id="${ddId}" style="display:none;">
+          ${remaining.map(t => `<div class="conn-type-option" data-val="${escHtml(t)}">${escHtml(t)}</div>`).join('')}
+        </div>
+      </div>` : '');
+
+  $wrap.querySelectorAll('.conn-type-chip__remove[data-panel]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      createConnTypes[btn.dataset.panel].splice(+btn.dataset.idx, 1);
+      renderCreateConnTypeRow(btn.dataset.panel);
+    });
+  });
+
+  const addBtn = document.getElementById(addId);
+  if (addBtn) {
+    const dd = document.getElementById(ddId);
+    addBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const opening = dd.style.display === 'none';
+      dd.style.display = opening ? 'block' : 'none';
+      if (opening) { _positionConnTypeDropdown(dd, addBtn); _attachConnTypeClose(dd, addBtn); }
+    });
+    dd.querySelectorAll('.conn-type-option').forEach(opt => {
+      opt.addEventListener('click', e => {
+        e.stopPropagation();
+        createConnTypes[panelKey].push(opt.dataset.val);
+        renderCreateConnTypeRow(panelKey);
+      });
+    });
+  }
+}
+
 function _renderModalDiffPills() {
   const $diff  = document.getElementById('modal-cat-diff');
   const diffVal = _editDraft.difficulty || null;
@@ -1278,7 +1351,7 @@ function _bindModalEvents() {
   document.getElementById('modal-cat-save').addEventListener('click', async () => {
     if (!_editDraft) return;
     const titleEl     = document.getElementById('modal-cat-title');
-    const checkedTypes = [...document.querySelectorAll('#modal-cat-ctypes input:checked')].map(cb => cb.value);
+    const checkedTypes = _editDraft.connection_types || [];
     const payload     = {
       title:            (titleEl?.value || _editDraft.title).trim(),
       movie_ids:        _editDraft.movie_ids,
@@ -1577,7 +1650,8 @@ function bindCatSearchEvents() {
         movie_ids:       catSearchSelected.map(m => m.id),
         movie_titles:    catSearchSelected.map(m => m.title),
         source:          'manual',
-        connection_type: (document.getElementById('search-conn-type')?.value || '').trim(),
+        connection_types: createConnTypes.search,
+        connection_type:  createConnTypes.search[0] || '',
       }),
     });
     await loadCategoryLibrary();
@@ -1585,8 +1659,8 @@ function bindCatSearchEvents() {
     setTimeout(() => { btn.textContent = '★ Save'; btn.disabled = false; }, 2000);
     catSearchSelected = [];
     document.getElementById('cat-search-name').value = '';
-    const ctEl = document.getElementById('search-conn-type');
-    if (ctEl) ctEl.value = '';
+    createConnTypes.search = [];
+    renderCreateConnTypeRow('search');
     document.getElementById('cat-movie-search').value = '';
     renderCatMovieSearch('');
     renderCatSearchSelected();
@@ -1710,15 +1784,16 @@ function bindRandomDiscoveryEvents() {
         movie_ids:       selectedMovies.map(m => m.id),
         movie_titles:    selectedMovies.map(m => m.title),
         source:          'manual',
-        connection_type: (document.getElementById('random-conn-type')?.value || '').trim(),
+        connection_types: createConnTypes.random,
+        connection_type:  createConnTypes.random[0] || '',
       }),
     });
     await loadCategoryLibrary();
     btn.textContent = '✓ Saved!';
     setTimeout(() => { btn.textContent = '★ Save'; btn.disabled = false; }, 2000);
     document.getElementById('random-cat-name').value = '';
-    const rcEl = document.getElementById('random-conn-type');
-    if (rcEl) rcEl.value = '';
+    createConnTypes.random = [];
+    renderCreateConnTypeRow('random');
     randomPickSelected = new Set();
     renderRandomPick();
     updateRandomActions();

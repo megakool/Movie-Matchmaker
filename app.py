@@ -672,7 +672,8 @@ def admin_create_category():
     source          = data.get("source", "manual")   # manual | submission | ai
     connection_type = str(data.get("connection_type") or "").strip()[:40]
     try:
-        difficulty = max(1, min(4, int(data.get("difficulty") or 0))) or None
+        _d = int(data.get("difficulty") or 0)
+        difficulty = _d if 1 <= _d <= 4 else None
     except (ValueError, TypeError):
         difficulty = None
 
@@ -924,8 +925,14 @@ def admin_update_category(cat_id: str):
             cat["movie_titles"] = data["movie_titles"]
     if "source" in data and data["source"] in ("manual", "ai", "submission"):
         cat["source"] = data["source"]
-    if "connection_type" in data:
-        cat["connection_type"] = str(data.get("connection_type") or "").strip()[:40]
+    if "connection_types" in data:
+        types = [str(t).strip()[:40] for t in (data["connection_types"] or []) if t]
+        cat["connection_types"] = types
+        cat["connection_type"] = types[0] if types else cat.get("connection_type", "")
+    elif "connection_type" in data:
+        ct = str(data.get("connection_type") or "").strip()[:40]
+        cat["connection_type"] = ct
+        cat["connection_types"] = [ct] if ct else []
     if "difficulty" in data:
         try:
             cat["difficulty"] = max(1, min(4, int(data["difficulty"]))) if data["difficulty"] else None
@@ -1493,12 +1500,16 @@ def admin_ai_suggest_titles():
     films = ", ".join(f'"{t}"' for t in movie_titles)
     ctype_line = f'\nConnection type: {ctype}' if ctype else ''
     raw = _call_claude(
-        "You write punchy, clever titles for movie connections puzzle categories. "
-        "Titles must be specific enough that a player could guess the connection, "
-        "but playful enough to be satisfying. Never use plain genre labels. "
-        "Never start with 'Films where' or 'Movies that'. Be creative.",
+        "You write titles for movie connections puzzle categories. "
+        "Titles must immediately tell the player exactly what the connection is — specific, direct, no ambiguity. "
+        "Style guide based on real examples:\n"
+        "- Actor/director categories: '[Name] Films', '[Name] Movies', '[Name] Roles', '[Name] Essentials', 'Directed by [Name]'\n"
+        "- Genre/theme categories: short noun phrases — 'Boxing Movies', 'Heist Movies', 'Time Travel', 'War Movies'\n"
+        "- Clever-but-clear phrases: 'Sean Bean Dies', 'They Don't End Up Together', 'Comedians Playing It Straight', 'Save the President!', 'One-Man Army'\n"
+        "- Factual categories: 'Won Oscar for Best Picture', 'Based Off Video Games', 'Director is in the Movie'\n"
+        "Keep titles short (2–6 words ideally). Never be vague or abstract. The player should know exactly what connects the films.",
         f'Current title: "{title}"{ctype_line}\nFilms: {films}\n\n'
-        f'Suggest 5 alternative category titles. Make each one distinct in style or angle. '
+        f'Suggest 5 alternative category titles in this direct, specific style. '
         f'Reply ONLY with a JSON array of 5 strings, no explanation:\n'
         f'["Title 1", "Title 2", "Title 3", "Title 4", "Title 5"]',
         max_tokens=300,
