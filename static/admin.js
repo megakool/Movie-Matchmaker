@@ -8,6 +8,20 @@ const COLOR_ORDER      = ['yellow', 'green', 'blue', 'purple'];
 const DIFF_LABELS      = ['Easiest', 'Easy', 'Hard', 'Hardest'];
 const COLOR_HEX        = { yellow: '#f9df6d', green: '#6abf69', blue: '#6ab0d4', purple: '#b07ecf' };
 const CONN_TYPE_OPTIONS = ['Cast', 'Director', 'Award', 'Genre', 'Setting', 'Plot', 'Trope', 'Franchise', 'Cast (Special)', 'Cast (Meta)'];
+const CONN_TYPE_HELP_HTML =
+  '<button type="button" class="help-tip" tabindex="0" aria-label="What do connection types mean?">?' +
+  '<span class="help-tip__popup">' +
+  '<b>Cast</b> — same actor appears in all 4 movies<br>' +
+  '<b>Director</b> — all 4 movies by the same director<br>' +
+  '<b>Award</b> — connected by a shared award win or nomination<br>' +
+  '<b>Genre</b> — same genre, tone, or style<br>' +
+  '<b>Setting</b> — same place, time period, or world<br>' +
+  '<b>Plot</b> — share a core plot device or story element<br>' +
+  '<b>Trope</b> — share a well-known cinematic or narrative trope<br>' +
+  '<b>Franchise</b> — part of the same series or cinematic universe<br>' +
+  '<b>Cast (Special)</b> — cast member plays a recurring character type across films<br>' +
+  '<b>Cast (Meta)</b> — linked by a real-life fact about a shared cast member' +
+  '</span></button>';
 const createConnTypes  = { browse: [], search: [], random: [] };
 const COLOR_TEXT  = { yellow: '#7a5c00', green: '#1a4d19', blue: '#0f3d5a', purple: '#3d1460' };
 
@@ -18,10 +32,9 @@ let activeSlot     = 0;
 let currentDraftId = null;
 
 // ── Builder Library State ──────────────────────────────────────────
-let builderLibQuery    = '';
-let builderLibSource   = 'all';   // 'all' | 'manual' | 'ai' | 'submission'
-let builderLibHideUsed = true;
-let builderLibSort     = 'recent';
+let builderLibQuery      = '';
+let builderLibSort       = 'recent';
+let builderLibFilterType = '';   // '' = all; string = connection_type value
 let _draggingCatId     = null;
 let editingCatId       = null;   // id of card in edit mode, or null
 let _editDraft         = null;   // shallow copy of cat being edited; movie_ids/titles mutated live
@@ -402,11 +415,31 @@ function renderBuilderLibrary() {
     c.title.toLowerCase().includes(q) ||
     (c.movie_titles || []).some(t => t.toLowerCase().includes(q))
   );
-  if (builderLibSource !== 'all') filtered = filtered.filter(c => (c.source || 'manual') === builderLibSource);
-  if (builderLibHideUsed) filtered = filtered.filter(c => !usedTitles.has(c.title));
+  filtered = filtered.filter(c => !usedTitles.has(c.title));
+  if (builderLibFilterType) {
+    filtered = filtered.filter(c => {
+      const types = Array.isArray(c.connection_types) && c.connection_types.length
+        ? c.connection_types : (c.connection_type ? [c.connection_type] : []);
+      return types.includes(builderLibFilterType);
+    });
+  }
+
+  // Refresh type filter select options
+  const $typeFilter = document.getElementById('builder-lib-filter-type');
+  if ($typeFilter) {
+    const typeSet = new Set(savedCategories.flatMap(c =>
+      Array.isArray(c.connection_types) && c.connection_types.length
+        ? c.connection_types : (c.connection_type ? [c.connection_type] : [])
+    ));
+    const currentVal = builderLibFilterType;
+    $typeFilter.innerHTML = '<option value="">All types</option>' +
+      [...typeSet].sort().map(t =>
+        `<option value="${escHtml(t)}"${t === currentVal ? ' selected' : ''}>${escHtml(t)}</option>`
+      ).join('');
+  }
 
   if (builderLibSort === 'az') filtered.sort((a, b) => a.title.localeCompare(b.title));
-  else if (builderLibSort === 'recent') filtered.sort((a, b) => (b.id > a.id ? 1 : -1));
+  else if (builderLibSort === 'recent') filtered.sort((a, b) => (b.created_at || '') > (a.created_at || '') ? 1 : -1);
   else if (builderLibSort === 'used') filtered.sort((a, b) => (b.times_used || 0) - (a.times_used || 0));
 
   const countEl = document.getElementById('builder-lib-count');
@@ -426,7 +459,6 @@ function renderBuilderLibrary() {
     div.className = 'blib-card';
     div.draggable = true;
     div.dataset.catId = cat.id;
-    if (usedTitles.has(cat.title)) div.classList.add('used');
     const blibDiffIdx   = (cat.difficulty || 0) - 1;
     const blibDiffColor = blibDiffIdx >= 0 ? COLOR_ORDER[blibDiffIdx] : null;
     const blibConnTypes = Array.isArray(cat.connection_types) && cat.connection_types.length
@@ -692,27 +724,9 @@ function bindBuilderEvents() {
     renderBuilderLibrary();
   });
 
-  // Library pane: source filter pills
-  document.querySelectorAll('.source-pill[data-source]').forEach(pill => {
-    pill.addEventListener('click', () => {
-      document.querySelectorAll('.source-pill[data-source]').forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      builderLibSource = pill.dataset.source;
-      renderBuilderLibrary();
-    });
-  });
-
-  // Library pane: hide-used toggle
-  const hideUsedBtn = document.getElementById('builder-lib-hide-used-btn');
-  // Apply initial visual state (builderLibHideUsed starts true)
-  hideUsedBtn.textContent      = 'Show All';
-  hideUsedBtn.style.background = '#2a2a2a';
-  hideUsedBtn.style.color      = '#fff';
-  hideUsedBtn.addEventListener('click', function() {
-    builderLibHideUsed        = !builderLibHideUsed;
-    this.textContent          = builderLibHideUsed ? 'Show All' : 'Hide Used';
-    this.style.background     = builderLibHideUsed ? '#2a2a2a' : '';
-    this.style.color          = builderLibHideUsed ? '#fff' : '';
+  // Library pane: connection type filter
+  document.getElementById('builder-lib-filter-type').addEventListener('change', e => {
+    builderLibFilterType = e.target.value;
     renderBuilderLibrary();
   });
 
@@ -1099,7 +1113,8 @@ function _renderConnTypeRow(keepDropdownOpen = false) {
           ${remaining.map(t => `<div class="conn-type-option" data-val="${escHtml(t)}">${escHtml(t)}</div>`).join('')}
         </div>
       </div>` : '') +
-    `<button class="modal-ai-btn" id="modal-ctype-classify" aria-label="AI-classify connection type" title="AI classify">✦</button>`;
+    `<button class="modal-ai-btn" id="modal-ctype-classify" aria-label="AI-classify connection type" title="AI classify">✦</button>` +
+    CONN_TYPE_HELP_HTML;
 
   $wrap.querySelectorAll('.conn-type-chip__remove').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -1200,7 +1215,8 @@ function renderCreateConnTypeRow(panelKey) {
         <div class="conn-type-dropdown" id="${ddId}" style="display:none;">
           ${remaining.map(t => `<div class="conn-type-option" data-val="${escHtml(t)}">${escHtml(t)}</div>`).join('')}
         </div>
-      </div>` : '');
+      </div>` : '') +
+    CONN_TYPE_HELP_HTML;
 
   $wrap.querySelectorAll('.conn-type-chip__remove[data-panel]').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -2261,44 +2277,6 @@ function renderPublishedDetail(container, data) {
     container.appendChild(div);
   });
 
-  const row = document.createElement('div');
-  row.style.cssText = 'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;';
-
-  const loadBtn = document.createElement('button');
-  loadBtn.className   = 'btn btn--ghost btn--sm';
-  loadBtn.textContent = 'Load into Builder';
-  loadBtn.addEventListener('click', () => {
-    data.categories.forEach((cat, i) => {
-      if (i >= slots.length) return;
-      slots[i].title  = cat.title;
-      slots[i].movies = cat.movies.map(m => ({ id: m.id, title: m.title, year: '' }));
-    });
-    switchToPanel('builder');
-    renderSlots(); renderBuilderLibrary(); renderPreview();
-  });
-  row.appendChild(loadBtn);
-
-  const saveBtn = document.createElement('button');
-  saveBtn.className   = 'btn btn--ghost btn--sm';
-  saveBtn.textContent = '★ Save All to Library';
-  saveBtn.addEventListener('click', async () => {
-    saveBtn.disabled = true;
-    for (const cat of data.categories) {
-      await fetch('/admin/categories', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title:        cat.title,
-          movie_ids:    cat.movies.map(m => m.id),
-          movie_titles: cat.movies.map(m => m.title),
-          source:       'manual',
-        }),
-      });
-    }
-    await loadCategoryLibrary();
-    saveBtn.textContent = '✓ Saved';
-  });
-  row.appendChild(saveBtn);
-  container.appendChild(row);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -3695,13 +3673,17 @@ async function renderExpandedPubDetail(date) {
   const actions = document.createElement('div');
   actions.style.cssText = 'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;';
 
-  if (info?.future) {
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn btn--ghost btn--sm';
-    editBtn.textContent = 'Edit in Builder';
-    editBtn.addEventListener('click', () => editUpcomingMarqueePuzzle(date));
-    actions.appendChild(editBtn);
-  }
+  const editBtn = document.createElement('button');
+  editBtn.className = 'btn btn--ghost btn--sm';
+  editBtn.textContent = 'Edit';
+  editBtn.addEventListener('click', () => {
+    if (!info?.future) {
+      const confirmed = confirm('This puzzle has already been published. Editing it may affect the live game. Continue?');
+      if (!confirmed) return;
+    }
+    editUpcomingMarqueePuzzle(date);
+  });
+  actions.appendChild(editBtn);
 
   const playLink = document.createElement('a');
   playLink.className = 'btn btn--ghost btn--sm';
