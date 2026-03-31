@@ -8,20 +8,6 @@ const COLOR_ORDER      = ['yellow', 'green', 'blue', 'purple'];
 const DIFF_LABELS      = ['Easiest', 'Easy', 'Hard', 'Hardest'];
 const COLOR_HEX        = { yellow: '#f9df6d', green: '#6abf69', blue: '#6ab0d4', purple: '#b07ecf' };
 const CONN_TYPE_OPTIONS = ['Cast', 'Director', 'Award', 'Genre', 'Setting', 'Plot', 'Trope', 'Franchise', 'Cast (Special)', 'Cast (Meta)'];
-const CONN_TYPE_HELP_HTML =
-  '<button type="button" class="help-tip" tabindex="0" aria-label="What do connection types mean?">?' +
-  '<span class="help-tip__popup">' +
-  '<b>Cast</b> — same actor appears in all 4 movies<br>' +
-  '<b>Director</b> — all 4 movies by the same director<br>' +
-  '<b>Award</b> — connected by a shared award win or nomination<br>' +
-  '<b>Genre</b> — same genre, tone, or style<br>' +
-  '<b>Setting</b> — same place, time period, or world<br>' +
-  '<b>Plot</b> — share a core plot device or story element<br>' +
-  '<b>Trope</b> — share a well-known cinematic or narrative trope<br>' +
-  '<b>Franchise</b> — part of the same series or cinematic universe<br>' +
-  '<b>Cast (Special)</b> — cast member plays a recurring character type across films<br>' +
-  '<b>Cast (Meta)</b> — linked by a real-life fact about a shared cast member' +
-  '</span></button>';
 const createConnTypes  = { browse: [], search: [], random: [] };
 const COLOR_TEXT  = { yellow: '#7a5c00', green: '#1a4d19', blue: '#0f3d5a', purple: '#3d1460' };
 
@@ -35,6 +21,7 @@ let currentDraftId = null;
 let builderLibQuery      = '';
 let builderLibSort       = 'recent';
 let builderLibFilterType = '';   // '' = all; string = connection_type value
+let builderLibHideUsed   = true;
 let _draggingCatId     = null;
 let editingCatId       = null;   // id of card in edit mode, or null
 let _editDraft         = null;   // shallow copy of cat being edited; movie_ids/titles mutated live
@@ -415,7 +402,7 @@ function renderBuilderLibrary() {
     c.title.toLowerCase().includes(q) ||
     (c.movie_titles || []).some(t => t.toLowerCase().includes(q))
   );
-  filtered = filtered.filter(c => !usedTitles.has(c.title));
+  if (builderLibHideUsed) filtered = filtered.filter(c => !usedTitles.has(c.title));
   if (builderLibFilterType) {
     filtered = filtered.filter(c => {
       const types = Array.isArray(c.connection_types) && c.connection_types.length
@@ -727,6 +714,15 @@ function bindBuilderEvents() {
   // Library pane: connection type filter
   document.getElementById('builder-lib-filter-type').addEventListener('change', e => {
     builderLibFilterType = e.target.value;
+    renderBuilderLibrary();
+  });
+
+  // Library pane: hide-used toggle
+  const hideUsedBtn = document.getElementById('builder-lib-hide-used-btn');
+  hideUsedBtn.classList.toggle('active', builderLibHideUsed);
+  hideUsedBtn.addEventListener('click', function() {
+    builderLibHideUsed = !builderLibHideUsed;
+    this.classList.toggle('active', builderLibHideUsed);
     renderBuilderLibrary();
   });
 
@@ -1113,8 +1109,7 @@ function _renderConnTypeRow(keepDropdownOpen = false) {
           ${remaining.map(t => `<div class="conn-type-option" data-val="${escHtml(t)}">${escHtml(t)}</div>`).join('')}
         </div>
       </div>` : '') +
-    `<button class="modal-ai-btn" id="modal-ctype-classify" aria-label="AI-classify connection type" title="AI classify">✦</button>` +
-    CONN_TYPE_HELP_HTML;
+    `<button class="modal-ai-btn" id="modal-ctype-classify" aria-label="AI-classify connection type" title="AI classify">✦</button>`;
 
   $wrap.querySelectorAll('.conn-type-chip__remove').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -1215,8 +1210,7 @@ function renderCreateConnTypeRow(panelKey) {
         <div class="conn-type-dropdown" id="${ddId}" style="display:none;">
           ${remaining.map(t => `<div class="conn-type-option" data-val="${escHtml(t)}">${escHtml(t)}</div>`).join('')}
         </div>
-      </div>` : '') +
-    CONN_TYPE_HELP_HTML;
+      </div>` : '');
 
   $wrap.querySelectorAll('.conn-type-chip__remove[data-panel]').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -3728,5 +3722,24 @@ function detectPublishedGaps() {
   return gaps;
 }
 
+// ── Connection Types Help Modal ────────────────────────────────────
+function initConnTypeHelpModal() {
+  const overlay = document.getElementById('conn-type-help-overlay');
+  if (!overlay) return;
+  document.getElementById('btn-conn-type-help')?.addEventListener('click', () => {
+    overlay.style.display = 'flex';
+  });
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.style.display = 'none';
+  });
+  overlay.querySelector('.conn-type-help-close')?.addEventListener('click', () => {
+    overlay.style.display = 'none';
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlay.style.display === 'flex') overlay.style.display = 'none';
+  });
+}
+
 // ── Start ──────────────────────────────────────────────────────────
 init();
+initConnTypeHelpModal();
