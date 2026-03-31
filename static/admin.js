@@ -3683,7 +3683,10 @@ async function renderExpandedPubDetail(date) {
   card.className = 'pub-detail-card';
 
   const info = pubPuzzleDates[date];
-  card.innerHTML = `<div class="pub-detail-card__date">${date}${info ? ` — Puzzle #${info.num}` : ''}</div>`;
+  const [y, m, d] = date.split('-').map(Number);
+  const MONTHS_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const fmtDate = `${MONTHS_LONG[m - 1]} ${d}, ${y}`;
+  card.innerHTML = `<div class="pub-detail-card__date">${fmtDate}${info ? ` — Puzzle #${info.num}` : ''}</div>`;
 
   // Category detail blocks
   renderPublishedDetail(card, data);
@@ -3714,8 +3717,7 @@ async function renderExpandedPubDetail(date) {
   actions.appendChild(redateBtn);
 
   const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'btn btn--ghost btn--sm';
-  deleteBtn.style.cssText = 'color:#cc2200;border-color:#cc2200;';
+  deleteBtn.className = 'btn btn--ghost btn--sm btn--danger';
   deleteBtn.textContent = 'Delete';
   deleteBtn.addEventListener('click', () => deletePuzzle(date));
   actions.appendChild(deleteBtn);

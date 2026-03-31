@@ -450,6 +450,23 @@
 .danger-card h3    { font-size: 15px; font-weight: 700; color: #cc2200; margin: 0 0 4px; }
 .danger-card p     { font-size: 13px; color: var(--text2); margin: 0 0 14px; line-height: 1.5; }
 
+/* ── Settings sections ──────────────────────────────────────────── */
+.settings-section         { margin-bottom: 28px; max-width: 580px; }
+.settings-section__label  { font-size: 10px; font-weight: 700; text-transform: uppercase;
+                             letter-spacing: .08em; color: var(--text2); opacity: 0.55;
+                             margin-bottom: 10px; padding-bottom: 6px;
+                             border-bottom: 1px solid var(--border); }
+.settings-section__label--danger { color: #cc2200; opacity: 1; border-bottom-color: #f5c0b0; }
+.settings-action-row      { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.settings-status          { font-size: 12px; opacity: 0.55; display: block; margin-top: 8px; }
+.classify-progress-wrap   { margin-top: 10px; }
+.classify-progress-track  { height: 6px; background: #e0d8d0; border-radius: 4px; overflow: hidden; }
+.classify-progress-fill   { height: 100%; background: #1a1205; border-radius: 4px;
+                             width: 0%; transition: width .3s; }
+
+/* ── btn--danger ────────────────────────────────────────────────── */
+.btn--danger { color: #cc2200; border-color: #cc2200; }
+
 /* ── Browse panel ───────────────────────────────────────────────── */
 .conn-layout-2col  { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; align-items: start; }
 @media (max-width: 700px) { .conn-layout-2col { grid-template-columns: 1fr; } }
@@ -1026,7 +1043,7 @@
   right: 5px;
   font-size: 9px;
   font-weight: 700;
-  opacity: 0.4;
+  opacity: 0.65;
 }
 .pub-detail-card {
   background: var(--surface);
@@ -1050,7 +1067,21 @@
   font-weight: 700;
   color: #cc2200;
   margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+.pub-gap-strip svg { flex-shrink: 0; }
+
+/* ── Calendar legend ────────────────────────────────────────────── */
+.cal-legend        { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 12px;
+                     font-size: 11px; color: var(--text2); align-items: center; }
+.cal-legend__item  { display: flex; align-items: center; gap: 5px; }
+.cal-legend__swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.cal-legend__swatch--published { background: var(--surface); border: var(--bw) solid var(--border); }
+.cal-legend__swatch--scheduled { background: #f5f0ff; border: var(--bw) solid #b07ecf; }
+.cal-legend__swatch--gap       { background: transparent; border: 2px dashed #cc2200; }
+.pub-cal-month-label { font-size: 14px; font-weight: 700; }
 
 .pick-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
@@ -1664,16 +1695,30 @@
 
       <div class="panel-hd">
         <h1 class="panel-hd__title">Published Puzzles</h1>
-        <div>
-          <button id="btn-pub-prev-month" class="btn btn--ghost btn--sm">← Prev</button>
-          <span id="pub-cal-month-label" style="font-size:14px;font-weight:700;margin:0 8px;"></span>
-          <button id="btn-pub-next-month" class="btn btn--ghost btn--sm">Next →</button>
+        <div class="panel-hd__actions">
+          <button id="btn-pub-prev-month" class="btn btn--ghost btn--sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Prev
+          </button>
+          <span id="pub-cal-month-label" class="pub-cal-month-label"></span>
+          <button id="btn-pub-next-month" class="btn btn--ghost btn--sm">
+            Next
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
 
       <!-- Gap warning strip -->
       <div id="pub-gap-warning" class="pub-gap-strip" style="display:none;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         <span id="pub-gap-text"></span>
+      </div>
+
+      <!-- Calendar legend -->
+      <div class="cal-legend">
+        <span class="cal-legend__item"><span class="cal-legend__swatch cal-legend__swatch--published"></span>Published</span>
+        <span class="cal-legend__item"><span class="cal-legend__swatch cal-legend__swatch--scheduled"></span>Scheduled</span>
+        <span class="cal-legend__item"><span class="cal-legend__swatch cal-legend__swatch--gap"></span>Gap</span>
       </div>
 
       <!-- Calendar grid -->
@@ -1699,68 +1744,81 @@
         <h1 class="panel-hd__title">Settings</h1>
       </div>
 
-      <div class="settings-card" id="settings-tier-filters">
-        <h3>Tier Filters</h3>
-        <p>Select which movie tiers are included in the generator and AI features. Tier 1 = most popular films; Tier 2 = well-known.</p>
-        <div style="margin-top:10px;">
-          <div class="tier-filter-group">
+      <!-- ── AI & Generation ── -->
+      <div class="settings-section">
+        <div class="settings-section__label">AI &amp; Generation</div>
+
+        <div class="settings-card" id="settings-tier-filters">
+          <h3>Tier Filters</h3>
+          <p>Select which movie tiers are included in the generator and AI features. Tier 1 = most popular films; Tier 2 = well-known.</p>
+          <div class="tier-filter-group" style="margin-top:10px;">
             <label class="tier-filter-opt"><input type="checkbox" class="random-tier-cb ai-tier-cb" value="1"> Tier 1</label>
             <label class="tier-filter-opt"><input type="checkbox" class="random-tier-cb ai-tier-cb" value="2"> Tier 2</label>
           </div>
+          <span id="tier-filter-status" class="settings-status"></span>
         </div>
-        <span id="tier-filter-status" style="font-size:12px;opacity:0.5;margin-top:8px;display:block;"></span>
-      </div>
 
-      <div class="settings-card">
-        <h3>Renumber All Puzzles</h3>
-        <p>Renumber all Marquee puzzles chronologically so #1 is the oldest. Use this if puzzle numbers are out of order after edits or deletions.</p>
-        <button class="btn btn--ghost btn--sm" id="btn-renumber-all">Renumber All</button>
-      </div>
-
-      <div class="settings-card">
-        <h3>Export Data</h3>
-        <p>Download your published puzzles or saved category library as JSON.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-          <a class="btn btn--ghost btn--sm" href="/admin/export/puzzles" download>Export Puzzles</a>
-          <a class="btn btn--ghost btn--sm" href="/admin/categories" download="categories_export.json">Export All Categories</a>
-          <a class="btn btn--ghost btn--sm" href="/admin/export/categories/unused" download>Export Unused Categories</a>
-        </div>
-      </div>
-
-      <div class="settings-card">
-        <h3>Import Library</h3>
-        <p>Replace the category library from a JSON export. Accepts a <strong>puzzles export</strong> (extracts unique categories) or a <strong>categories export</strong>. This will <em>wipe and replace</em> your current library.</p>
-        <button class="btn btn--ghost btn--sm" id="btn-import-library-choose">Choose File…</button>
-        <input type="file" id="import-library-file-input" accept=".json" style="display:none;">
-        <span id="import-library-status" style="font-size:12px;opacity:0.55;margin-left:8px;"></span>
-      </div>
-
-      <div class="settings-card" id="settings-bulk-classify">
-        <h3>Classify Connection Types</h3>
-        <p>Auto-classify every category that's missing a connection type using AI. Runs one at a time and saves each result immediately — safe to stop and resume.</p>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px;">
-          <button class="btn btn--ghost btn--sm" id="btn-bulk-classify">Classify All Unclassified</button>
-          <button class="btn btn--ghost btn--sm" id="btn-bulk-classify-stop" style="display:none;">Stop</button>
-          <span id="bulk-classify-status" style="font-size:12px;opacity:0.6;"></span>
-        </div>
-        <div id="bulk-classify-bar-wrap" style="display:none;margin-top:10px;">
-          <div style="height:6px;background:#e0d8d0;border-radius:4px;overflow:hidden;">
-            <div id="bulk-classify-bar" style="height:100%;background:#1a1205;border-radius:4px;width:0%;transition:width .3s;"></div>
+        <div class="settings-card" id="settings-bulk-classify">
+          <h3>Classify Connection Types</h3>
+          <p>Auto-classify every category that's missing a connection type using AI. Runs one at a time and saves each result immediately — safe to stop and resume.</p>
+          <div class="settings-action-row" style="margin-top:2px;">
+            <button class="btn btn--ghost btn--sm" id="btn-bulk-classify">Classify All Unclassified</button>
+            <button class="btn btn--ghost btn--sm" id="btn-bulk-classify-stop" style="display:none;">Stop</button>
+            <span id="bulk-classify-status" class="settings-status" style="margin-top:0;"></span>
+          </div>
+          <div id="bulk-classify-bar-wrap" class="classify-progress-wrap" style="display:none;">
+            <div class="classify-progress-track">
+              <div id="bulk-classify-bar" class="classify-progress-fill"></div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="settings-card">
-        <h3>Duplicate Detection</h3>
-        <p>Scan the category library for potential duplicates using exact movie ID matching, title similarity, and connection type overlap.</p>
-        <button class="btn btn--ghost btn--sm" id="btn-scan-duplicates">Scan for Duplicates</button>
+      <!-- ── Data Management ── -->
+      <div class="settings-section">
+        <div class="settings-section__label">Data Management</div>
+
+        <div class="settings-card">
+          <h3>Export Data</h3>
+          <p>Download your published puzzles or saved category library as JSON.</p>
+          <div class="settings-action-row" style="margin-top:10px;">
+            <a class="btn btn--ghost btn--sm" href="/admin/export/puzzles" download>Export Puzzles</a>
+            <a class="btn btn--ghost btn--sm" href="/admin/categories" download="categories_export.json">Export All Categories</a>
+            <a class="btn btn--ghost btn--sm" href="/admin/export/categories/unused" download>Export Unused Categories</a>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>Import Library</h3>
+          <p>Replace the category library from a JSON export. Accepts a <strong>puzzles export</strong> (extracts unique categories) or a <strong>categories export</strong>. This will <em>wipe and replace</em> your current library.</p>
+          <div class="settings-action-row" style="margin-top:10px;">
+            <button class="btn btn--ghost btn--sm" id="btn-import-library-choose">Choose File…</button>
+            <input type="file" id="import-library-file-input" accept=".json" style="display:none;">
+            <span id="import-library-status" class="settings-status" style="margin-top:0;"></span>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>Renumber All Puzzles</h3>
+          <p>Renumber all Marquee puzzles chronologically so #1 is the oldest. Use this if puzzle numbers are out of order after edits or deletions.</p>
+          <button class="btn btn--ghost btn--sm" id="btn-renumber-all">Renumber All</button>
+        </div>
+
+        <div class="settings-card">
+          <h3>Duplicate Detection</h3>
+          <p>Scan the category library for potential duplicates using exact movie ID matching, title similarity, and connection type overlap.</p>
+          <button class="btn btn--ghost btn--sm" id="btn-scan-duplicates">Scan for Duplicates</button>
+        </div>
       </div>
 
-      <div class="danger-card">
-        <h3>Reset All Player Progress</h3>
-        <p>Wipes every player's streak and history on their next visit. Use this after major puzzle corrections or if you need to clear corrupted client state. This cannot be undone.</p>
-        <button class="btn btn--ghost btn--sm" id="btn-reset-progress-settings"
-                style="color:#cc2200;border-color:#cc2200;">Reset All Player Progress</button>
+      <!-- ── Danger Zone ── -->
+      <div class="settings-section">
+        <div class="settings-section__label settings-section__label--danger">Danger Zone</div>
+        <div class="danger-card">
+          <h3>Reset All Player Progress</h3>
+          <p>Wipes every player's streak and history on their next visit. Use this after major puzzle corrections or if you need to clear corrupted client state. This cannot be undone.</p>
+          <button class="btn btn--ghost btn--sm btn--danger" id="btn-reset-progress-settings">Reset All Player Progress</button>
+        </div>
       </div>
 
     </div>
