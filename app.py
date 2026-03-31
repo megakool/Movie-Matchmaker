@@ -1143,6 +1143,81 @@ def admin_export_puzzles():
     )
 
 
+@app.get("/admin/stats/marquee")
+@admin_required
+def admin_stats_marquee():
+    stats      = get_marquee_stats()
+    all_dates  = get_all_puzzle_dates()
+    date_to_num = {d: i + 1 for i, d in enumerate(all_dates)}
+
+    result = []
+    for date_str in reversed(all_dates):
+        entry    = stats.get(date_str, {})
+        plays    = entry.get("plays", 0)
+        wins     = entry.get("wins", 0)
+        losses   = entry.get("losses", 0)
+        mistakes = entry.get("mistakes", {})
+        perfect  = mistakes.get("0", 0)
+
+        avg_mistakes = 0.0
+        if wins > 0:
+            total_m = sum(int(k) * v for k, v in mistakes.items())
+            avg_mistakes = round(total_m / wins, 2)
+
+        puzzle = get_puzzle(date_str)
+        categories = []
+        if puzzle:
+            categories = [
+                {"color": c["color"], "title": c["title"],
+                 "difficulty": c.get("difficulty", 1)}
+                for c in puzzle["categories"]
+            ]
+
+        result.append({
+            "date":            date_str,
+            "puzzle_number":   date_to_num.get(date_str, 0),
+            "plays":           plays,
+            "wins":            wins,
+            "losses":          losses,
+            "win_pct":         round(wins / plays * 100, 1) if plays else 0,
+            "perfect_pct":     round(perfect / plays * 100, 1) if plays else 0,
+            "avg_mistakes":    avg_mistakes,
+            "mistakes":        mistakes,
+            "first_solved":    entry.get("first_solved", {}),
+            "unsolved":        entry.get("unsolved", {}),
+            "solve_positions": entry.get("solve_positions", {}),
+            "categories":      categories,
+        })
+
+    return jsonify(result)
+
+
+@app.get("/admin/stats/trivia")
+@admin_required
+def admin_stats_trivia():
+    stats     = get_trivia_stats()
+    all_dates = get_all_trivia_puzzle_dates()
+
+    result = []
+    for i, date_str in enumerate(reversed(all_dates)):
+        entry  = stats.get(date_str, {})
+        plays  = entry.get("plays", 0)
+        scores = entry.get("scores", {})
+
+        total_score = sum(int(k) * v for k, v in scores.items())
+        avg_score   = round(total_score / plays, 2) if plays else 0
+
+        result.append({
+            "date":          date_str,
+            "puzzle_number": len(all_dates) - i,
+            "plays":         plays,
+            "avg_score":     avg_score,
+            "scores":        scores,
+        })
+
+    return jsonify(result)
+
+
 # ── Connections Index ─────────────────────────────────────────────────────────
 @app.get("/admin/connections")
 @admin_required
