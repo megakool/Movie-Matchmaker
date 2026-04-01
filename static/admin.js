@@ -1868,6 +1868,7 @@ function renderKeywordsBrowser(query) {
 // ══════════════════════════════════════════════════════════════════
 
 function bindSettingsEvents() {
+  bindAddMovieEvents();
   const btn = document.getElementById('btn-reset-progress-settings');
   if (btn) btn.addEventListener('click', async () => {
     if (!confirm('This will wipe ALL players\' progress and streaks on their next visit. Continue?')) return;
@@ -2308,6 +2309,152 @@ async function saveTierFilters() {
   const data = await res.json();
   if (status) status.textContent = data.ok ? 'Saved.' : 'Error saving.';
   setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ADD MOVIE TO LIBRARY
+// ══════════════════════════════════════════════════════════════════
+
+function bindAddMovieEvents() {
+  const searchBtn   = document.getElementById('btn-add-movie-search');
+  const queryInput  = document.getElementById('add-movie-query');
+  const statusEl    = document.getElementById('add-movie-status');
+  const resultsEl   = document.getElementById('add-movie-results');
+  const confirmEl   = document.getElementById('add-movie-confirm');
+  if (!searchBtn) return;
+
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg;
+    statusEl.style.color = isError ? 'var(--danger, #e05c5c)' : '';
+  }
+
+  function clearConfirm() {
+    confirmEl.style.display = 'none';
+    confirmEl.innerHTML = '';
+  }
+
+  function clearResults() {
+    resultsEl.style.display = 'none';
+    resultsEl.innerHTML = '';
+  }
+
+  async function runSearch() {
+    const q = queryInput.value.trim();
+    if (!q) { setStatus('Enter a movie title first.', true); return; }
+    clearResults();
+    clearConfirm();
+    setStatus('Searching…');
+    const res  = await fetch(`/admin/movies/search?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (!res.ok) { setStatus(data.error || 'Search failed.', true); return; }
+    if (!data.length) { setStatus('No results found.', false); return; }
+    setStatus('');
+    renderResults(data);
+  }
+
+  function renderResults(movies) {
+    resultsEl.innerHTML = movies.map((m, i) =>
+      `<div class="add-movie-result" data-idx="${i}" style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;cursor:pointer;margin-bottom:4px;background:rgba(255,255,255,0.04);" data-tmdb-id="${escHtml(m.tmdb_id)}">
+        ${m.poster_url
+          ? `<img src="${escHtml(m.poster_url)}" style="width:36px;height:54px;object-fit:cover;border-radius:4px;flex-shrink:0;">`
+          : `<div style="width:36px;height:54px;background:rgba(255,255,255,0.08);border-radius:4px;flex-shrink:0;"></div>`
+        }
+        <div>
+          <div style="font-weight:600;font-size:14px;">${escHtml(m.title)}</div>
+          <div style="font-size:12px;opacity:0.6;">${m.year || '—'}</div>
+          ${m.overview ? `<div style="font-size:11px;opacity:0.5;margin-top:2px;line-height:1.4;">${escHtml(m.overview)}</div>` : ''}
+        </div>
+      </div>`
+    ).join('');
+    resultsEl.style.display = '';
+
+    resultsEl.querySelectorAll('.add-movie-result').forEach(el => {
+      el.addEventListener('click', () => {
+        resultsEl.querySelectorAll('.add-movie-result').forEach(r => r.style.background = 'rgba(255,255,255,0.04)');
+        el.style.background = 'rgba(255,255,255,0.12)';
+        fetchPreview(el.dataset.tmdbId);
+      });
+    });
+  }
+
+  async function fetchPreview(tmdbId) {
+    clearConfirm();
+    setStatus('Fetching movie details…');
+    const res  = await fetch(`/admin/movies/preview?tmdb_id=${encodeURIComponent(tmdbId)}`);
+    const data = await res.json();
+    if (!res.ok) { setStatus(data.error || 'Failed to fetch details.', true); return; }
+    setStatus('');
+    renderConfirm(data.movie, data.duplicate, data.existing_id);
+  }
+
+  function renderConfirm(movie, isDuplicate, existingId) {
+    const posterHtml = movie.poster_url
+      ? `<img src="${escHtml(movie.poster_url)}" style="width:80px;height:120px;object-fit:cover;border-radius:6px;flex-shrink:0;">`
+      : '';
+
+    const dupWarning = isDuplicate
+      ? `<div style="background:rgba(224,92,92,0.15);border:1px solid rgba(224,92,92,0.4);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:13px;">
+          ⚠️ This movie is already in the library (ID ${existingId}).
+        </div>`
+      : '';
+
+    const addBtn = isDuplicate
+      ? `<button class="btn btn--ghost btn--sm" id="btn-add-movie-skip" style="margin-right:8px;">Skip</button>
+         <button class="btn btn--ghost btn--sm btn--danger" id="btn-add-movie-overwrite">Overwrite</button>`
+      : `<button class="btn btn--ghost btn--sm" id="btn-add-movie-confirm">Add to Library</button>`;
+
+    confirmEl.innerHTML = `
+      <div style="border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:14px;">
+        ${dupWarning}
+        <div style="display:flex;gap:14px;margin-bottom:12px;">
+          ${posterHtml}
+          <div style="font-size:13px;line-height:1.6;">
+            <div style="font-weight:700;font-size:15px;">${escHtml(movie.title)} (${movie.year || '—'})</div>
+            <div><span style="opacity:0.5;">Directors:</span> ${escHtml((movie.directors || []).join(', ') || '—')}</div>
+            <div><span style="opacity:0.5;">Cast:</span> ${escHtml((movie.cast || []).slice(0,5).join(', ') || '—')}</div>
+            <div><span style="opacity:0.5;">Genres:</span> ${escHtml((movie.genres || []).join(', ') || '—')}</div>
+            <div><span style="opacity:0.5;">Runtime:</span> ${movie.runtime ? movie.runtime + ' min' : '—'}</div>
+            <div><span style="opacity:0.5;">Rating:</span> ${movie.vote_average || '—'}</div>
+            ${movie.tagline ? `<div style="opacity:0.5;font-style:italic;margin-top:4px;">"${escHtml(movie.tagline)}"</div>` : ''}
+          </div>
+        </div>
+        <div>${addBtn}</div>
+      </div>`;
+    confirmEl.style.display = '';
+
+    confirmEl.querySelector('#btn-add-movie-skip')?.addEventListener('click', () => {
+      clearConfirm();
+      setStatus('Skipped.');
+      setTimeout(() => setStatus(''), 2000);
+    });
+
+    confirmEl.querySelector('#btn-add-movie-confirm')?.addEventListener('click', () => doAdd(movie.tmdb_id, false));
+    confirmEl.querySelector('#btn-add-movie-overwrite')?.addEventListener('click', () => doAdd(movie.tmdb_id, true));
+  }
+
+  async function doAdd(tmdbId, overwrite) {
+    setStatus('Adding…');
+    clearConfirm();
+    const res  = await fetch('/admin/movies/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tmdb_id: tmdbId, overwrite }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setStatus(data.error || 'Failed to add movie.', true); return; }
+    if (data.status === 'duplicate') {
+      setStatus(`"${data.title}" is already in the library (ID ${data.existing_id}).`, true);
+      return;
+    }
+    const verb = data.status === 'overwritten' ? 'Updated' : 'Added';
+    setStatus(`${verb}: "${data.title}" (ID ${data.id})`);
+    clearResults();
+    queryInput.value = '';
+    setTimeout(() => setStatus(''), 4000);
+  }
+
+  searchBtn.addEventListener('click', runSearch);
+  queryInput.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
 }
 
 // ══════════════════════════════════════════════════════════════════
