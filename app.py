@@ -1413,7 +1413,11 @@ def admin_movies_preview():
         "popularity_tier": 2,
     }
 
-    existing_movies = json.load(open(MOVIES_FULL_PATH, encoding="utf-8"))["movies"] if MOVIES_FULL_PATH.exists() else []
+    if MOVIES_FULL_PATH.exists():
+        with open(MOVIES_FULL_PATH, encoding="utf-8") as f:
+            existing_movies = json.load(f)["movies"]
+    else:
+        existing_movies = []
     duplicate = next((m for m in existing_movies if str(m.get("tmdb_id")) == str(tmdb_id)), None)
 
     return jsonify({
@@ -1459,7 +1463,11 @@ def admin_movies_add():
         year = None
     poster_path = details.get("poster_path") or ""
 
-    existing_movies = json.load(open(MOVIES_FULL_PATH, encoding="utf-8"))["movies"] if MOVIES_FULL_PATH.exists() else []
+    if MOVIES_FULL_PATH.exists():
+        with open(MOVIES_FULL_PATH, encoding="utf-8") as f:
+            existing_movies = json.load(f)["movies"]
+    else:
+        existing_movies = []
 
     dup_index = next(
         (i for i, m in enumerate(existing_movies) if str(m.get("tmdb_id")) == tmdb_id),
@@ -1502,8 +1510,10 @@ def admin_movies_add():
         existing_movies.append(new_movie)
         action = "added"
 
-    with open(MOVIES_FULL_PATH, "w", encoding="utf-8") as f:
+    tmp_path = MOVIES_FULL_PATH.with_suffix(".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump({"movies": existing_movies}, f, indent=2, ensure_ascii=False)
+    os.replace(tmp_path, MOVIES_FULL_PATH)
 
     _movies_cache = None
 
