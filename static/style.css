@@ -726,6 +726,7 @@ body::before {
   padding: 20px 0 60px;
 }
 .archive-card {
+  position: relative;
   background: var(--surface);
   border: var(--bw) solid var(--border);
   border-radius: var(--radius);
@@ -762,10 +763,18 @@ body::before {
   font-weight: 600;
 }
 .archive-card--today .archive-card__date { color: rgba(250,244,239,0.7); }
-.archive-card__emoji {
-  font-size: 11px;
-  margin-top: 4px;
-  letter-spacing: 1px;
+.archive-card--played::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text);
+}
+.archive-card--today.archive-card--played::after {
+  background: var(--bg);
 }
 
 /* ── Create Page ── */

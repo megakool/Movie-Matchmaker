@@ -16,7 +16,6 @@
            data-date="{{ p.date }}">
           <div class="archive-card__num">#{{ p.puzzle_number }}</div>
           <div class="archive-card__date">{{ p.date }}</div>
-          <div class="archive-card__emoji" id="archive-emoji-{{ p.date }}"></div>
         </a>
       {% endfor %}
     </div>
@@ -31,20 +30,15 @@
 
 {% block scripts %}
 <script>
-// Load played history from localStorage and show emoji summaries
+// Mark played puzzles from localStorage
 (function() {
   var history = {};
   try { history = JSON.parse(localStorage.getItem('marquee_history') || '{}'); } catch(e) {}
   document.querySelectorAll('[data-date]').forEach(function(el) {
     var d = el.getAttribute('data-date');
     var rec = history[d];
-    var emojiEl = document.getElementById('archive-emoji-' + d);
-    if (rec && emojiEl) {
-      if (rec.emoji) {
-        emojiEl.textContent = rec.emoji;
-      } else if (rec.solved) {
-        emojiEl.textContent = '✓';
-      }
+    if (rec && (rec.emoji || rec.solved)) {
+      el.classList.add('archive-card--played');
     }
   });
 })();
