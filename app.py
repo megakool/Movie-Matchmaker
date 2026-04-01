@@ -1282,20 +1282,29 @@ def admin_update_settings():
 
 # ── Movie Library (TMDB) ───────────────────────────────────────────────────────
 def _tmdb_get(path: str) -> dict | None:
-    """Fetch a TMDB API path. Returns parsed JSON, None on 404, or raises on other HTTP errors."""
+    """Fetch a TMDB API path. Returns parsed JSON or None on any error."""
     if not TMDB_API_KEY:
         return None
-    req = urllib.request.Request(
-        f"https://api.themoviedb.org/3{path}",
-        headers={"Authorization": f"Bearer {TMDB_API_KEY}", "Accept": "application/json"},
-    )
+    # v4 Read Access Tokens are JWTs (start with "eyJ") → Authorization: Bearer
+    # v3 API keys are short alphanumeric strings → ?api_key= query param
+    if TMDB_API_KEY.startswith("eyJ"):
+        req = urllib.request.Request(
+            f"https://api.themoviedb.org/3{path}",
+            headers={"Authorization": f"Bearer {TMDB_API_KEY}", "Accept": "application/json"},
+        )
+    else:
+        sep = "&" if "?" in path else "?"
+        req = urllib.request.Request(
+            f"https://api.themoviedb.org/3{path}{sep}api_key={TMDB_API_KEY}",
+            headers={"Accept": "application/json"},
+        )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None
-        raise
+        return None  # 401, 429, etc. — surface as "not found" to caller
     except Exception:
         return None
 
