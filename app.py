@@ -11,6 +11,9 @@ import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from functools import wraps
+import urllib.request
+import urllib.error
+import urllib.parse
 
 from flask import (
     Flask, render_template, jsonify, request,
@@ -111,6 +114,7 @@ TRIVIA_PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
 ADMIN_PASSWORD    = os.environ.get("MARQUEE_ADMIN_PASSWORD", "marquee-admin-2026")
 DEV_MODE          = os.environ.get("MARQUEE_DEV_MODE", "0") == "1"
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+TMDB_API_KEY      = os.environ.get("TMDB_API_KEY", "")
 
 app = Flask(__name__, template_folder=str(MARQUEE_DIR / "templates"), static_folder=str(MARQUEE_DIR / "static"))
 app.secret_key = os.environ.get("MARQUEE_SECRET_KEY", "marquee-secret-dev-2026")
@@ -1274,6 +1278,60 @@ def admin_update_settings():
 
     save_settings(settings)
     return jsonify({"ok": True, "ai_tiers": settings["ai_tiers"], "random_tiers": settings["random_tiers"]})
+
+
+# ── Movie Library (TMDB) ───────────────────────────────────────────────────────
+def _tmdb_get(path: str) -> dict | None:
+    """Fetch a TMDB API path. Returns parsed JSON or None on 404/error."""
+    if not TMDB_API_KEY:
+        return None
+    if TMDB_API_KEY.startswith("eyJ"):
+        req = urllib.request.Request(
+            f"https://api.themoviedb.org/3{path}",
+            headers={"Authorization": f"Bearer {TMDB_API_KEY}", "Accept": "application/json"},
+        )
+    else:
+        sep = "&" if "?" in path else "?"
+        req = urllib.request.Request(
+            f"https://api.themoviedb.org/3{path}{sep}api_key={TMDB_API_KEY}"
+        )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
+    except Exception:
+        return None
+
+
+@app.get("/admin/movies/search")
+@admin_required
+def admin_movies_search():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"error": "Missing query parameter 'q'"}), 400
+    if not TMDB_API_KEY:
+        return jsonify({"error": "TMDB_API_KEY not configured"}), 500
+
+    data = _tmdb_get(f"/search/movie?query={urllib.parse.quote(q)}&language=en-US&page=1")
+    if data is None:
+        return jsonify({"error": "TMDB request failed"}), 502
+
+    results = []
+    for r in data.get("results", [])[:8]:
+        release = r.get("release_date") or ""
+        year = int(release[:4]) if len(release) >= 4 else None
+        poster_path = r.get("poster_path") or ""
+        results.append({
+            "tmdb_id": str(r["id"]),
+            "title":   r.get("title", ""),
+            "year":    year,
+            "overview": (r.get("overview") or "")[:200],
+            "poster_url": f"https://image.tmdb.org/t/p/w92{poster_path}" if poster_path else "",
+        })
+    return jsonify(results)
 
 
 # ── AI Puzzle Builder ──────────────────────────────────────────────────────────
