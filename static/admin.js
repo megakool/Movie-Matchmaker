@@ -399,7 +399,6 @@ function renderBuilderLibrary() {
   const $list = document.getElementById('builder-lib-list');
   if (!$list) return;
 
-  const usedTitles = new Set(slots.filter(s => s.title).map(s => s.title));
   const q = builderLibQuery.toLowerCase();
 
   let filtered = savedCategories;
@@ -407,7 +406,7 @@ function renderBuilderLibrary() {
     c.title.toLowerCase().includes(q) ||
     (c.movie_titles || []).some(t => t.toLowerCase().includes(q))
   );
-  if (builderLibHideUsed) filtered = filtered.filter(c => !usedTitles.has(c.title));
+  if (builderLibHideUsed) filtered = filtered.filter(c => !c.times_used || c.times_used === 0);
   if (builderLibFilterType) {
     filtered = filtered.filter(c => {
       const types = Array.isArray(c.connection_types) && c.connection_types.length
