@@ -1331,6 +1331,177 @@ def admin_movies_search():
     return jsonify(results)
 
 
+@app.get("/admin/movies/preview")
+@admin_required
+def admin_movies_preview():
+    """Fetch full TMDB data for a movie and check for duplicates. Does NOT write anything."""
+    tmdb_id = request.args.get("tmdb_id", "").strip()
+    if not tmdb_id:
+        return jsonify({"error": "Missing tmdb_id"}), 400
+    if not TMDB_API_KEY:
+        return jsonify({"error": "TMDB_API_KEY not configured"}), 500
+
+    details = _tmdb_get(f"/movie/{tmdb_id}")
+    if details is None:
+        return jsonify({"error": f"Movie {tmdb_id} not found on TMDB"}), 404
+
+    credits = _tmdb_get(f"/movie/{tmdb_id}/credits") or {}
+
+    crew = credits.get("crew", [])
+    directors = [p["name"] for p in crew if p.get("job") == "Director"]
+
+    cast_raw = sorted(credits.get("cast", []), key=lambda c: c.get("order", 9999))
+    actors = [c["name"] for c in cast_raw[:10]]
+    cast   = [c["name"] for c in cast_raw[:10]]
+
+    writer_jobs = {"Screenplay", "Writer", "Story", "Novel", "Characters"}
+    seen_writers: set = set()
+    writers = []
+    cinematographer = ""
+    for person in crew:
+        job  = person.get("job", "")
+        name = person.get("name", "")
+        if job in writer_jobs and name not in seen_writers:
+            writers.append(name)
+            seen_writers.add(name)
+        if job == "Director of Photography" and not cinematographer:
+            cinematographer = name
+
+    release = details.get("release_date") or ""
+    try:
+        year = int(release[:4]) if len(release) >= 4 else None
+    except ValueError:
+        year = None
+    poster_path = details.get("poster_path") or ""
+
+    movie_data = {
+        "tmdb_id":         str(tmdb_id),
+        "title":           details.get("title", ""),
+        "year":            year,
+        "directors":       directors,
+        "actors":          actors,
+        "cast":            cast,
+        "writers":         writers,
+        "cinematographer": cinematographer,
+        "genres":          [g["name"] for g in details.get("genres", [])],
+        "runtime":         details.get("runtime") or 0,
+        "tagline":         (details.get("tagline") or "").strip(),
+        "poster_url":      f"https://image.tmdb.org/t/p/w342{poster_path}" if poster_path else "",
+        "vote_average":    details.get("vote_average") or 0,
+        "oscar_wins":      0,
+        "oscar_categories": [],
+        "popularity_tier": 2,
+    }
+
+    with open(MOVIES_FULL_PATH, "r", encoding="utf-8") as f:
+        existing_movies = json.load(f)["movies"]
+    duplicate = next((m for m in existing_movies if str(m.get("tmdb_id")) == str(tmdb_id)), None)
+
+    return jsonify({
+        "movie":       movie_data,
+        "duplicate":   duplicate is not None,
+        "existing_id": duplicate["id"] if duplicate else None,
+    })
+
+
+@app.post("/admin/movies/add")
+@admin_required
+def admin_movies_add():
+    """Fetch full TMDB data and write to movies_full.json."""
+    global _movies_cache
+    body      = request.get_json(force=True)
+    tmdb_id   = str(body.get("tmdb_id", "")).strip()
+    overwrite = bool(body.get("overwrite", False))
+
+    if not tmdb_id:
+        return jsonify({"error": "Missing tmdb_id"}), 400
+    if not TMDB_API_KEY:
+        return jsonify({"error": "TMDB_API_KEY not configured"}), 500
+
+    details = _tmdb_get(f"/movie/{tmdb_id}")
+    if details is None:
+        return jsonify({"error": f"Movie {tmdb_id} not found on TMDB"}), 404
+
+    credits = _tmdb_get(f"/movie/{tmdb_id}/credits") or {}
+
+    crew = credits.get("crew", [])
+    directors = [p["name"] for p in crew if p.get("job") == "Director"]
+    cast_raw  = sorted(credits.get("cast", []), key=lambda c: c.get("order", 9999))
+    actors    = [c["name"] for c in cast_raw[:10]]
+    cast      = [c["name"] for c in cast_raw[:10]]
+    writer_jobs = {"Screenplay", "Writer", "Story", "Novel", "Characters"}
+    seen_writers: set = set()
+    writers = []
+    cinematographer = ""
+    for person in crew:
+        job  = person.get("job", "")
+        name = person.get("name", "")
+        if job in writer_jobs and name not in seen_writers:
+            writers.append(name)
+            seen_writers.add(name)
+        if job == "Director of Photography" and not cinematographer:
+            cinematographer = name
+
+    release     = details.get("release_date") or ""
+    try:
+        year = int(release[:4]) if len(release) >= 4 else None
+    except ValueError:
+        year = None
+    poster_path = details.get("poster_path") or ""
+
+    with open(MOVIES_FULL_PATH, "r", encoding="utf-8") as f:
+        full_data = json.load(f)
+    existing_movies = full_data["movies"]
+
+    dup_index = next(
+        (i for i, m in enumerate(existing_movies) if str(m.get("tmdb_id")) == tmdb_id),
+        None,
+    )
+
+    if dup_index is not None and not overwrite:
+        return jsonify({
+            "status":      "duplicate",
+            "title":       details.get("title", ""),
+            "existing_id": existing_movies[dup_index]["id"],
+        })
+
+    new_id = (max((m["id"] for m in existing_movies), default=0) + 1) if dup_index is None else existing_movies[dup_index]["id"]
+
+    new_movie = {
+        "id":              new_id,
+        "tmdb_id":         tmdb_id,
+        "title":           details.get("title", ""),
+        "year":            year,
+        "directors":       directors,
+        "actors":          actors,
+        "cast":            cast,
+        "writers":         writers,
+        "cinematographer": cinematographer,
+        "genres":          [g["name"] for g in details.get("genres", [])],
+        "runtime":         details.get("runtime") or 0,
+        "tagline":         (details.get("tagline") or "").strip(),
+        "poster_url":      f"https://image.tmdb.org/t/p/w342{poster_path}" if poster_path else "",
+        "vote_average":    details.get("vote_average") or 0,
+        "oscar_wins":      0,
+        "oscar_categories": [],
+        "popularity_tier": 2,
+    }
+
+    if dup_index is not None:
+        existing_movies[dup_index] = new_movie
+        action = "overwritten"
+    else:
+        existing_movies.append(new_movie)
+        action = "added"
+
+    with open(MOVIES_FULL_PATH, "w", encoding="utf-8") as f:
+        json.dump({"movies": existing_movies}, f, indent=2, ensure_ascii=False)
+
+    _movies_cache = None
+
+    return jsonify({"status": action, "title": new_movie["title"], "id": new_id})
+
+
 # ── AI Puzzle Builder ──────────────────────────────────────────────────────────
 def _titles_only_list(movies: list) -> str:
     """Compact title+year list — lets Claude use its own knowledge of each film."""
