@@ -1307,7 +1307,7 @@ def _parse_tmdb_credits(credits: dict) -> dict:
 
     directors = [p["name"] for p in crew if p.get("job") == "Director"]
     actors = [c["name"] for c in cast_raw[:10]]
-    cast   = [c["name"] for c in cast_raw[:10]]
+    cast   = actors[:]  # separate field kept for schema compatibility with existing records
 
     writer_jobs = {"Screenplay", "Writer", "Story", "Novel", "Characters"}
     seen_writers: set = set()
@@ -1369,6 +1369,8 @@ def admin_movies_preview():
     tmdb_id = request.args.get("tmdb_id", "").strip()
     if not tmdb_id:
         return jsonify({"error": "Missing tmdb_id"}), 400
+    if not tmdb_id.isdigit():
+        return jsonify({"error": "tmdb_id must be a numeric ID"}), 400
     if not TMDB_API_KEY:
         return jsonify({"error": "TMDB_API_KEY not configured"}), 500
 
@@ -1411,14 +1413,13 @@ def admin_movies_preview():
         "popularity_tier": 2,
     }
 
-    with open(MOVIES_FULL_PATH, "r", encoding="utf-8") as f:
-        existing_movies = json.load(f)["movies"]
+    existing_movies = json.load(open(MOVIES_FULL_PATH, encoding="utf-8"))["movies"] if MOVIES_FULL_PATH.exists() else []
     duplicate = next((m for m in existing_movies if str(m.get("tmdb_id")) == str(tmdb_id)), None)
 
     return jsonify({
         "movie":       movie_data,
         "duplicate":   duplicate is not None,
-        "existing_id": duplicate["id"] if duplicate else None,
+        "existing_id": duplicate.get("id") if duplicate else None,
     })
 
 
@@ -1433,6 +1434,8 @@ def admin_movies_add():
 
     if not tmdb_id:
         return jsonify({"error": "Missing tmdb_id"}), 400
+    if not tmdb_id.isdigit():
+        return jsonify({"error": "tmdb_id must be a numeric ID"}), 400
     if not TMDB_API_KEY:
         return jsonify({"error": "TMDB_API_KEY not configured"}), 500
 
@@ -1456,9 +1459,7 @@ def admin_movies_add():
         year = None
     poster_path = details.get("poster_path") or ""
 
-    with open(MOVIES_FULL_PATH, "r", encoding="utf-8") as f:
-        full_data = json.load(f)
-    existing_movies = full_data["movies"]
+    existing_movies = json.load(open(MOVIES_FULL_PATH, encoding="utf-8"))["movies"] if MOVIES_FULL_PATH.exists() else []
 
     dup_index = next(
         (i for i, m in enumerate(existing_movies) if str(m.get("tmdb_id")) == tmdb_id),
@@ -1472,7 +1473,7 @@ def admin_movies_add():
             "existing_id": existing_movies[dup_index]["id"],
         })
 
-    new_id = (max((m["id"] for m in existing_movies), default=0) + 1) if dup_index is None else existing_movies[dup_index]["id"]
+    new_id = (max((m.get("id", 0) for m in existing_movies), default=0) + 1) if dup_index is None else existing_movies[dup_index].get("id", 0)
 
     new_movie = {
         "id":              new_id,
