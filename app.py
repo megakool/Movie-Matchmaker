@@ -1282,22 +1282,16 @@ def admin_update_settings():
 
 # ── Movie Library (TMDB) ───────────────────────────────────────────────────────
 def _tmdb_get(path: str) -> dict | None:
-    """Fetch a TMDB API path. Returns parsed JSON or None on 404/error."""
+    """Fetch a TMDB API path. Returns parsed JSON, None on 404, or raises on other HTTP errors."""
     if not TMDB_API_KEY:
         return None
-    if TMDB_API_KEY.startswith("eyJ"):
-        req = urllib.request.Request(
-            f"https://api.themoviedb.org/3{path}",
-            headers={"Authorization": f"Bearer {TMDB_API_KEY}", "Accept": "application/json"},
-        )
-    else:
-        sep = "&" if "?" in path else "?"
-        req = urllib.request.Request(
-            f"https://api.themoviedb.org/3{path}{sep}api_key={TMDB_API_KEY}"
-        )
+    req = urllib.request.Request(
+        f"https://api.themoviedb.org/3{path}",
+        headers={"Authorization": f"Bearer {TMDB_API_KEY}", "Accept": "application/json"},
+    )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read().decode())
+            return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None
@@ -1322,7 +1316,10 @@ def admin_movies_search():
     results = []
     for r in data.get("results", [])[:8]:
         release = r.get("release_date") or ""
-        year = int(release[:4]) if len(release) >= 4 else None
+        try:
+            year = int(release[:4]) if len(release) >= 4 else None
+        except ValueError:
+            year = None
         poster_path = r.get("poster_path") or ""
         results.append({
             "tmdb_id": str(r["id"]),
