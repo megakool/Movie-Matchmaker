@@ -2459,6 +2459,7 @@ function bindAddMovieEvents() {
       setStatus(`${verb}: "${data.title}" (ID ${data.id})`);
       clearResults();
       queryInput.value = '';
+      await loadMovies(); // refresh the in-memory movie pool so browse panel shows new movie
       setTimeout(() => setStatus(''), 4000);
     } catch (_) {
       setStatus('Failed to add movie. Check your connection.', true);
