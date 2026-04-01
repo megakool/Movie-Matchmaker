@@ -1946,12 +1946,9 @@
 
       <div class="panel-hd">
         <h1 class="panel-hd__title">Trivia Puzzle Builder</h1>
-      </div>
-
-      <div class="trivia-builder-date-row">
-        <label for="trivia-pub-date">Publish Date</label>
-        <input type="date" id="trivia-pub-date">
-        <span id="trivia-pub-msg" style="font-size:13px;font-weight:700;"></span>
+        <div class="panel-hd__actions">
+          <button class="btn btn--ghost btn--sm" id="btn-clear-trivia-builder">Clear All</button>
+        </div>
       </div>
 
       <div class="trivia-builder-layout">
@@ -1978,20 +1975,30 @@
               </div>
             </div>
           </div>
-          <div style="margin-top:12px;">
-            <button class="btn btn--primary" id="btn-trivia-publish" disabled>Publish Puzzle</button>
-          </div>
         </div>
 
         <!-- Right: Question bank -->
         <div class="trivia-bank-panel">
-          <div class="trivia-bank-panel__hd">Question Bank</div>
-          <input type="text" class="trivia-bank-search" id="trivia-bank-search" placeholder="Search questions…" autocomplete="off">
+          <div class="trivia-bank-panel__hd" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span>Question Bank</span>
+            <span class="trivia-count-badge" id="trivia-bank-count"></span>
+          </div>
+          <div style="padding:6px 8px;border-bottom:1px solid #e5ddd5;display:flex;gap:6px;flex-direction:column;">
+            <input type="text" class="trivia-bank-search" id="trivia-bank-search" placeholder="Search questions…" autocomplete="off" style="border-bottom:none;padding:6px 8px;border:1.5px solid #ccc;border-radius:7px;font-family:inherit;font-size:12px;width:100%;box-sizing:border-box;outline:none;">
+            <select class="trivia-filter-select" id="trivia-bank-cat-filter" style="font-size:12px;"><option value="">All Categories</option></select>
+          </div>
           <div class="trivia-bank-list" id="trivia-bank-list">
             <div class="loading-state">Loading…</div>
           </div>
         </div>
 
+      </div>
+
+      <div class="publish-bar">
+        <label for="trivia-pub-date">Date</label>
+        <input type="date" id="trivia-pub-date">
+        <button class="btn btn--primary" id="btn-trivia-publish" disabled>Publish Puzzle</button>
+        <span class="publish-msg" id="trivia-pub-msg"></span>
       </div>
 
     </div>
@@ -2002,13 +2009,37 @@
       <div class="panel-hd">
         <h1 class="panel-hd__title">Published Trivia Puzzles</h1>
         <div class="panel-hd__actions">
+          <button id="btn-trivia-pub-prev" class="btn btn--ghost btn--sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Prev
+          </button>
+          <span id="trivia-cal-month-label" class="pub-cal-month-label"></span>
+          <button id="btn-trivia-pub-next" class="btn btn--ghost btn--sm">
+            Next
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
           <button class="btn btn--ghost btn--sm" id="btn-trivia-pub-refresh">Refresh</button>
         </div>
       </div>
 
-      <div id="trivia-published-list">
-        <div class="loading-state">Loading…</div>
+      <!-- Gap warning strip -->
+      <div id="trivia-pub-gap-warning" class="pub-gap-strip" style="display:none;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span id="trivia-pub-gap-text"></span>
       </div>
+
+      <!-- Calendar legend -->
+      <div class="cal-legend">
+        <span class="cal-legend__item"><span class="cal-legend__swatch cal-legend__swatch--published"></span>Published</span>
+        <span class="cal-legend__item"><span class="cal-legend__swatch cal-legend__swatch--scheduled"></span>Scheduled</span>
+        <span class="cal-legend__item"><span class="cal-legend__swatch cal-legend__swatch--gap"></span>Gap</span>
+      </div>
+
+      <!-- Calendar grid -->
+      <div id="trivia-pub-calendar" class="pub-calendar"></div>
+
+      <!-- Expanded detail area -->
+      <div id="trivia-pub-detail-area"></div>
 
     </div>
 
@@ -2029,13 +2060,25 @@
           <label for="tadd-question">Question</label>
           <textarea id="tadd-question" placeholder="Enter the question text…"></textarea>
         </div>
-        <div style="margin-bottom:10px;">
-          <label for="tadd-answer">Answer</label>
-          <input type="text" id="tadd-answer" placeholder="Correct answer">
-        </div>
-        <div style="margin-bottom:10px;">
-          <label for="tadd-category">Category</label>
-          <input type="text" id="tadd-category" placeholder="e.g. FILM, SPORTS, SCIENCE" style="text-transform:uppercase;">
+        <div class="trivia-add-grid">
+          <div>
+            <label for="tadd-answer">Answer</label>
+            <input type="text" id="tadd-answer" placeholder="Correct answer">
+          </div>
+          <div>
+            <label for="tadd-category">Category</label>
+            <input type="text" id="tadd-category" placeholder="e.g. FILM, SPORTS, SCIENCE" style="text-transform:uppercase;">
+          </div>
+          <div>
+            <label for="tadd-difficulty">Difficulty</label>
+            <select id="tadd-difficulty">
+              <option value="">— unset —</option>
+              <option value="1">1 · Easiest</option>
+              <option value="2">2 · Easy</option>
+              <option value="3">3 · Hard</option>
+              <option value="4">4 · Hardest</option>
+            </select>
+          </div>
         </div>
         <div class="trivia-add-form__footer">
           <button class="btn btn--primary btn--sm" id="btn-trivia-save-new">Save Question</button>

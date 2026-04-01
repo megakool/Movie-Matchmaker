@@ -67,10 +67,15 @@ let categoriesLoaded  = false;
 let triviaBuilderSlots   = [null, null, null];  // each: question object or null
 let triviaBuilderLoaded  = false;
 let triviaBankQuery      = '';
+let triviaBankCatFilter  = '';
 let triviaSlotEditing    = [false, false, false];
 
 // ── Trivia Published State ─────────────────────────────────────────
 let triviaPublishedLoaded = false;
+let triviaPublishedPuzzles = [];             // all loaded puzzles
+let triviaCalYear  = new Date().getFullYear();
+let triviaCalMonth = new Date().getMonth() + 1; // 1-12
+let triviaCalSelected = null;               // selected date string
 
 // ── Trivia Question Bank State ─────────────────────────────────────
 let triviaUsedIds        = new Set();  // question IDs used in published puzzles
@@ -2751,9 +2756,12 @@ async function renderTriviaSchedule() {
 
 function renderTriviaCategoryFilter() {
   const cats = [...new Set(triviaQuestions.map(q => q.category))].sort();
-  const $sel = document.getElementById('trivia-cat-filter');
-  $sel.innerHTML = '<option value="">All Categories</option>' +
+  const opts = '<option value="">All Categories</option>' +
     cats.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+  const $sel = document.getElementById('trivia-cat-filter');
+  if ($sel) $sel.innerHTML = opts;
+  const $builderSel = document.getElementById('trivia-bank-cat-filter');
+  if ($builderSel) $builderSel.innerHTML = opts;
 }
 
 function bindTriviaHideUsedToggle() {
@@ -2899,10 +2907,12 @@ async function deleteTriviaQuestion(id) {
 
 async function saveNewTriviaQuestion() {
   const $msg = document.getElementById('trivia-add-msg');
+  const diffVal = document.getElementById('tadd-difficulty')?.value;
   const payload = {
     question:   document.getElementById('tadd-question').value.trim(),
     answer:     document.getElementById('tadd-answer').value.trim(),
     category:   document.getElementById('tadd-category').value.trim().toUpperCase() || 'GENERAL',
+    ...(diffVal ? { difficulty: parseInt(diffVal, 10) } : {}),
   };
   if (!payload.question || !payload.answer) {
     $msg.style.color = '#cc2200';
@@ -2929,6 +2939,8 @@ async function saveNewTriviaQuestion() {
 
 function clearTriviaAddForm() {
   ['tadd-question','tadd-answer','tadd-category'].forEach(id => { document.getElementById(id).value = ''; });
+  const diff = document.getElementById('tadd-difficulty');
+  if (diff) diff.value = '';
   document.getElementById('trivia-add-msg').textContent = '';
 }
 
@@ -2971,6 +2983,9 @@ function renderTriviaBankForBuilder() {
   const q = triviaBankQuery.toLowerCase();
 
   let filtered = triviaQuestions.filter(qu => qu.active !== false);
+  if (triviaBankCatFilter) {
+    filtered = filtered.filter(qu => qu.category === triviaBankCatFilter);
+  }
   if (q) {
     filtered = filtered.filter(qu =>
       qu.question.toLowerCase().includes(q) ||
@@ -2978,6 +2993,9 @@ function renderTriviaBankForBuilder() {
       qu.category.toLowerCase().includes(q)
     );
   }
+
+  const $count = document.getElementById('trivia-bank-count');
+  if ($count) $count.textContent = filtered.length;
 
   if (!filtered.length) {
     $list.innerHTML = '<div style="padding:14px;text-align:center;opacity:0.5;font-size:13px;">No matches</div>';
@@ -3020,10 +3038,14 @@ function removeTriviaSlot(idx) {
 }
 
 function renderTriviaBuilderSlots() {
+  const $container = document.getElementById('trivia-builder-slots');
+  if (!$container) return;
+  $container.innerHTML = '';
+
   for (let i = 0; i < 3; i++) {
     const slot = triviaBuilderSlots[i];
-    const el   = document.getElementById(`trivia-slot-${i}`);
-    if (!el) continue;
+    const el   = document.createElement('div');
+    el.dataset.slotIdx = i;
 
     if (slot) {
       if (triviaSlotEditing[i]) {
@@ -3048,12 +3070,13 @@ function renderTriviaBuilderSlots() {
         el.querySelector('.tslot-save-btn').addEventListener('click', () => saveSlotEdit(i));
         el.querySelector('.tslot-cancel-btn').addEventListener('click', () => { triviaSlotEditing[i] = false; renderTriviaBuilderSlots(); });
         el.querySelector('.tslot-preview-btn').addEventListener('click', () => {
-          const ans = document.getElementById(`tslot-a-${i}`).value.trim() || slot.answer;
+          const ans = document.getElementById(`tslot-a-${i}`)?.value.trim() || slot.answer;
           showAcceptedAnswers(ans);
         });
       } else {
         el.className = 'trivia-slot trivia-slot--filled';
         el.innerHTML = `
+          <span class="slot-drag-handle" title="Drag to reorder">⠿</span>
           <div class="trivia-slot__num">${i + 1}</div>
           <div class="trivia-slot__body">
             <div class="trivia-slot__cat">${escHtml(slot.category)}</div>
@@ -3079,7 +3102,31 @@ function renderTriviaBuilderSlots() {
           <div class="trivia-slot__placeholder">Click a question from the bank →</div>
         </div>`;
     }
+
+    $container.appendChild(el);
   }
+
+  initSortableTrivia();
+}
+
+function initSortableTrivia() {
+  if (window._triviaSortable) { window._triviaSortable.destroy(); window._triviaSortable = null; }
+  const $container = document.getElementById('trivia-builder-slots');
+  if (!$container || typeof Sortable === 'undefined') return;
+  window._triviaSortable = Sortable.create($container, {
+    handle: '.slot-drag-handle',
+    animation: 150,
+    onEnd(evt) {
+      const { oldIndex, newIndex } = evt;
+      if (oldIndex === newIndex) return;
+      const movedSlot = triviaBuilderSlots.splice(oldIndex, 1)[0];
+      triviaBuilderSlots.splice(newIndex, 0, movedSlot);
+      const movedEdit = triviaSlotEditing.splice(oldIndex, 1)[0];
+      triviaSlotEditing.splice(newIndex, 0, movedEdit);
+      renderTriviaBuilderSlots();
+      updateTriviaPubBtn();
+    },
+  });
 }
 
 function updateTriviaPubBtn() {
@@ -3091,10 +3138,34 @@ function updateTriviaPubBtn() {
 }
 
 function bindTriviaPuzzleBuilderEvents() {
+  const clearBtn = document.getElementById('btn-clear-trivia-builder');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      if (!confirm('Clear all trivia slots?')) return;
+      triviaBuilderSlots = [null, null, null];
+      triviaSlotEditing  = [false, false, false];
+      const dateEl = document.getElementById('trivia-pub-date');
+      if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
+      const $msg = document.getElementById('trivia-pub-msg');
+      if ($msg) { $msg.textContent = ''; $msg.className = 'publish-msg'; }
+      renderTriviaBuilderSlots();
+      renderTriviaBankForBuilder();
+      updateTriviaPubBtn();
+    });
+  }
+
   const searchEl = document.getElementById('trivia-bank-search');
   if (searchEl) {
     searchEl.addEventListener('input', e => {
       triviaBankQuery = e.target.value;
+      renderTriviaBankForBuilder();
+    });
+  }
+
+  const bankCatSel = document.getElementById('trivia-bank-cat-filter');
+  if (bankCatSel) {
+    bankCatSel.addEventListener('change', e => {
+      triviaBankCatFilter = e.target.value;
       renderTriviaBankForBuilder();
     });
   }
@@ -3122,7 +3193,7 @@ function bindTriviaPuzzleBuilderEvents() {
         });
         const data = await res.json();
         if (data.ok) {
-          $msg.style.color = '#1a7a1a';
+          $msg.className = 'publish-msg ok';
           $msg.textContent = `✓ Published for ${dateVal}!`;
           triviaBuilderSlots = [null, null, null];
           triviaSlotEditing  = [false, false, false];
@@ -3132,13 +3203,14 @@ function bindTriviaPuzzleBuilderEvents() {
           renderTriviaBankForBuilder();
           renderTriviaBank();
           // Reset published cache so it reloads
-          triviaPublishedLoaded = false;
+          triviaPublishedLoaded  = false;
+          triviaPublishedPuzzles = [];
         } else {
-          $msg.style.color = '#cc2200';
+          $msg.className = 'publish-msg err';
           $msg.textContent = data.error || 'Error publishing.';
         }
       } catch {
-        $msg.style.color = '#cc2200';
+        $msg.className = 'publish-msg err';
         $msg.textContent = 'Network error.';
       }
       pubBtn.disabled = false;
@@ -3153,120 +3225,201 @@ function bindTriviaPuzzleBuilderEvents() {
 
 async function loadTriviaPublished() {
   if (triviaPublishedLoaded) return;
-  const $list = document.getElementById('trivia-published-list');
-  if (!$list) return;
-  $list.innerHTML = '<div class="loading-state">Loading…</div>';
+  const $cal = document.getElementById('trivia-pub-calendar');
+  if ($cal) $cal.innerHTML = '<div class="loading-state" style="grid-column:1/-1">Loading…</div>';
   try {
     const res     = await fetch('/admin/trivia/puzzles');
-    const puzzles = await res.json();
-    triviaPublishedLoaded = true;
-    renderTriviaPublished(puzzles);
+    triviaPublishedPuzzles = await res.json();
+    triviaPublishedLoaded  = true;
+    renderTriviaCalendar();
   } catch {
-    $list.innerHTML = '<div class="loading-state">Failed to load.</div>';
+    if ($cal) $cal.innerHTML = '<div class="loading-state" style="grid-column:1/-1">Failed to load.</div>';
   }
 }
 
-function renderTriviaPublished(puzzles) {
-  const $list = document.getElementById('trivia-published-list');
-  if (!$list) return;
-  if (!puzzles.length) {
-    $list.innerHTML = '<p style="opacity:0.5;font-size:13px;">No trivia puzzles published yet.</p>';
-    return;
-  }
-  $list.innerHTML = '';
+function renderTriviaCalendar() {
+  const $cal    = document.getElementById('trivia-pub-calendar');
+  const $detail = document.getElementById('trivia-pub-detail-area');
+  const $label  = document.getElementById('trivia-cal-month-label');
+  if (!$cal) return;
+
   const todayStr = new Date().toISOString().slice(0, 10);
-  puzzles.forEach(p => {
-    const row = document.createElement('div');
-    row.className = 'trivia-pub-row';
-    row.dataset.date = p.date;
 
-    const isUpcoming = p.date > todayStr;
-    const cats = (p.questions || []).map(q =>
-      `<span class="trivia-pub-cat-badge">${escHtml(q.category)}</span>`
-    ).join('');
-    const scheduledBadge = isUpcoming
-      ? `<span style="font-size:10px;font-weight:700;color:#7B61FF;background:#F0EDFF;padding:2px 6px;border-radius:20px;flex-shrink:0;">SCHEDULED</span>`
-      : '';
-    const editBtn = isUpcoming
-      ? `<button class="btn btn--ghost btn--sm trivia-pub-edit-btn" data-date="${escHtml(p.date)}"
-               style="font-size:11px;" onclick="event.stopPropagation()">Edit</button>`
-      : '';
+  // Build lookup: date string → puzzle
+  const byDate = {};
+  triviaPublishedPuzzles.forEach(p => { byDate[p.date] = p; });
 
-    row.innerHTML = `
-      <div class="trivia-pub-row__summary">
-        <div class="trivia-pub-row__date">${escHtml(p.date)}</div>
-        ${scheduledBadge}
-        <div class="trivia-pub-row__cats">${cats}</div>
-        <a href="/trivia/${escHtml(p.date)}" target="_blank"
-           class="btn btn--ghost btn--sm" style="font-size:11px;" onclick="event.stopPropagation()">Play ↗</a>
-        ${editBtn}
-        <button class="btn btn--ghost btn--sm trivia-pub-del-btn" data-date="${escHtml(p.date)}"
-                style="font-size:11px;color:#cc2200;border-color:#cc2200;" onclick="event.stopPropagation()">Delete</button>
-        <span class="trivia-pub-row__expand">▶ Expand</span>
-      </div>
-      <div class="trivia-pub-row__detail" id="trivia-pub-detail-${escHtml(p.date)}"></div>`;
+  // Month label
+  const monthNames = ['January','February','March','April','May','June',
+                      'July','August','September','October','November','December'];
+  if ($label) $label.textContent = `${monthNames[triviaCalMonth - 1]} ${triviaCalYear}`;
 
-    // Expand/collapse
-    row.querySelector('.trivia-pub-row__summary').addEventListener('click', () => {
-      const detail  = row.querySelector('.trivia-pub-row__detail');
-      const icon    = row.querySelector('.trivia-pub-row__expand');
-      const isOpen  = detail.classList.contains('open');
-      if (isOpen) {
-        detail.classList.remove('open');
-        icon.textContent = '▶ Expand';
+  // Gap detection: find any gap in streak coverage within ±60 days of today
+  const gapWarning = findTriviaGap(byDate, todayStr);
+  const $strip = document.getElementById('trivia-pub-gap-warning');
+  const $gapTxt = document.getElementById('trivia-pub-gap-text');
+  if ($strip) $strip.style.display = gapWarning ? 'flex' : 'none';
+  if ($gapTxt && gapWarning) $gapTxt.textContent = gapWarning;
+
+  // Build calendar grid
+  const firstDay = new Date(triviaCalYear, triviaCalMonth - 1, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(triviaCalYear, triviaCalMonth, 0).getDate();
+
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let html = DAYS.map(d => `<div class="pub-cal__dow">${d}</div>`).join('');
+
+  // Leading empty cells
+  for (let i = 0; i < firstDay; i++) {
+    html += `<div class="pub-cal__day pub-cal__day--empty"></div>`;
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${triviaCalYear}-${String(triviaCalMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const puzzle  = byDate[dateStr];
+    const isFuture  = dateStr > todayStr;
+    const isToday   = dateStr === todayStr;
+
+    let cls = 'pub-cal__day';
+    if (puzzle) {
+      cls += isFuture ? ' pub-cal__day--scheduled' : ' pub-cal__day--published';
+    } else {
+      // Is it a gap? (past date with no puzzle, between oldest and newest)
+      const dates = Object.keys(byDate).sort();
+      if (dates.length && dateStr >= dates[0] && dateStr <= todayStr && !puzzle) {
+        cls += ' pub-cal__day--gap';
       } else {
-        detail.classList.add('open');
-        icon.textContent = '▼ Collapse';
-        if (!detail.dataset.loaded) {
-          detail.dataset.loaded = '1';
-          renderTriviaPuzzleDetail(detail, p.questions || []);
-        }
+        cls += ' pub-cal__day--empty';
       }
-    });
-
-    // Delete
-    row.querySelector('.trivia-pub-del-btn').addEventListener('click', async () => {
-      if (!confirm(`Delete trivia puzzle for ${p.date}? This cannot be undone.`)) return;
-      const res = await fetch(`/admin/trivia/puzzles/${p.date}`, { method: 'DELETE' });
-      if (res.ok) {
-        row.remove();
-        triviaPublishedLoaded = false;
-      } else {
-        alert('Delete failed.');
-      }
-    });
-
-    // Edit (upcoming only)
-    const editBtnEl = row.querySelector('.trivia-pub-edit-btn');
-    if (editBtnEl) {
-      editBtnEl.addEventListener('click', () => {
-        editTriviaPublishedPuzzle(p.date, p.questions || []);
-      });
     }
+    if (isToday) cls += ' pub-cal__day--today';
+    if (triviaCalSelected === dateStr) cls += ' selected';
 
-    $list.appendChild(row);
+    const dot = puzzle
+      ? `<div class="pub-cal__dots"><div class="pub-cal__dot" style="background:${isFuture ? '#b07ecf' : '#1a1205'}"></div></div>`
+      : '';
+
+    html += `<div class="${cls}" data-date="${dateStr}">
+      <div class="pub-cal__day-num">${d}</div>
+      ${dot}
+    </div>`;
+  }
+
+  $cal.innerHTML = html;
+
+  // Bind day clicks
+  $cal.querySelectorAll('[data-date]').forEach(el => {
+    const dateStr = el.dataset.date;
+    const puzzle  = byDate[dateStr];
+    if (!puzzle) return;
+    el.addEventListener('click', () => {
+      // Deselect previous
+      $cal.querySelectorAll('.selected').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+      triviaCalSelected = dateStr;
+      renderTriviaDetailCard($detail, puzzle, dateStr, todayStr);
+    });
   });
+
+  // If a date was already selected, re-render its detail
+  if (triviaCalSelected && byDate[triviaCalSelected]) {
+    renderTriviaDetailCard($detail, byDate[triviaCalSelected], triviaCalSelected, todayStr);
+  } else {
+    if ($detail) $detail.innerHTML = '';
+  }
 }
 
-function renderTriviaPuzzleDetail(container, questions) {
-  container.innerHTML = '';
-  questions.forEach(q => {
-    const div = document.createElement('div');
-    div.className = 'trivia-pub-q';
-    div.innerHTML = `
+function findTriviaGap(byDate, todayStr) {
+  const dates = Object.keys(byDate).sort();
+  if (dates.length < 2) return null;
+  // Find first gap in past dates up to today
+  for (let i = 1; i < dates.length; i++) {
+    if (dates[i] > todayStr) break;
+    const prev = new Date(dates[i - 1] + 'T00:00:00');
+    const curr = new Date(dates[i] + 'T00:00:00');
+    const diff = Math.round((curr - prev) / 86400000);
+    if (diff > 1) return `Gap detected: no puzzle between ${dates[i - 1]} and ${dates[i]} (${diff - 1} day${diff > 2 ? 's' : ''} missing)`;
+  }
+  // Check if there's a future puzzle scheduled
+  const hasUpcoming = dates.some(d => d > todayStr);
+  if (!hasUpcoming) return 'No upcoming trivia puzzles scheduled.';
+  return null;
+}
+
+function renderTriviaDetailCard($detail, puzzle, dateStr, todayStr) {
+  if (!$detail) return;
+  const isUpcoming = dateStr > todayStr;
+  const editBtn = isUpcoming
+    ? `<button class="btn btn--ghost btn--sm trivia-detail-edit-btn" data-date="${escHtml(dateStr)}" style="font-size:11px;">Edit</button>`
+    : '';
+
+  const qs = (puzzle.questions || []).map(q => `
+    <div class="trivia-pub-q">
       <div class="trivia-pub-q__cat">${escHtml(q.category)}</div>
       <div class="trivia-pub-q__text">${escHtml(q.question)}</div>
-      <div class="trivia-pub-q__answer">Answer: <strong>${escHtml(q.answer)}</strong></div>`;
-    container.appendChild(div);
+      <div class="trivia-pub-q__answer">Answer: <strong>${escHtml(q.answer)}</strong></div>
+    </div>`).join('');
+
+  $detail.innerHTML = `
+    <div class="pub-detail-card">
+      <div class="pub-detail-card__date">${escHtml(dateStr)}${isUpcoming ? ' <span style="font-size:10px;font-weight:700;color:#7B61FF;background:#F0EDFF;padding:2px 6px;border-radius:20px;">SCHEDULED</span>' : ''}</div>
+      ${qs}
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;">
+        <a href="/trivia/${escHtml(dateStr)}" target="_blank" class="btn btn--ghost btn--sm" style="font-size:11px;">Play ↗</a>
+        ${editBtn}
+        <button class="btn btn--ghost btn--sm trivia-detail-del-btn" data-date="${escHtml(dateStr)}"
+                style="font-size:11px;color:#cc2200;border-color:#cc2200;margin-left:auto;">Delete</button>
+      </div>
+    </div>`;
+
+  $detail.querySelector('.trivia-detail-del-btn').addEventListener('click', async () => {
+    if (!confirm(`Delete trivia puzzle for ${dateStr}? This cannot be undone.`)) return;
+    const res = await fetch(`/admin/trivia/puzzles/${dateStr}`, { method: 'DELETE' });
+    if (res.ok) {
+      triviaPublishedPuzzles = triviaPublishedPuzzles.filter(p => p.date !== dateStr);
+      triviaCalSelected = null;
+      $detail.innerHTML = '';
+      renderTriviaCalendar();
+    } else {
+      alert('Delete failed.');
+    }
   });
+
+  const editBtnEl = $detail.querySelector('.trivia-detail-edit-btn');
+  if (editBtnEl) {
+    editBtnEl.addEventListener('click', () => {
+      editTriviaPublishedPuzzle(dateStr, puzzle.questions || []);
+    });
+  }
 }
 
 function bindTriviaPublishedEvents() {
   const refreshBtn = document.getElementById('btn-trivia-pub-refresh');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
-      triviaPublishedLoaded = false;
+      triviaPublishedLoaded  = false;
+      triviaPublishedPuzzles = [];
+      triviaCalSelected      = null;
       loadTriviaPublished();
+    });
+  }
+
+  const prevBtn = document.getElementById('btn-trivia-pub-prev');
+  if (prevBtn) {
+    prevBtn.addEventListener('click', () => {
+      triviaCalMonth--;
+      if (triviaCalMonth < 1) { triviaCalMonth = 12; triviaCalYear--; }
+      triviaCalSelected = null;
+      if (triviaPublishedLoaded) renderTriviaCalendar();
+    });
+  }
+
+  const nextBtn = document.getElementById('btn-trivia-pub-next');
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      triviaCalMonth++;
+      if (triviaCalMonth > 12) { triviaCalMonth = 1; triviaCalYear++; }
+      triviaCalSelected = null;
+      if (triviaPublishedLoaded) renderTriviaCalendar();
     });
   }
 }
