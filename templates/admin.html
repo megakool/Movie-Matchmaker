@@ -462,6 +462,9 @@
 .settings-section__label--danger { color: #cc2200; opacity: 1; border-bottom-color: #f5c0b0; }
 .settings-action-row      { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .settings-status          { font-size: 12px; opacity: 0.55; display: block; margin-top: 8px; }
+.settings-text-input      { flex: 1; padding: 6px 10px; border-radius: 6px;
+                             border: 1px solid var(--border); background: var(--surface);
+                             color: var(--text); font-size: 13px; }
 .classify-progress-wrap   { margin-top: 10px; }
 .classify-progress-track  { height: 6px; background: #e0d8d0; border-radius: 4px; overflow: hidden; }
 .classify-progress-fill   { height: 100%; background: #1a1205; border-radius: 4px;
@@ -1902,8 +1905,8 @@
 
           <!-- Search input -->
           <div class="settings-action-row" style="margin-top:10px;">
-            <input type="text" id="add-movie-query" placeholder="Search movie title…"
-              style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:inherit;font-size:13px;">
+            <input type="text" id="add-movie-query" class="settings-text-input"
+              placeholder="Search movie title…" aria-label="Search movie title">
             <button class="btn btn--ghost btn--sm" id="btn-add-movie-search">Search</button>
           </div>
           <span id="add-movie-status" class="settings-status"></span>
