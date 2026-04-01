@@ -1892,6 +1892,30 @@
         </div>
       </div>
 
+      <!-- ── Movie Library ── -->
+      <div class="settings-section">
+        <div class="settings-section__label">Movie Library</div>
+
+        <div class="settings-card" id="settings-add-movie">
+          <h3>Add Movie to Full Library</h3>
+          <p>Search TMDB by title to find a movie, preview its data, then add it to <code>movies_full.json</code>.</p>
+
+          <!-- Search input -->
+          <div class="settings-action-row" style="margin-top:10px;">
+            <input type="text" id="add-movie-query" placeholder="Search movie title…"
+              style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:inherit;font-size:13px;">
+            <button class="btn btn--ghost btn--sm" id="btn-add-movie-search">Search</button>
+          </div>
+          <span id="add-movie-status" class="settings-status"></span>
+
+          <!-- Search results list -->
+          <div id="add-movie-results" style="margin-top:10px;display:none;"></div>
+
+          <!-- Confirmation / duplicate card -->
+          <div id="add-movie-confirm" style="margin-top:12px;display:none;"></div>
+        </div>
+      </div>
+
       <!-- ── Data Management ── -->
       <div class="settings-section">
         <div class="settings-section__label">Data Management</div>
