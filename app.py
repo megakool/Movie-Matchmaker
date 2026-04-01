@@ -11,6 +11,9 @@ import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from functools import wraps
+import urllib.request
+import urllib.error
+import urllib.parse
 
 from flask import (
     Flask, render_template, jsonify, request,
@@ -111,6 +114,7 @@ TRIVIA_PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
 ADMIN_PASSWORD    = os.environ.get("MARQUEE_ADMIN_PASSWORD", "marquee-admin-2026")
 DEV_MODE          = os.environ.get("MARQUEE_DEV_MODE", "0") == "1"
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+TMDB_API_KEY      = os.environ.get("TMDB_API_KEY", "")
 
 app = Flask(__name__, template_folder=str(MARQUEE_DIR / "templates"), static_folder=str(MARQUEE_DIR / "static"))
 app.secret_key = os.environ.get("MARQUEE_SECRET_KEY", "marquee-secret-dev-2026")
@@ -1274,6 +1278,246 @@ def admin_update_settings():
 
     save_settings(settings)
     return jsonify({"ok": True, "ai_tiers": settings["ai_tiers"], "random_tiers": settings["random_tiers"]})
+
+
+# ── Movie Library (TMDB) ───────────────────────────────────────────────────────
+def _tmdb_get(path: str) -> dict | None:
+    """Fetch a TMDB API path. Returns parsed JSON, None on 404, or raises on other HTTP errors."""
+    if not TMDB_API_KEY:
+        return None
+    req = urllib.request.Request(
+        f"https://api.themoviedb.org/3{path}",
+        headers={"Authorization": f"Bearer {TMDB_API_KEY}", "Accept": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
+    except Exception:
+        return None
+
+
+def _parse_tmdb_credits(credits: dict) -> dict:
+    """Extract directors, cast, writers, and cinematographer from TMDB credits response."""
+    crew = credits.get("crew", [])
+    cast_raw = sorted(credits.get("cast", []), key=lambda c: c.get("order", 9999))
+
+    directors = [p["name"] for p in crew if p.get("job") == "Director"]
+    actors = [c["name"] for c in cast_raw[:10]]
+    cast   = actors[:]  # separate field kept for schema compatibility with existing records
+
+    writer_jobs = {"Screenplay", "Writer", "Story", "Novel", "Characters"}
+    seen_writers: set = set()
+    writers = []
+    cinematographer = ""
+    for person in crew:
+        job  = person.get("job", "")
+        name = person.get("name", "")
+        if job in writer_jobs and name not in seen_writers:
+            writers.append(name)
+            seen_writers.add(name)
+        if job == "Director of Photography" and not cinematographer:
+            cinematographer = name
+
+    return {
+        "directors":       directors,
+        "actors":          actors,
+        "cast":            cast,
+        "writers":         writers,
+        "cinematographer": cinematographer,
+    }
+
+
+@app.get("/admin/movies/search")
+@admin_required
+def admin_movies_search():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"error": "Missing query parameter 'q'"}), 400
+    if not TMDB_API_KEY:
+        return jsonify({"error": "TMDB_API_KEY not configured"}), 500
+
+    data = _tmdb_get(f"/search/movie?query={urllib.parse.quote(q)}&language=en-US&page=1")
+    if data is None:
+        return jsonify({"error": "TMDB request failed"}), 502
+
+    results = []
+    for r in data.get("results", [])[:8]:
+        release = r.get("release_date") or ""
+        try:
+            year = int(release[:4]) if len(release) >= 4 else None
+        except ValueError:
+            year = None
+        poster_path = r.get("poster_path") or ""
+        results.append({
+            "tmdb_id": str(r["id"]),
+            "title":   r.get("title", ""),
+            "year":    year,
+            "overview": (r.get("overview") or "")[:200],
+            "poster_url": f"https://image.tmdb.org/t/p/w92{poster_path}" if poster_path else "",
+        })
+    return jsonify(results)
+
+
+@app.get("/admin/movies/preview")
+@admin_required
+def admin_movies_preview():
+    """Fetch full TMDB data for a movie and check for duplicates. Does NOT write anything."""
+    tmdb_id = request.args.get("tmdb_id", "").strip()
+    if not tmdb_id:
+        return jsonify({"error": "Missing tmdb_id"}), 400
+    if not tmdb_id.isdigit():
+        return jsonify({"error": "tmdb_id must be a numeric ID"}), 400
+    if not TMDB_API_KEY:
+        return jsonify({"error": "TMDB_API_KEY not configured"}), 500
+
+    details = _tmdb_get(f"/movie/{tmdb_id}")
+    if details is None:
+        return jsonify({"error": f"Movie {tmdb_id} not found on TMDB"}), 404
+
+    credits = _tmdb_get(f"/movie/{tmdb_id}/credits") or {}
+
+    parsed = _parse_tmdb_credits(credits)
+    directors       = parsed["directors"]
+    actors          = parsed["actors"]
+    cast            = parsed["cast"]
+    writers         = parsed["writers"]
+    cinematographer = parsed["cinematographer"]
+
+    release = details.get("release_date") or ""
+    try:
+        year = int(release[:4]) if len(release) >= 4 else None
+    except ValueError:
+        year = None
+    poster_path = details.get("poster_path") or ""
+
+    movie_data = {
+        "tmdb_id":         str(tmdb_id),
+        "title":           details.get("title", ""),
+        "year":            year,
+        "directors":       directors,
+        "actors":          actors,
+        "cast":            cast,
+        "writers":         writers,
+        "cinematographer": cinematographer,
+        "genres":          [g["name"] for g in details.get("genres", [])],
+        "runtime":         details.get("runtime") or 0,
+        "tagline":         (details.get("tagline") or "").strip(),
+        "poster_url":      f"https://image.tmdb.org/t/p/w342{poster_path}" if poster_path else "",
+        "vote_average":    details.get("vote_average") or 0,
+        "oscar_wins":      0,
+        "oscar_categories": [],
+        "popularity_tier": 2,
+    }
+
+    if MOVIES_FULL_PATH.exists():
+        with open(MOVIES_FULL_PATH, encoding="utf-8") as f:
+            existing_movies = json.load(f)["movies"]
+    else:
+        existing_movies = []
+    duplicate = next((m for m in existing_movies if str(m.get("tmdb_id")) == str(tmdb_id)), None)
+
+    return jsonify({
+        "movie":       movie_data,
+        "duplicate":   duplicate is not None,
+        "existing_id": duplicate.get("id") if duplicate else None,
+    })
+
+
+@app.post("/admin/movies/add")
+@admin_required
+def admin_movies_add():
+    """Fetch full TMDB data and write to movies_full.json."""
+    global _movies_cache
+    body      = request.get_json(force=True) or {}
+    tmdb_id   = str(body.get("tmdb_id", "")).strip()
+    overwrite = bool(body.get("overwrite", False))
+
+    if not tmdb_id:
+        return jsonify({"error": "Missing tmdb_id"}), 400
+    if not tmdb_id.isdigit():
+        return jsonify({"error": "tmdb_id must be a numeric ID"}), 400
+    if not TMDB_API_KEY:
+        return jsonify({"error": "TMDB_API_KEY not configured"}), 500
+
+    details = _tmdb_get(f"/movie/{tmdb_id}")
+    if details is None:
+        return jsonify({"error": f"Movie {tmdb_id} not found on TMDB"}), 404
+
+    credits = _tmdb_get(f"/movie/{tmdb_id}/credits") or {}
+
+    parsed = _parse_tmdb_credits(credits)
+    directors       = parsed["directors"]
+    actors          = parsed["actors"]
+    cast            = parsed["cast"]
+    writers         = parsed["writers"]
+    cinematographer = parsed["cinematographer"]
+
+    release     = details.get("release_date") or ""
+    try:
+        year = int(release[:4]) if len(release) >= 4 else None
+    except ValueError:
+        year = None
+    poster_path = details.get("poster_path") or ""
+
+    if MOVIES_FULL_PATH.exists():
+        with open(MOVIES_FULL_PATH, encoding="utf-8") as f:
+            existing_movies = json.load(f)["movies"]
+    else:
+        existing_movies = []
+
+    dup_index = next(
+        (i for i, m in enumerate(existing_movies) if str(m.get("tmdb_id")) == tmdb_id),
+        None,
+    )
+
+    if dup_index is not None and not overwrite:
+        return jsonify({
+            "status":      "duplicate",
+            "title":       details.get("title", ""),
+            "existing_id": existing_movies[dup_index]["id"],
+        })
+
+    new_id = (max((m.get("id", 0) for m in existing_movies), default=0) + 1) if dup_index is None else existing_movies[dup_index].get("id", 0)
+
+    new_movie = {
+        "id":              new_id,
+        "tmdb_id":         tmdb_id,
+        "title":           details.get("title", ""),
+        "year":            year,
+        "directors":       directors,
+        "actors":          actors,
+        "cast":            cast,
+        "writers":         writers,
+        "cinematographer": cinematographer,
+        "genres":          [g["name"] for g in details.get("genres", [])],
+        "runtime":         details.get("runtime") or 0,
+        "tagline":         (details.get("tagline") or "").strip(),
+        "poster_url":      f"https://image.tmdb.org/t/p/w342{poster_path}" if poster_path else "",
+        "vote_average":    details.get("vote_average") or 0,
+        "oscar_wins":      0,
+        "oscar_categories": [],
+        "popularity_tier": 2,
+    }
+
+    if dup_index is not None:
+        existing_movies[dup_index] = new_movie
+        action = "overwritten"
+    else:
+        existing_movies.append(new_movie)
+        action = "added"
+
+    tmp_path = MOVIES_FULL_PATH.with_suffix(".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump({"movies": existing_movies}, f, indent=2, ensure_ascii=False)
+    os.replace(tmp_path, MOVIES_FULL_PATH)
+
+    _movies_cache = None
+
+    return jsonify({"status": action, "title": new_movie["title"], "id": new_id})
 
 
 # ── AI Puzzle Builder ──────────────────────────────────────────────────────────
