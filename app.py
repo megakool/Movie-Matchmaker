@@ -1300,6 +1300,37 @@ def _tmdb_get(path: str) -> dict | None:
         return None
 
 
+def _parse_tmdb_credits(credits: dict) -> dict:
+    """Extract directors, cast, writers, and cinematographer from TMDB credits response."""
+    crew = credits.get("crew", [])
+    cast_raw = sorted(credits.get("cast", []), key=lambda c: c.get("order", 9999))
+
+    directors = [p["name"] for p in crew if p.get("job") == "Director"]
+    actors = [c["name"] for c in cast_raw[:10]]
+    cast   = [c["name"] for c in cast_raw[:10]]
+
+    writer_jobs = {"Screenplay", "Writer", "Story", "Novel", "Characters"}
+    seen_writers: set = set()
+    writers = []
+    cinematographer = ""
+    for person in crew:
+        job  = person.get("job", "")
+        name = person.get("name", "")
+        if job in writer_jobs and name not in seen_writers:
+            writers.append(name)
+            seen_writers.add(name)
+        if job == "Director of Photography" and not cinematographer:
+            cinematographer = name
+
+    return {
+        "directors":       directors,
+        "actors":          actors,
+        "cast":            cast,
+        "writers":         writers,
+        "cinematographer": cinematographer,
+    }
+
+
 @app.get("/admin/movies/search")
 @admin_required
 def admin_movies_search():
@@ -1347,25 +1378,12 @@ def admin_movies_preview():
 
     credits = _tmdb_get(f"/movie/{tmdb_id}/credits") or {}
 
-    crew = credits.get("crew", [])
-    directors = [p["name"] for p in crew if p.get("job") == "Director"]
-
-    cast_raw = sorted(credits.get("cast", []), key=lambda c: c.get("order", 9999))
-    actors = [c["name"] for c in cast_raw[:10]]
-    cast   = [c["name"] for c in cast_raw[:10]]
-
-    writer_jobs = {"Screenplay", "Writer", "Story", "Novel", "Characters"}
-    seen_writers: set = set()
-    writers = []
-    cinematographer = ""
-    for person in crew:
-        job  = person.get("job", "")
-        name = person.get("name", "")
-        if job in writer_jobs and name not in seen_writers:
-            writers.append(name)
-            seen_writers.add(name)
-        if job == "Director of Photography" and not cinematographer:
-            cinematographer = name
+    parsed = _parse_tmdb_credits(credits)
+    directors       = parsed["directors"]
+    actors          = parsed["actors"]
+    cast            = parsed["cast"]
+    writers         = parsed["writers"]
+    cinematographer = parsed["cinematographer"]
 
     release = details.get("release_date") or ""
     try:
@@ -1409,7 +1427,7 @@ def admin_movies_preview():
 def admin_movies_add():
     """Fetch full TMDB data and write to movies_full.json."""
     global _movies_cache
-    body      = request.get_json(force=True)
+    body      = request.get_json(force=True) or {}
     tmdb_id   = str(body.get("tmdb_id", "")).strip()
     overwrite = bool(body.get("overwrite", False))
 
@@ -1424,23 +1442,12 @@ def admin_movies_add():
 
     credits = _tmdb_get(f"/movie/{tmdb_id}/credits") or {}
 
-    crew = credits.get("crew", [])
-    directors = [p["name"] for p in crew if p.get("job") == "Director"]
-    cast_raw  = sorted(credits.get("cast", []), key=lambda c: c.get("order", 9999))
-    actors    = [c["name"] for c in cast_raw[:10]]
-    cast      = [c["name"] for c in cast_raw[:10]]
-    writer_jobs = {"Screenplay", "Writer", "Story", "Novel", "Characters"}
-    seen_writers: set = set()
-    writers = []
-    cinematographer = ""
-    for person in crew:
-        job  = person.get("job", "")
-        name = person.get("name", "")
-        if job in writer_jobs and name not in seen_writers:
-            writers.append(name)
-            seen_writers.add(name)
-        if job == "Director of Photography" and not cinematographer:
-            cinematographer = name
+    parsed = _parse_tmdb_credits(credits)
+    directors       = parsed["directors"]
+    actors          = parsed["actors"]
+    cast            = parsed["cast"]
+    writers         = parsed["writers"]
+    cinematographer = parsed["cinematographer"]
 
     release     = details.get("release_date") or ""
     try:
