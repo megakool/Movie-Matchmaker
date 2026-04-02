@@ -25,12 +25,14 @@ BASE_DIR          = Path(__file__).parent
 # On Render the git root IS the marquee/ dir; locally app.py lives one level up.
 MARQUEE_DIR       = BASE_DIR / "marquee" if (BASE_DIR / "marquee").is_dir() else BASE_DIR
 MOVIES_PATH       = MARQUEE_DIR / "movies.json"
-MOVIES_FULL_PATH  = MARQUEE_DIR / "movies_full.json"
 
 # If DATA_DIR env var is set (e.g. Render persistent disk at /data), use that.
 # Otherwise fall back to the shared data/ folder at the project root.
 _env_data_dir = os.environ.get("DATA_DIR", "")
 DATA_DIR      = Path(_env_data_dir) if _env_data_dir else BASE_DIR / "data"
+
+# movies_full.json lives on the persistent disk so admin-added movies survive deploys.
+MOVIES_FULL_PATH  = DATA_DIR / "movies_full.json"
 PUZZLES_DIR   = DATA_DIR / "puzzles"
 
 TRIVIA_PATH       = BASE_DIR / "trivia" / "trivia.json"
@@ -61,6 +63,10 @@ def _init_persistent_disk() -> None:
         dst = DATA_DIR / src.name
         if not dst.exists():
             shutil.copy2(src, dst)
+    # Seed movies_full.json from the repo copy if the disk doesn't have one yet
+    repo_movies_full = MARQUEE_DIR / "movies_full.json"
+    if repo_movies_full.exists() and not MOVIES_FULL_PATH.exists():
+        shutil.copy2(repo_movies_full, MOVIES_FULL_PATH)
     # Copy puzzle files only if they don't already exist on the disk
     for src in repo_puzzles.glob("*.json"):
         dst = PUZZLES_DIR / src.name
@@ -1354,7 +1360,7 @@ def admin_movies_search():
         return jsonify({"error": "TMDB request failed"}), 502
 
     results = []
-    for r in data.get("results", [])[:8]:
+    for r in data.get("results", [])[:3]:
         release = r.get("release_date") or ""
         try:
             year = int(release[:4]) if len(release) >= 4 else None

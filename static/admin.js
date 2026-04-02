@@ -777,6 +777,7 @@ async function loadConnections() {
   document.getElementById('conn-list').innerHTML = '<div class="conn-empty">Loading…</div>';
   const res  = await fetch('/admin/connections');
   connectionsData = await res.json();
+  connectionsLoaded = true;
   renderConnectionsIndex();
 }
 
