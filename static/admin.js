@@ -1324,11 +1324,12 @@ function _renderModalMovieSearch() {
   $msearch.replaceWith(fresh);
   fresh.value = '';
   fresh.addEventListener('input', () => {
-    const q2 = fresh.value.toLowerCase().trim();
+    const q2 = fresh.value.trim();
     if (!q2) { $mresults.style.display = 'none'; return; }
     const usedIds = new Set(_editDraft.movie_ids);
+    const words2 = normalizeForSearch(q2).split(' ').filter(Boolean);
     const matches = allMovies.filter(m =>
-      !usedIds.has(m.id) && m.title.toLowerCase().includes(q2)
+      !usedIds.has(m.id) && _fieldMatchesQuery(m.title, words2)
     ).slice(0, 8);
     if (!matches.length) { $mresults.style.display = 'none'; return; }
     $mresults.innerHTML = matches.map(m =>
@@ -1559,21 +1560,49 @@ async function renumberAll() {
 
 let catSearchSelected = [];  // [{id, title, year}]
 
+/**
+ * Strip diacritics, apostrophes, and non-alphanumeric chars so searches like
+ * "Schindlers List", "Dont Look Up", "ET", or "Wall E" still find the movie.
+ */
+function normalizeForSearch(str) {
+  return String(str)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // é → e, ü → u, etc.
+    .toLowerCase()
+    .replace(/[''`]/g, '')                            // strip apostrophes
+    .replace(/[^a-z0-9\s]/g, ' ')                    // punctuation → space
+    .replace(/\s+/g, ' ')                             // collapse runs of spaces
+    .trim();
+}
+
+/**
+ * Returns true when every word in `query` appears somewhere in `field`.
+ * Word-order independent, punctuation/diacritic insensitive.
+ */
+function _fieldMatchesQuery(field, normWords) {
+  const n = normalizeForSearch(field);
+  return normWords.every(w => n.includes(w));
+}
+
+function movieMatchesQuery(movie, query) {
+  const words = normalizeForSearch(query).split(' ').filter(Boolean);
+  if (!words.length) return false;
+  return (
+    _fieldMatchesQuery(movie.title, words) ||
+    String(movie.year).includes(query.trim()) ||
+    (movie.directors || []).some(d => _fieldMatchesQuery(d, words)) ||
+    (movie.cast || movie.actors || []).some(a => _fieldMatchesQuery(a, words)) ||
+    (movie.writers || []).some(w => _fieldMatchesQuery(w, words)) ||
+    (movie.genres || []).some(g => _fieldMatchesQuery(g, words))
+  );
+}
+
 function renderCatMovieSearch(query) {
   const $list = document.getElementById('cat-movie-results');
   if (!query.trim()) {
     $list.innerHTML = '<div class="conn-empty">Type to search movies</div>';
     return;
   }
-  const q = query.toLowerCase();
-  const matches = allMovies.filter(m =>
-    m.title.toLowerCase().includes(q) ||
-    String(m.year).includes(q) ||
-    (m.directors || []).some(d => d.toLowerCase().includes(q)) ||
-    (m.cast || m.actors || []).some(a => a.toLowerCase().includes(q)) ||
-    (m.writers || []).some(w => w.toLowerCase().includes(q)) ||
-    (m.genres || []).some(g => g.toLowerCase().includes(q))
-  ).slice(0, 60);
+  const matches = allMovies.filter(m => movieMatchesQuery(m, query)).slice(0, 60);
 
   if (!matches.length) {
     $list.innerHTML = '<div class="conn-empty">No movies found</div>';
@@ -2460,6 +2489,7 @@ function bindAddMovieEvents() {
       clearResults();
       queryInput.value = '';
       await loadMovies(); // refresh the in-memory movie pool so browse panel shows new movie
+      if (connectionsLoaded) await loadConnections(); // refresh director/cast connection index
       setTimeout(() => setStatus(''), 4000);
     } catch (_) {
       setStatus('Failed to add movie. Check your connection.', true);
