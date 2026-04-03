@@ -1265,9 +1265,22 @@ def admin_connections():
 def admin_get_settings():
     settings = get_settings()
     return jsonify({
-        "ai_tiers":     settings.get("ai_tiers",     [1]),
-        "random_tiers": settings.get("random_tiers", [1]),
+        "ai_tiers":                   settings.get("ai_tiers",                   [1]),
+        "random_tiers":               settings.get("random_tiers",               [1]),
+        "workshop_pool_size":         settings.get("workshop_pool_size",         25),
+        "workshop_num_categories":    settings.get("workshop_num_categories",    4),
+        "workshop_min_movies":        settings.get("workshop_min_movies",        3),
+        "workshop_max_movies":        settings.get("workshop_max_movies",        4),
+        "workshop_max_tokens":        settings.get("workshop_max_tokens",        2048),
+        "workshop_decade_spread":     settings.get("workshop_decade_spread",     True),
+        "workshop_expand_candidates": settings.get("workshop_expand_candidates", 10),
+        "workshop_recency_bias":      settings.get("workshop_recency_bias",      0.0),
     })
+
+_WORKSHOP_INT_KEYS = {
+    "workshop_pool_size", "workshop_num_categories", "workshop_min_movies",
+    "workshop_max_movies", "workshop_max_tokens", "workshop_expand_candidates",
+}
 
 @app.post("/admin/settings")
 @admin_required
@@ -1281,9 +1294,28 @@ def admin_update_settings():
     if "random_tiers" in data:
         tiers = [int(t) for t in data["random_tiers"] if int(t) in (1, 2)]
         settings["random_tiers"] = tiers or [1]
+    for key in _WORKSHOP_INT_KEYS:
+        if key in data:
+            settings[key] = max(1, int(data[key]))
+    if "workshop_decade_spread" in data:
+        settings["workshop_decade_spread"] = bool(data["workshop_decade_spread"])
+    if "workshop_recency_bias" in data:
+        settings["workshop_recency_bias"] = max(0.0, min(1.0, float(data["workshop_recency_bias"])))
 
     save_settings(settings)
-    return jsonify({"ok": True, "ai_tiers": settings["ai_tiers"], "random_tiers": settings["random_tiers"]})
+    return jsonify({
+        "ok":                         True,
+        "ai_tiers":                   settings["ai_tiers"],
+        "random_tiers":               settings["random_tiers"],
+        "workshop_pool_size":         settings.get("workshop_pool_size",         25),
+        "workshop_num_categories":    settings.get("workshop_num_categories",    4),
+        "workshop_min_movies":        settings.get("workshop_min_movies",        3),
+        "workshop_max_movies":        settings.get("workshop_max_movies",        4),
+        "workshop_max_tokens":        settings.get("workshop_max_tokens",        2048),
+        "workshop_decade_spread":     settings.get("workshop_decade_spread",     True),
+        "workshop_expand_candidates": settings.get("workshop_expand_candidates", 10),
+        "workshop_recency_bias":      settings.get("workshop_recency_bias",      0.0),
+    })
 
 
 # ── Movie Library (TMDB) ───────────────────────────────────────────────────────
