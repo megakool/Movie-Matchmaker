@@ -1876,63 +1876,73 @@ def admin_ai_suggest():
 @app.post("/admin/ai/workshop")
 @admin_required
 def admin_ai_workshop():
-    """Mode 1: Category Workshop — generate 8 standalone category ideas."""
+    """Random-pool category generator — gives Claude N random movies and asks for free-form categories."""
     if not ANTHROPIC_API_KEY:
         return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 503
 
-    data             = request.get_json(force=True)
-    exclude_ids      = set(data.get("exclude_ids", []))
-    connection_types = data.get("connection_types", ["cast", "director", "award", "genre", "setting", "plot", "trope", "franchise", "cast_special", "cast_meta"])
-    ai_tiers         = data.get("ai_tiers") or get_settings().get("ai_tiers", [1])
-    ai_tiers         = set(int(t) for t in ai_tiers if int(t) in (1, 2))
+    data        = request.get_json(force=True)
+    exclude_ids = set(data.get("exclude_ids", []))
+    settings    = get_settings()
 
-    full_movies = get_movies()
+    pool_size      = settings.get("workshop_pool_size",         25)
+    num_categories = settings.get("workshop_num_categories",    4)
+    min_movies     = settings.get("workshop_min_movies",        3)
+    max_movies     = settings.get("workshop_max_movies",        4)
+    max_tokens     = settings.get("workshop_max_tokens",        2048)
+    decade_spread  = settings.get("workshop_decade_spread",     True)
+    recency_bias   = float(settings.get("workshop_recency_bias", 0.0))
+    ai_tiers       = set(int(t) for t in settings.get("ai_tiers", [1]) if int(t) in (1, 2))
 
-    # Filter by selected tiers; movies with no tier field (curated fallback) are treated as tier 1
-    pool            = [m for m in full_movies
-                       if m["id"] not in exclude_ids and (m.get("tier") or 1) in ai_tiers]
+    full_movies     = get_movies()
     movies_by_title = {m["title"].lower(): m for m in full_movies}
     movies_by_id    = {m["id"]: m for m in full_movies}
-    titles_list     = _titles_only_list(pool)
 
-    type_descriptions = {
-        "cast":         "Cast — all four films prominently feature the same actor",
-        "director":     "Director — all four films were directed by the same director",
-        "award":        "Award — all four films won the same Oscar or major award category",
-        "genre":        "Genre — all four films belong to the same genre or subgenre (heist, horror, war, etc.)",
-        "setting":      "Setting — all four films share a specific location, country, time period, or environment",
-        "plot":         "Plot — all four films share a specific plot device, premise, or situation (amnesia, time travel, undercover cop, etc.)",
-        "trope":        "Trope — all four films share a recurring narrative trope or character archetype (chosen one, fish out of water, unlikely duo, etc.)",
-        "franchise":    "Franchise — all four films are connected through sequels, prequels, spinoffs, or a shared film universe",
-        "cast_special": "Cast (Special) — all four films share a notable casting or performance fact (comedian playing it straight, actor doing an accent, one actor in twin roles, etc.)",
-        "cast_meta":    "Cast (Meta) — all four films share a real-world fact about the people involved (musician turned actor, directorial debut, real-life siblings on screen, etc.)",
-    }
-    active_types = [type_descriptions[t] for t in connection_types if t in type_descriptions]
-    if not active_types:
-        active_types = list(type_descriptions.values())
-    types_block = "\n".join(f"- {t}" for t in active_types)
+    pool = [m for m in full_movies
+            if m["id"] not in exclude_ids and (m.get("tier") or 1) in ai_tiers]
+
+    if decade_spread:
+        sample = _stratified_sample(pool, min(pool_size, len(pool)), recency_bias=recency_bias)
+    else:
+        sample = random.sample(pool, min(pool_size, len(pool)))
+
+    def movie_meta(m):
+        directors = ", ".join(m.get("directors", []))
+        actors    = ", ".join((m.get("actors") or [])[:5])
+        genres    = ", ".join(m.get("genres", []))
+        oscars    = "; ".join(str(c) for c in m.get("oscar_categories", []))
+        line = f'"{m["title"]}" ({m["year"]}) | dir: {directors} | cast: {actors} | genres: {genres}'
+        if oscars:
+            line += f' | oscars: {oscars}'
+        return line
+
+    movies_block = "\n".join(movie_meta(m) for m in sample)
 
     raw = _call_claude(
         "You are an expert puzzle designer for Marquee, a daily movie connections game. "
-        "You have deep knowledge of film history, plots, production facts, and thematic connections. "
-        "Your category titles must be clever and REFRAME how players think about the films — "
-        "never a plain genre label or a filmmaker's name.",
-        f"Generate exactly 8 movie category ideas. Each must:\n"
-        f"- Contain exactly 4 movies chosen from the provided list\n"
-        f"- Use ONE of these connection types:\n{types_block}\n"
-        f"- NOT be a single-actor or single-director filmography\n"
-        f"- NOT use a basic genre label as the title (no 'Sci-Fi Films', 'Horror Movies', etc.)\n"
-        f"- Have a punchy title that reframes how you see the films\n"
-        f"- Mix difficulties: some easy (1–2) and some hard (3–4)\n\n"
-        f"Movies to choose from:\n{titles_list}\n\n"
+        "You find surprising, non-obvious connections between films that most people wouldn't notice. "
+        "Your categories must never be about a single shared actor, director, or plain genre label — "
+        "those are too easy and overused. Think: shared plot devices, production trivia, real-world "
+        "facts about the cast or crew, thematic echoes, shared settings, Oscar facts, or any other "
+        "angle that makes someone say 'I never would have thought of that.'",
+        f"Here are {len(sample)} movies to work with:\n\n{movies_block}\n\n"
+        f"Find up to {num_categories} creative category ideas using ONLY films from this list.\n"
+        f"Each category must include {min_movies}–{max_movies} films that share a genuine, specific connection.\n"
+        f"Rules:\n"
+        f"- Only use movies from the provided list — no exceptions\n"
+        f"- No 'films by the same director', 'films starring X', or basic genre buckets\n"
+        f"- The connection must be specific and verifiable (not just 'dark themes')\n"
+        f"- If you can only find {min_movies} strong fits, return {min_movies} — don't pad with weak picks\n"
+        f"- Aim for variety: different types of connections across your {num_categories} categories\n"
+        f"- Give each category a punchy title that reframes the films (≤60 chars), not a description\n\n"
         'Respond ONLY with valid JSON:\n'
         '{"categories": [\n'
-        '  {"title": "Punchy name ≤60 chars", "movies": ["Title A","Title B","Title C","Title D"],\n'
-        '   "connection_type": "cast|director|award|genre|setting|plot|trope|franchise|cast_special|cast_meta",\n'
-        '   "difficulty": 1,\n'
-        '   "reasoning": "One sentence explaining exactly why these 4 films share this connection"}\n'
+        '  {"title": "Punchy title ≤60 chars",\n'
+        '   "movies": ["Exact Title A", "Exact Title B", "Exact Title C"],\n'
+        '   "connection_type": "One short label for the connection (your own words)",\n'
+        '   "difficulty": 2,\n'
+        '   "reasoning": "One sentence — the specific fact or thread connecting these films"}\n'
         ']}',
-        max_tokens=4096,
+        max_tokens=max_tokens,
     )
     if not raw:
         return jsonify({"error": "AI unavailable"}), 503
@@ -1942,9 +1952,9 @@ def admin_ai_workshop():
         out  = []
         for cat in cats:
             ids = _match_titles_to_ids(cat.get("movies", []), movies_by_title)
-            if len(ids) < 4:
+            if len(ids) < min_movies:
                 continue
-            ids = ids[:4]
+            ids = ids[:max_movies]
             out.append({
                 "title":           cat.get("title", ""),
                 "movie_ids":       ids,
@@ -1953,7 +1963,102 @@ def admin_ai_workshop():
                 "difficulty":      int(cat.get("difficulty", 2)),
                 "reasoning":       cat.get("reasoning", ""),
             })
+        if not out:
+            return jsonify({"categories": [], "warning": "no_valid_categories"})
         return jsonify({"categories": out})
+    except (json.JSONDecodeError, KeyError) as e:
+        return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
+
+
+@app.post("/admin/ai/expand")
+@admin_required
+def admin_ai_expand():
+    """Given a category concept + seed movies, find more candidates from the full library."""
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 503
+
+    data        = request.get_json(force=True)
+    title       = (data.get("title") or "").strip()[:80]
+    reasoning   = (data.get("reasoning") or "").strip()[:300]
+    seed_ids    = set(data.get("seed_ids", []))
+    seed_titles = data.get("seed_titles", [])
+    exclude_ids = set(data.get("exclude_ids", []))
+
+    if not title or not seed_ids:
+        return jsonify({"error": "title and seed_ids required"}), 400
+
+    settings       = get_settings()
+    num_candidates = settings.get("workshop_expand_candidates", 10)
+
+    full_movies     = get_movies()
+    movies_by_title = {m["title"].lower(): m for m in full_movies}
+    movies_by_id    = {m["id"]: m for m in full_movies}
+
+    exclude_all = seed_ids | exclude_ids
+    candidates  = [m for m in full_movies if m["id"] not in exclude_all]
+
+    def movie_meta(m):
+        directors = ", ".join(m.get("directors", []))
+        actors    = ", ".join((m.get("actors") or [])[:5])
+        genres    = ", ".join(m.get("genres", []))
+        oscars    = "; ".join(str(c) for c in m.get("oscar_categories", []))
+        line = f'"{m["title"]}" ({m["year"]}) | dir: {directors} | cast: {actors} | genres: {genres}'
+        if oscars:
+            line += f' | oscars: {oscars}'
+        return line
+
+    candidates_block = "\n".join(movie_meta(m) for m in candidates)
+    seed_list = ", ".join(f'"{t}"' for t in seed_titles) if seed_titles else ", ".join(
+        f'"{movies_by_id[i]["title"]}"' for i in seed_ids if i in movies_by_id
+    )
+
+    raw = _call_claude(
+        "You are an expert puzzle designer for Marquee, a daily movie connections game. "
+        "You find movies that share a specific, verifiable connection with a set of seed films.",
+        f'Category: "{title}"\n'
+        f'Connection: {reasoning}\n'
+        f'Seed films already in this category: {seed_list}\n\n'
+        f"Find the {num_candidates} best additional films from the list below that share the SAME "
+        f"specific connection as the seed films. Rank all 'strong' fits before 'good' fits.\n"
+        f"- 'strong': unambiguous, perfect fit\n"
+        f"- 'good': fits well but with a minor caveat\n\n"
+        f"Candidate films:\n{candidates_block}\n\n"
+        f"Rules:\n"
+        f"- Only pick from the provided candidate list\n"
+        f"- Be specific in your reasoning — reference the actual fact that makes it fit\n"
+        f"- Do not repeat the seed films\n\n"
+        'Respond ONLY with valid JSON:\n'
+        '{"picks": [\n'
+        '  {"title": "Exact Title", "year": 2001, "reasoning": "Specific reason", "strength": "strong"}\n'
+        ']}',
+        max_tokens=3000,
+    )
+    if not raw:
+        return jsonify({"error": "AI unavailable"}), 503
+
+    try:
+        picks_raw = json.loads(_extract_json(raw)).get("picks", [])
+        out = []
+        for p in picks_raw:
+            ids = _match_titles_to_ids([p.get("title", "")], movies_by_title)
+            if not ids:
+                continue
+            mid = ids[0]
+            if mid in exclude_all:
+                continue
+            m = movies_by_id.get(mid)
+            if not m:
+                continue
+            out.append({
+                "id":        mid,
+                "title":     m["title"],
+                "year":      m.get("year", ""),
+                "directors": m.get("directors", []),
+                "reasoning": p.get("reasoning", ""),
+                "strength":  p.get("strength", "good"),
+            })
+        out.sort(key=lambda x: 0 if x["strength"] == "strong" else 1)
+        return jsonify({"candidates": out})
     except (json.JSONDecodeError, KeyError) as e:
         return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
 
