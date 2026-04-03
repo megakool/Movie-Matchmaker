@@ -49,6 +49,14 @@ let catLibraryFilterType = '';     // '' = all; string = connection_type value
 // ── Tier Filter State ──────────────────────────────────────────────
 let randomTiers = [1];   // tiers included in random generator pool
 let aiTiers     = [1];   // tiers included in AI feature pool
+let workshopPoolSize         = 25;
+let workshopNumCategories    = 4;
+let workshopMinMovies        = 3;
+let workshopMaxMovies        = 4;
+let workshopMaxTokens        = 2048;
+let workshopDecadeSpread     = true;
+let workshopExpandCandidates = 10;
+let workshopRecencyBias      = 0.0;
 
 // ── Connections State ──────────────────────────────────────────────
 let connectionsData      = [];   // raw from /admin/connections
@@ -111,6 +119,7 @@ async function init() {
   renderCreateConnTypeRow('random');
   bindPublishedEvents();
   bindSettingsEvents();
+  bindWorkshopSettingsEvents();
   bindTriviaEvents();
   bindTriviaPuzzleBuilderEvents();
   bindTriviaPublishedEvents();
@@ -2315,9 +2324,18 @@ function renderPublishedDetail(container, data) {
 async function loadSettings() {
   const res  = await fetch('/admin/settings');
   const data = await res.json();
-  randomTiers = data.random_tiers || [1];
-  aiTiers     = data.ai_tiers     || [1];
+  randomTiers            = data.random_tiers             || [1];
+  aiTiers                = data.ai_tiers                 || [1];
+  workshopPoolSize       = data.workshop_pool_size       ?? 25;
+  workshopNumCategories  = data.workshop_num_categories  ?? 4;
+  workshopMinMovies      = data.workshop_min_movies      ?? 3;
+  workshopMaxMovies      = data.workshop_max_movies      ?? 4;
+  workshopMaxTokens      = data.workshop_max_tokens      ?? 2048;
+  workshopDecadeSpread   = data.workshop_decade_spread   ?? true;
+  workshopExpandCandidates = data.workshop_expand_candidates ?? 10;
+  workshopRecencyBias    = data.workshop_recency_bias    ?? 0.0;
   applyTierFilterUI();
+  applyWorkshopSettingsUI();
 }
 
 function applyTierFilterUI() {
@@ -2339,6 +2357,64 @@ async function saveTierFilters() {
   const data = await res.json();
   if (status) status.textContent = data.ok ? 'Saved.' : 'Error saving.';
   setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+}
+
+function applyWorkshopSettingsUI() {
+  const set    = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  const setChk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = v; };
+  set('ws-pool-size',          workshopPoolSize);
+  set('ws-num-categories',     workshopNumCategories);
+  set('ws-min-movies',         workshopMinMovies);
+  set('ws-max-movies',         workshopMaxMovies);
+  set('ws-max-tokens',         workshopMaxTokens);
+  set('ws-expand-candidates',  workshopExpandCandidates);
+  set('ws-recency-bias',       workshopRecencyBias);
+  setChk('ws-decade-spread',   workshopDecadeSpread);
+  const valEl = document.getElementById('ws-recency-bias-val');
+  if (valEl) valEl.textContent = parseFloat(workshopRecencyBias).toFixed(1);
+}
+
+async function saveWorkshopSettings() {
+  const status = document.getElementById('workshop-settings-status');
+  if (status) status.textContent = 'Saving\u2026';
+  const getNum = id => { const el = document.getElementById(id); return el ? +el.value : null; };
+  const getChk = id => { const el = document.getElementById(id); return el ? el.checked : null; };
+  const res  = await fetch('/admin/settings', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workshop_pool_size:          getNum('ws-pool-size'),
+      workshop_num_categories:     getNum('ws-num-categories'),
+      workshop_min_movies:         getNum('ws-min-movies'),
+      workshop_max_movies:         getNum('ws-max-movies'),
+      workshop_max_tokens:         getNum('ws-max-tokens'),
+      workshop_expand_candidates:  getNum('ws-expand-candidates'),
+      workshop_recency_bias:       getNum('ws-recency-bias'),
+      workshop_decade_spread:      getChk('ws-decade-spread'),
+    }),
+  });
+  const data = await res.json();
+  if (status) {
+    status.textContent = data.ok ? 'Saved.' : 'Error saving.';
+    setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+  }
+  if (data.ok) {
+    workshopPoolSize         = data.workshop_pool_size         ?? workshopPoolSize;
+    workshopNumCategories    = data.workshop_num_categories    ?? workshopNumCategories;
+    workshopMinMovies        = data.workshop_min_movies        ?? workshopMinMovies;
+    workshopMaxMovies        = data.workshop_max_movies        ?? workshopMaxMovies;
+    workshopMaxTokens        = data.workshop_max_tokens        ?? workshopMaxTokens;
+    workshopDecadeSpread     = data.workshop_decade_spread     ?? workshopDecadeSpread;
+    workshopExpandCandidates = data.workshop_expand_candidates ?? workshopExpandCandidates;
+    workshopRecencyBias      = data.workshop_recency_bias      ?? workshopRecencyBias;
+  }
+}
+
+function bindWorkshopSettingsEvents() {
+  const saveBtn = document.getElementById('btn-save-workshop-settings');
+  if (saveBtn) saveBtn.addEventListener('click', saveWorkshopSettings);
+  const slider = document.getElementById('ws-recency-bias');
+  const valEl  = document.getElementById('ws-recency-bias-val');
+  if (slider && valEl) slider.addEventListener('input', () => { valEl.textContent = parseFloat(slider.value).toFixed(1); });
 }
 
 // ══════════════════════════════════════════════════════════════════
