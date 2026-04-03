@@ -1277,6 +1277,17 @@ def admin_get_settings():
         "workshop_recency_bias":      settings.get("workshop_recency_bias",      0.0),
     })
 
+_WORKSHOP_DEFAULTS = {
+    "workshop_pool_size":         25,
+    "workshop_num_categories":    4,
+    "workshop_min_movies":        3,
+    "workshop_max_movies":        4,
+    "workshop_max_tokens":        2048,
+    "workshop_decade_spread":     True,
+    "workshop_expand_candidates": 10,
+    "workshop_recency_bias":      0.0,
+}
+
 _WORKSHOP_INT_KEYS = {
     "workshop_pool_size", "workshop_num_categories", "workshop_min_movies",
     "workshop_max_movies", "workshop_max_tokens", "workshop_expand_candidates",
@@ -1287,6 +1298,10 @@ _WORKSHOP_INT_KEYS = {
 def admin_update_settings():
     data     = request.get_json(force=True)
     settings = get_settings()
+
+    # Apply workshop defaults for any keys not yet present
+    for k, v in _WORKSHOP_DEFAULTS.items():
+        settings.setdefault(k, v)
 
     if "ai_tiers" in data:
         tiers = [int(t) for t in data["ai_tiers"] if int(t) in (1, 2)]
@@ -1307,14 +1322,14 @@ def admin_update_settings():
         "ok":                         True,
         "ai_tiers":                   settings["ai_tiers"],
         "random_tiers":               settings["random_tiers"],
-        "workshop_pool_size":         settings.get("workshop_pool_size",         25),
-        "workshop_num_categories":    settings.get("workshop_num_categories",    4),
-        "workshop_min_movies":        settings.get("workshop_min_movies",        3),
-        "workshop_max_movies":        settings.get("workshop_max_movies",        4),
-        "workshop_max_tokens":        settings.get("workshop_max_tokens",        2048),
-        "workshop_decade_spread":     settings.get("workshop_decade_spread",     True),
-        "workshop_expand_candidates": settings.get("workshop_expand_candidates", 10),
-        "workshop_recency_bias":      settings.get("workshop_recency_bias",      0.0),
+        "workshop_pool_size":         settings["workshop_pool_size"],
+        "workshop_num_categories":    settings["workshop_num_categories"],
+        "workshop_min_movies":        settings["workshop_min_movies"],
+        "workshop_max_movies":        settings["workshop_max_movies"],
+        "workshop_max_tokens":        settings["workshop_max_tokens"],
+        "workshop_decade_spread":     settings["workshop_decade_spread"],
+        "workshop_expand_candidates": settings["workshop_expand_candidates"],
+        "workshop_recency_bias":      settings["workshop_recency_bias"],
     })
 
 
