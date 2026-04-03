@@ -2516,21 +2516,10 @@ function bindAIEvents() {
   });
 
   document.getElementById('btn-ai-workshop').addEventListener('click', onAIWorkshop);
-
-  // Connection-type toggle buttons
-  document.getElementById('workshop-toggles').addEventListener('click', e => {
-    const btn = e.target.closest('.toggle-btn');
-    if (btn) btn.classList.toggle('active');
-  });
 }
 
 function getExcludeIds() {
   return slots.flatMap(s => s.movies.map(m => m.id));
-}
-
-function getActiveConnectionTypes() {
-  return [...document.querySelectorAll('#workshop-toggles .toggle-btn.active')]
-    .map(b => b.dataset.type);
 }
 
 
@@ -2686,17 +2675,12 @@ function renderSuggestFooter(footer) {
 async function onAIWorkshop() {
   const btn      = document.getElementById('btn-ai-workshop');
   const $results = document.getElementById('ai-workshop-results');
-  const types    = getActiveConnectionTypes();
-  if (!types.length) {
-    $results.innerHTML = '<div style="color:#cc2200;font-size:13px;">Select at least one connection type.</div>';
-    return;
-  }
   btn.disabled       = true;
   $results.innerHTML = '<div class="ai-spinner">✦ Generating category ideas… this may take a moment.</div>';
   try {
     const res  = await fetch('/admin/ai/workshop', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ connection_types: types, exclude_ids: getExcludeIds(), ai_tiers: aiTiers }),
+      body: JSON.stringify({ exclude_ids: getExcludeIds() }),
     });
     const data = await res.json();
     if (data.error) {
@@ -2706,7 +2690,10 @@ async function onAIWorkshop() {
     $results.innerHTML = '';
     const cats = data.categories || [];
     if (!cats.length) {
-      $results.innerHTML = '<div style="font-size:13px;opacity:0.5;">No categories returned — try different toggles.</div>';
+      const msg = data.warning === 'no_valid_categories'
+        ? "Claude couldn\u2019t find strong connections in this sample \u2014 try generating again for a new random pool."
+        : 'No categories returned \u2014 try again.';
+      $results.innerHTML = `<div style="font-size:13px;opacity:0.5;">${msg}</div>`;
       return;
     }
     cats.forEach(cat => $results.appendChild(renderWorkshopCard(cat)));
