@@ -1178,6 +1178,19 @@ def admin_published_detail(puzzle_date: str):
     return jsonify({"date": puzzle_date, "categories": detail})
 
 
+@app.get("/admin/published-index")
+@admin_required
+def admin_published_index():
+    today = current_site_date().isoformat()
+    all_dates = get_all_puzzle_dates()
+    return jsonify({
+        "puzzles": [
+            {"date": d, "num": i + 1, "future": d > today}
+            for i, d in enumerate(all_dates)
+        ]
+    })
+
+
 @app.get("/admin/export/categories/unused")
 @admin_required
 def admin_export_unused_categories():

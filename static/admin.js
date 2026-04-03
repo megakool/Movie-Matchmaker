@@ -1455,6 +1455,23 @@ function bindCategoriesEvents() {
   });
   document.getElementById('cat-lib-name').addEventListener('input', updateBrowseActions);
   document.getElementById('btn-save-to-lib').addEventListener('click', onSaveToLibrary);
+  document.getElementById('btn-lib-refresh')?.addEventListener('click', async e => {
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Refreshing...';
+    try {
+      await loadCategoryLibrary();
+      btn.textContent = 'Refreshed';
+    } catch (_) {
+      btn.textContent = 'Retry';
+    } finally {
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = original;
+      }, 1200);
+    }
+  });
   document.getElementById('lib-search').addEventListener('input', e => {
     catLibraryQuery = e.target.value; renderCategoryLibrary();
   });
@@ -2297,8 +2314,23 @@ function _applyAiResult(card, pairKey, data) {
 // ══════════════════════════════════════════════════════════════════
 
 function bindPublishedEvents() {
-  // Calendar is initialized on first nav to 'published' panel (see bindNav)
-  // Nothing to bind here at page load for the old row-based UI
+  document.getElementById('btn-pub-refresh')?.addEventListener('click', async e => {
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Refreshing...';
+    try {
+      await refreshPublishedCalendarData();
+      btn.textContent = 'Refreshed';
+    } catch (_) {
+      btn.textContent = 'Retry';
+    } finally {
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = original;
+      }, 1200);
+    }
+  });
 }
 
 async function redatePuzzle(oldDate) {
@@ -2908,7 +2940,18 @@ async function onFindMore(card, btn) {
         exclude_ids: getExcludeIds(),
       }),
     });
-    const data = await res.json();
+    const raw = await res.text();
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (_) {
+      data = {};
+    }
+    if (!res.ok) {
+      const msg = data.error || raw || `HTTP ${res.status}`;
+      expandPanel.innerHTML = `<div style="color:#cc2200;font-size:12px;">Error: ${escHtml(msg)}</div>`;
+      return;
+    }
     if (data.error) {
       expandPanel.innerHTML = `<div style="color:#cc2200;font-size:12px;">Error: ${escHtml(data.error)}</div>`;
       return;
@@ -2925,7 +2968,7 @@ async function onFindMore(card, btn) {
     expandPanel.appendChild(header);
     candidates.forEach(c => expandPanel.appendChild(renderExpandCandidate(card, c)));
   } catch (e) {
-    expandPanel.innerHTML = '<div style="color:#cc2200;font-size:12px;">Request failed.</div>';
+    expandPanel.innerHTML = `<div style="color:#cc2200;font-size:12px;">Error: ${escHtml(e.message || 'Request failed.')}</div>`;
   } finally {
     btn.disabled = false;
   }
@@ -4029,43 +4072,72 @@ async function editUpcomingMarqueePuzzle(date) {
 // PUBLISHED CALENDAR
 // ══════════════════════════════════════════════════════════════════
 
+function applyPublishedCalendarData(puzzles, resetMonth = false) {
+  pubPuzzleDates = {};
+  (puzzles || []).forEach(p => {
+    if (!p.date) return;
+    pubPuzzleDates[p.date] = {
+      num: parseInt(p.num, 10),
+      future: !!p.future,
+    };
+  });
+
+  const $warning = document.getElementById('pub-gap-warning');
+  const $text = document.getElementById('pub-gap-text');
+  const gaps = detectPublishedGaps();
+  if ($warning && $text) {
+    if (gaps.length) {
+      $text.textContent = `${gaps.length} gap${gaps.length > 1 ? 's' : ''} detected: ${gaps.slice(0, 3).join(', ')}${gaps.length > 3 ? ` +${gaps.length - 3} more` : ''}`;
+      $warning.style.display = '';
+    } else {
+      $warning.style.display = 'none';
+      $text.textContent = '';
+    }
+  }
+
+  if (resetMonth) {
+    const publishedDates = Object.keys(pubPuzzleDates)
+      .filter(d => !pubPuzzleDates[d].future)
+      .sort();
+    if (publishedDates.length) {
+      const latest = publishedDates[publishedDates.length - 1];
+      const d = new Date(latest + 'T00:00:00');
+      pubCalYear = d.getFullYear();
+      pubCalMonth = d.getMonth();
+    }
+  }
+}
+
+async function refreshPublishedCalendarData() {
+  const res = await fetch('/admin/published-index');
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to refresh published puzzles');
+  }
+  applyPublishedCalendarData(data.puzzles || [], false);
+  if (pubExpandedDate && pubPuzzleDates[pubExpandedDate]) {
+    renderPublishedCalendar();
+    await renderExpandedPubDetail(pubExpandedDate);
+  } else {
+    pubExpandedDate = null;
+    renderPublishedCalendar();
+    const $detail = document.getElementById('pub-detail-area');
+    if ($detail) $detail.innerHTML = '';
+  }
+}
+
 function initPublishedCalendar() {
   if (pubCalInitialized) {
     renderPublishedCalendar();
     return;
   }
 
-  // Read data from hidden data-source divs
-  pubPuzzleDates = {};
-  document.querySelectorAll('#pub-data-source [data-date]').forEach(el => {
-    const d = el.dataset.date;
-    pubPuzzleDates[d] = {
-      num:    parseInt(el.dataset.num, 10),
-      future: el.dataset.future === 'true',
-    };
-  });
-
-  // Detect gaps and show warning
-  const gaps = detectPublishedGaps();
-  if (gaps.length) {
-    const $warning = document.getElementById('pub-gap-warning');
-    const $text    = document.getElementById('pub-gap-text');
-    if ($warning && $text) {
-      $text.textContent = `${gaps.length} gap${gaps.length > 1 ? 's' : ''} detected: ${gaps.slice(0, 3).join(', ')}${gaps.length > 3 ? ` +${gaps.length - 3} more` : ''}`;
-      $warning.style.display = '';
-    }
-  }
-
-  // Default month: most recent published date (non-future)
-  const publishedDates = Object.keys(pubPuzzleDates)
-    .filter(d => !pubPuzzleDates[d].future)
-    .sort();
-  if (publishedDates.length) {
-    const latest = publishedDates[publishedDates.length - 1];
-    const d = new Date(latest + 'T00:00:00');
-    pubCalYear  = d.getFullYear();
-    pubCalMonth = d.getMonth();
-  }
+  const initialPuzzles = Array.from(document.querySelectorAll('#pub-data-source [data-date]')).map(el => ({
+    date: el.dataset.date,
+    num: parseInt(el.dataset.num, 10),
+    future: el.dataset.future === 'true',
+  }));
+  applyPublishedCalendarData(initialPuzzles, true);
 
   // Bind prev/next buttons
   document.getElementById('btn-pub-prev-month')?.addEventListener('click', () => {
