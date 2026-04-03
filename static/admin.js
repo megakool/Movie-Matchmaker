@@ -1349,7 +1349,7 @@ function _renderModalMovieSearch() {
     $mresults.querySelectorAll('.cat-movie-search-item').forEach(item => {
       item.addEventListener('mousedown', e => {
         e.preventDefault();
-        _editDraft.movie_ids.push(item.dataset.id);
+        _editDraft.movie_ids.push(+item.dataset.id);
         _editDraft.movie_titles.push(item.dataset.title);
         wrap.style.display = 'none';
         _renderModalChips();

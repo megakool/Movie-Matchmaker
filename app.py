@@ -681,10 +681,15 @@ def admin_publish():
     else:
         puzzle_number = len(all_dates) + 1
 
+    # Normalize movie_ids to int — guards against string IDs from the category editor
+    categories = data.get("categories", [])
+    for cat in categories:
+        cat["movie_ids"] = [int(mid) for mid in cat.get("movie_ids", [])]
+
     puzzle = {
         "date": puzzle_date,
         "puzzle_number": puzzle_number,
-        "categories": data.get("categories", []),
+        "categories": categories,
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "author_note": data.get("author_note", ""),
     }
