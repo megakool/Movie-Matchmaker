@@ -7,6 +7,7 @@ import os
 import re
 import random
 import hashlib
+import secrets
 import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -14,6 +15,7 @@ from functools import wraps
 import urllib.request
 import urllib.error
 import urllib.parse
+from zoneinfo import ZoneInfo
 
 from flask import (
     Flask, render_template, jsonify, request,
@@ -117,13 +119,36 @@ _migrate_puzzle_ids()
 # Ensure trivia_puzzles dir always exists locally too
 TRIVIA_PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
 
-ADMIN_PASSWORD    = os.environ.get("MARQUEE_ADMIN_PASSWORD", "marquee-admin-2026")
 DEV_MODE          = os.environ.get("MARQUEE_DEV_MODE", "0") == "1"
+
+
+def _env_or_safe_default(env_name: str, *, dev_default: str, dev_mode: bool, label: str) -> str:
+    value = os.environ.get(env_name, "").strip()
+    if value:
+        return value
+    if dev_mode:
+        return dev_default
+    generated = secrets.token_hex(32)
+    print(f"Warning: {env_name} not set; generated ephemeral {label}.")
+    return generated
+
+
+ADMIN_PASSWORD    = _env_or_safe_default(
+    "MARQUEE_ADMIN_PASSWORD",
+    dev_default="marquee-admin-2026",
+    dev_mode=DEV_MODE,
+    label="admin password",
+)
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 TMDB_API_KEY      = os.environ.get("TMDB_API_KEY", "")
 
 app = Flask(__name__, template_folder=str(MARQUEE_DIR / "templates"), static_folder=str(MARQUEE_DIR / "static"))
-app.secret_key = os.environ.get("MARQUEE_SECRET_KEY", "marquee-secret-dev-2026")
+app.secret_key = _env_or_safe_default(
+    "MARQUEE_SECRET_KEY",
+    dev_default="marquee-secret-dev-2026",
+    dev_mode=DEV_MODE,
+    label="session secret",
+)
 
 @app.context_processor
 def inject_globals():
@@ -132,6 +157,12 @@ def inject_globals():
 # ── Data ──────────────────────────────────────────────────────────────────────
 _movies_cache      = None
 _movies_cache_mtime = 0.0
+SITE_TIMEZONE = ZoneInfo("America/Los_Angeles")
+
+
+def current_site_date() -> date:
+    """Canonical release date for public puzzle access."""
+    return datetime.now(SITE_TIMEZONE).date()
 
 def get_settings() -> dict:
     if not SETTINGS_PATH.exists():
@@ -335,7 +366,9 @@ window.location.replace('/trivia/' + y + '-' + m + '-' + day);
 
 @app.get("/trivia/<puzzle_date>")
 def trivia_puzzle(puzzle_date: str):
-    today = date.today().isoformat()
+    today = current_site_date().isoformat()
+    if puzzle_date > today:
+        return redirect(url_for("trivia_puzzle", puzzle_date=today)) if get_trivia_puzzle(today) else redirect(url_for("trivia_index"))
     puzzle = get_trivia_puzzle(puzzle_date)
     questions_by_id = {q["id"]: q for q in get_trivia_questions()}
     if puzzle is None:
@@ -352,7 +385,7 @@ def trivia_puzzle(puzzle_date: str):
 @app.get("/trivia/archive")
 def trivia_archive():
     puzzle_dates = get_all_trivia_puzzle_dates()
-    today = date.today().isoformat()
+    today = current_site_date().isoformat()
     questions_by_id = {q["id"]: q for q in get_trivia_questions()}
     past_dates = [d for d in puzzle_dates if d <= today]
     puzzles = []
@@ -375,11 +408,10 @@ def marquee_index():
 @app.get("/marquee/<puzzle_date>")
 def marquee_puzzle(puzzle_date: str):
     puzzle = get_puzzle(puzzle_date)
-    today = date.today().isoformat()
-    max_allowed = (date.today() + timedelta(days=1)).isoformat()
+    today = current_site_date().isoformat()
 
-    # Block access to puzzles more than 1 day in the future (timezone tolerance)
-    if puzzle_date > max_allowed:
+    # Block access to unpublished future puzzles.
+    if puzzle_date > today:
         return redirect(url_for("marquee_puzzle", puzzle_date=today)) if get_puzzle(today) else redirect(url_for("marquee_index"))
 
     if puzzle is None:
@@ -449,7 +481,7 @@ def marquee_puzzle(puzzle_date: str):
 @app.get("/marquee/archive")
 def marquee_archive():
     all_dates = get_all_puzzle_dates()
-    today = date.today().isoformat()
+    today = current_site_date().isoformat()
     puzzles_meta = []
     for i, d in enumerate(all_dates):
         if d > today:
@@ -487,7 +519,11 @@ def api_random_movies():
         exclude_ids = {int(x) for x in exclude_raw.split(",") if x.strip()}
     except ValueError:
         exclude_ids = set()
-    count = min(int(request.args.get("count", 8)), 8)
+    try:
+        count = int(request.args.get("count", 8))
+    except (TypeError, ValueError):
+        return jsonify({"error": "count must be an integer"}), 400
+    count = max(1, min(count, 8))
     pool = [m for m in movies if m["id"] not in exclude_ids]
     sample = random.sample(pool, min(count, len(pool)))
     return jsonify([
@@ -2232,6 +2268,10 @@ def admin_trivia_add():
     a_text = data.get("answer", "").strip()
     if not q_text or not a_text:
         return jsonify({"ok": False, "error": "Question and answer are required"}), 400
+    try:
+        difficulty = max(1, min(10, int(data.get("difficulty", 5))))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "difficulty must be an integer from 1 to 10"}), 400
     questions = list(get_trivia_questions())
     new_id = max((q["id"] for q in questions), default=0) + 1
     new_q = {
@@ -2239,7 +2279,7 @@ def admin_trivia_add():
         "question": q_text,
         "answer": a_text,
         "category": data.get("category", "GENERAL").strip().upper(),
-        "difficulty": max(1, min(10, int(data.get("difficulty", 5)))),
+        "difficulty": difficulty,
         "active": True,
     }
     questions.append(new_q)

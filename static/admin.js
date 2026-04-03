@@ -764,6 +764,22 @@ async function loadCategoryLibrary() {
   renderBuilderLibrary();
 }
 
+async function saveCategoryToLibrary(payload) {
+  const res = await fetch('/admin/categories', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || 'Save failed');
+  }
+  savedCategories.unshift(data.category);
+  renderCategoryLibrary();
+  renderBuilderLibrary();
+  return data.category;
+}
+
 async function loadDuplicates() {
   try {
     const [pairsRes, dismissedRes] = await Promise.all([
@@ -4416,5 +4432,124 @@ function initConnTypeHelpModal() {
 }
 
 // ── Start ──────────────────────────────────────────────────────────
+function renderSuggestFooter(footer) {
+  footer.innerHTML = '';
+  const n = suggestSelected.size;
+
+  const count = document.createElement('span');
+  count.className = 'suggest-count';
+  count.textContent = n === 0 ? 'Click movies to select (pick 4)'
+    : n < 4 ? `${n}/4 selected - pick ${4 - n} more`
+    : '4 selected';
+  footer.appendChild(count);
+
+  if (n !== 4) return;
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn--ghost btn--sm';
+  saveBtn.textContent = '+ Library';
+  saveBtn.addEventListener('click', async () => {
+    const prompt = document.getElementById('suggest-prompt').value.trim();
+    const selected = suggestPicks.filter(p => suggestSelected.has(p.id));
+    saveBtn.disabled = true;
+    try {
+      await saveCategoryToLibrary({
+        title: prompt,
+        movie_ids: selected.map(p => p.id),
+        movie_titles: selected.map(p => p.title),
+        source: 'ai',
+      });
+      saveBtn.textContent = 'Saved';
+    } catch (err) {
+      saveBtn.disabled = false;
+      alert(err.message || 'Failed to save category.');
+    }
+  });
+  footer.appendChild(saveBtn);
+}
+
+function renderWorkshopCard(catData) {
+  const card = document.createElement('div');
+  card.className = 'ai-result-card';
+  card._cat = {
+    title: catData.title,
+    movie_ids: [...(catData.movie_ids || [])],
+    movie_titles: [...(catData.movie_titles || [])],
+    connection_type: catData.connection_type,
+    difficulty: catData.difficulty,
+    reasoning: catData.reasoning,
+  };
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'ai-result-card__title';
+  titleEl.textContent = card._cat.title;
+  card.appendChild(titleEl);
+
+  const moviesEl = document.createElement('div');
+  moviesEl.className = 'ai-result-card__movies';
+  moviesEl.textContent = card._cat.movie_titles.join(' · ');
+  card.appendChild(moviesEl);
+
+  if (card._cat.reasoning) {
+    const reasonEl = document.createElement('div');
+    reasonEl.className = 'ai-result-card__reasoning';
+    reasonEl.textContent = card._cat.reasoning;
+    card.appendChild(reasonEl);
+  }
+
+  const footer = document.createElement('div');
+  footer.className = 'ai-result-card__footer';
+
+  const metaRow = document.createElement('div');
+  metaRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-right:auto;flex-wrap:wrap;';
+  if (card._cat.connection_type) {
+    const typeBadge = document.createElement('span');
+    typeBadge.className = 'ai-conn-type';
+    typeBadge.textContent = card._cat.connection_type;
+    metaRow.appendChild(typeBadge);
+  }
+  if (card._cat.difficulty) {
+    const diffBadge = document.createElement('span');
+    diffBadge.className = 'ai-difficulty';
+    diffBadge.textContent = `Diff ${card._cat.difficulty}`;
+    metaRow.appendChild(diffBadge);
+  }
+  footer.appendChild(metaRow);
+
+  const findMoreBtn = document.createElement('button');
+  findMoreBtn.className = 'btn btn--ghost btn--sm';
+  findMoreBtn.textContent = 'Find More';
+  findMoreBtn.addEventListener('click', () => onFindMore(card, findMoreBtn));
+  footer.appendChild(findMoreBtn);
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn--ghost btn--sm';
+  const canSave = card._cat.movie_ids.length === 4;
+  saveBtn.textContent = canSave ? '+ Library' : 'Need 4 movies';
+  saveBtn.disabled = !canSave;
+  if (!canSave) saveBtn.title = 'Only 4-movie categories can be saved to the library.';
+  saveBtn.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    try {
+      await saveCategoryToLibrary({
+        title: card._cat.title,
+        movie_ids: card._cat.movie_ids,
+        movie_titles: card._cat.movie_titles,
+        source: 'ai',
+        connection_type: card._cat.connection_type || '',
+        difficulty: card._cat.difficulty || null,
+      });
+      saveBtn.textContent = 'Saved';
+    } catch (err) {
+      saveBtn.disabled = false;
+      alert(err.message || 'Failed to save category.');
+    }
+  });
+  footer.appendChild(saveBtn);
+
+  card.appendChild(footer);
+  return card;
+}
+
 init();
 initConnTypeHelpModal();
