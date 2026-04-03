@@ -1676,10 +1676,16 @@ def _extract_json(raw: str) -> str:
     raw = re.sub(r'^```(?:json)?\s*', '', raw)
     raw = re.sub(r'\s*```$', '', raw.strip())
     raw = raw.strip()
-    # If still not starting with { or [, find first occurrence
+    # Find first { or [ and parse only that object — stops at end of valid JSON,
+    # ignoring any trailing text Claude appended after the JSON block.
     m = re.search(r'(\{|\[)', raw)
     if m:
         raw = raw[m.start():]
+        try:
+            obj, _ = json.JSONDecoder().raw_decode(raw)
+            return json.dumps(obj)
+        except json.JSONDecodeError:
+            pass
     return raw
 
 def _call_claude(system: str, user: str, max_tokens: int = 1024) -> str | None:
