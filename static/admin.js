@@ -2704,46 +2704,60 @@ async function onAIWorkshop() {
   }
 }
 
-function renderWorkshopCard(cat) {
+function renderWorkshopCard(catData) {
   const card = document.createElement('div');
   card.className = 'ai-result-card';
+  card._cat = {
+    title:           catData.title,
+    movie_ids:       [...(catData.movie_ids || [])],
+    movie_titles:    [...(catData.movie_titles || [])],
+    connection_type: catData.connection_type,
+    difficulty:      catData.difficulty,
+    reasoning:       catData.reasoning,
+  };
 
   const titleEl = document.createElement('div');
   titleEl.className   = 'ai-result-card__title';
-  titleEl.textContent = cat.title;
+  titleEl.textContent = card._cat.title;
   card.appendChild(titleEl);
 
   const moviesEl = document.createElement('div');
   moviesEl.className   = 'ai-result-card__movies';
-  moviesEl.textContent = (cat.movie_titles || []).join(' · ');
+  moviesEl.textContent = card._cat.movie_titles.join(' · ');
   card.appendChild(moviesEl);
 
-  if (cat.reasoning) {
+  if (card._cat.reasoning) {
     const reasonEl = document.createElement('div');
     reasonEl.className   = 'ai-result-card__reasoning';
-    reasonEl.textContent = cat.reasoning;
+    reasonEl.textContent = card._cat.reasoning;
     card.appendChild(reasonEl);
   }
 
   const footer = document.createElement('div');
   footer.className = 'ai-result-card__footer';
 
-  // Badges
   const metaRow = document.createElement('div');
   metaRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-right:auto;flex-wrap:wrap;';
-  if (cat.connection_type) {
+  if (card._cat.connection_type) {
     const typeBadge = document.createElement('span');
     typeBadge.className   = 'ai-conn-type';
-    typeBadge.textContent = cat.connection_type;
+    typeBadge.textContent = card._cat.connection_type;
     metaRow.appendChild(typeBadge);
   }
-  if (cat.difficulty) {
+  if (card._cat.difficulty) {
     const diffBadge = document.createElement('span');
     diffBadge.className   = 'ai-difficulty';
-    diffBadge.textContent = `Diff ${cat.difficulty}`;
+    diffBadge.textContent = `Diff ${card._cat.difficulty}`;
     metaRow.appendChild(diffBadge);
   }
   footer.appendChild(metaRow);
+
+  // Find More button
+  const findMoreBtn = document.createElement('button');
+  findMoreBtn.className   = 'btn btn--ghost btn--sm';
+  findMoreBtn.textContent = 'Find More';
+  findMoreBtn.addEventListener('click', () => onFindMore(card, findMoreBtn));
+  footer.appendChild(findMoreBtn);
 
   // Save to library
   const saveBtn = document.createElement('button');
@@ -2754,18 +2768,133 @@ function renderWorkshopCard(cat) {
     await fetch('/admin/categories', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title:        cat.title,
-        movie_ids:    cat.movie_ids,
-        movie_titles: cat.movie_titles,
+        title:        card._cat.title,
+        movie_ids:    card._cat.movie_ids,
+        movie_titles: card._cat.movie_titles,
         source:       'ai',
       }),
     });
-    saveBtn.textContent = '✓ Saved';
+    saveBtn.textContent = '\u2713 Saved';
   });
   footer.appendChild(saveBtn);
 
   card.appendChild(footer);
   return card;
+}
+
+async function onFindMore(card, btn) {
+  let expandPanel = card.querySelector('.ai-result-card__expand');
+  if (!expandPanel) {
+    expandPanel = document.createElement('div');
+    expandPanel.className = 'ai-result-card__expand';
+    expandPanel.style.cssText = 'border-top:1px solid rgba(0,0,0,0.1);margin-top:10px;padding-top:10px;';
+    card.appendChild(expandPanel);
+  }
+
+  btn.disabled = true;
+  expandPanel.innerHTML = '<div class="ai-spinner" style="font-size:12px;">\u2746 Searching for candidates\u2026</div>';
+
+  try {
+    const res  = await fetch('/admin/ai/expand', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title:       card._cat.title,
+        reasoning:   card._cat.reasoning,
+        seed_ids:    card._cat.movie_ids,
+        seed_titles: card._cat.movie_titles,
+        exclude_ids: getExcludeIds(),
+      }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      expandPanel.innerHTML = `<div style="color:#cc2200;font-size:12px;">Error: ${escHtml(data.error)}</div>`;
+      return;
+    }
+    const candidates = data.candidates || [];
+    if (!candidates.length) {
+      expandPanel.innerHTML = '<div style="font-size:12px;opacity:0.5;">No additional candidates found.</div>';
+      return;
+    }
+    expandPanel.innerHTML = '';
+    const header = document.createElement('div');
+    header.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;opacity:0.5;margin-bottom:6px;';
+    header.textContent = 'Candidates';
+    expandPanel.appendChild(header);
+    candidates.forEach(c => expandPanel.appendChild(renderExpandCandidate(card, c)));
+  } catch (e) {
+    expandPanel.innerHTML = '<div style="color:#cc2200;font-size:12px;">Request failed.</div>';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderExpandCandidate(card, candidate) {
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-top:1px solid rgba(0,0,0,0.06);font-size:12px;';
+
+  const info = document.createElement('div');
+  info.style.cssText = 'flex:1;';
+
+  const titleSpan = document.createElement('span');
+  titleSpan.style.fontWeight = '600';
+  titleSpan.textContent = `${candidate.title} (${candidate.year})`;
+
+  const strengthBadge = document.createElement('span');
+  const isStrong = candidate.strength === 'strong';
+  strengthBadge.style.cssText = 'margin-left:6px;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;text-transform:uppercase;'
+    + (isStrong ? 'background:#d4edda;color:#1a5c2e;' : 'background:#fff3cd;color:#856404;');
+  strengthBadge.textContent = candidate.strength;
+
+  const reasonSpan = document.createElement('div');
+  reasonSpan.style.cssText = 'opacity:0.65;margin-top:2px;';
+  reasonSpan.textContent = candidate.reasoning;
+
+  info.appendChild(titleSpan);
+  info.appendChild(strengthBadge);
+  info.appendChild(reasonSpan);
+  row.appendChild(info);
+
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex-shrink:0;';
+
+  if (card._cat.movie_ids.length < 4) {
+    const addBtn = document.createElement('button');
+    addBtn.className   = 'btn btn--ghost btn--sm';
+    addBtn.textContent = '+ Add';
+    addBtn.addEventListener('click', () => {
+      card._cat.movie_ids.push(candidate.id);
+      card._cat.movie_titles.push(candidate.title);
+      const newCard = renderWorkshopCard(card._cat);
+      card.parentNode.replaceChild(newCard, card);
+    });
+    actions.appendChild(addBtn);
+  }
+
+  const swapSel = document.createElement('select');
+  swapSel.className = 'btn btn--ghost btn--sm';
+  swapSel.style.cssText = 'cursor:pointer;padding:3px 4px;font-size:11px;';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Swap\u2026';
+  swapSel.appendChild(placeholder);
+  card._cat.movie_titles.forEach((t, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = t;
+    swapSel.appendChild(opt);
+  });
+  swapSel.addEventListener('change', () => {
+    const idx = parseInt(swapSel.value, 10);
+    if (isNaN(idx)) return;
+    card._cat.movie_ids[idx]    = candidate.id;
+    card._cat.movie_titles[idx] = candidate.title;
+    const newCard = renderWorkshopCard(card._cat);
+    card.parentNode.replaceChild(newCard, card);
+  });
+  actions.appendChild(swapSel);
+
+  row.appendChild(actions);
+  return row;
 }
 
 
