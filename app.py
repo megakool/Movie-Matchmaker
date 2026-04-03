@@ -1543,11 +1543,9 @@ def admin_movies_add():
         year = None
     poster_path = details.get("poster_path") or ""
 
-    if MOVIES_FULL_PATH.exists():
-        with open(MOVIES_FULL_PATH, encoding="utf-8") as f:
-            existing_movies = json.load(f)["movies"]
-    else:
-        existing_movies = []
+    src_path = MOVIES_FULL_PATH if MOVIES_FULL_PATH.exists() else MOVIES_PATH
+    with open(src_path, encoding="utf-8") as f:
+        existing_movies = json.load(f)["movies"]
 
     dup_index = next(
         (i for i, m in enumerate(existing_movies) if str(m.get("tmdb_id")) == tmdb_id),
