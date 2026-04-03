@@ -1973,7 +1973,7 @@ def admin_ai_workshop():
 @app.post("/admin/ai/expand")
 @admin_required
 def admin_ai_expand():
-    """Given a category concept + seed movies, find more candidates from the full library."""
+    """Given a category concept + seed movies, use Claude's knowledge to suggest more matches."""
     if not ANTHROPIC_API_KEY:
         return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 503
 
@@ -1995,43 +1995,32 @@ def admin_ai_expand():
     movies_by_id    = {m["id"]: m for m in full_movies}
 
     exclude_all = seed_ids | exclude_ids
-    candidates  = [m for m in full_movies if m["id"] not in exclude_all]
-
-    def movie_meta(m):
-        directors = ", ".join(m.get("directors", []))
-        actors    = ", ".join((m.get("actors") or [])[:5])
-        genres    = ", ".join(m.get("genres", []))
-        oscars    = "; ".join(str(c) for c in m.get("oscar_categories", []))
-        line = f'"{m["title"]}" ({m["year"]}) | dir: {directors} | cast: {actors} | genres: {genres}'
-        if oscars:
-            line += f' | oscars: {oscars}'
-        return line
-
-    candidates_block = "\n".join(movie_meta(m) for m in candidates)
-    seed_list = ", ".join(f'"{t}"' for t in seed_titles) if seed_titles else ", ".join(
+    seed_list   = ", ".join(f'"{t}"' for t in seed_titles) if seed_titles else ", ".join(
         f'"{movies_by_id[i]["title"]}"' for i in seed_ids if i in movies_by_id
     )
 
+    # Ask for more than needed — some suggestions won't be in the library
+    ask_for = num_candidates * 2
+
     raw = _call_claude(
         "You are an expert puzzle designer for Marquee, a daily movie connections game. "
-        "You find movies that share a specific, verifiable connection with a set of seed films.",
+        "You have deep knowledge of film history, production facts, and thematic connections.",
         f'Category: "{title}"\n'
         f'Connection: {reasoning}\n'
         f'Seed films already in this category: {seed_list}\n\n'
-        f"Find the {num_candidates} best additional films from the list below that share the SAME "
-        f"specific connection as the seed films. Rank all 'strong' fits before 'good' fits.\n"
+        f"Suggest {ask_for} additional films from your own knowledge that share the SAME specific "
+        f"connection as the seed films. Rank all 'strong' fits before 'good' fits.\n"
         f"- 'strong': unambiguous, perfect fit\n"
         f"- 'good': fits well but with a minor caveat\n\n"
-        f"Candidate films:\n{candidates_block}\n\n"
         f"Rules:\n"
-        f"- Only pick from the provided candidate list\n"
+        f"- Do not repeat the seed films\n"
         f"- Be specific in your reasoning — reference the actual fact that makes it fit\n"
-        f"- Do not repeat the seed films\n\n"
+        f"- Include the exact release year for each film\n\n"
         'Respond ONLY with valid JSON:\n'
         '{"picks": [\n'
         '  {"title": "Exact Title", "year": 2001, "reasoning": "Specific reason", "strength": "strong"}\n'
         ']}',
-        max_tokens=3000,
+        max_tokens=2000,
     )
     if not raw:
         return jsonify({"error": "AI unavailable"}), 503
