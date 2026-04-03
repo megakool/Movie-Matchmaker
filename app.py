@@ -1304,18 +1304,30 @@ def admin_update_settings():
         settings.setdefault(k, v)
 
     if "ai_tiers" in data:
-        tiers = [int(t) for t in data["ai_tiers"] if int(t) in (1, 2)]
+        try:
+            tiers = [int(t) for t in data["ai_tiers"] if int(t) in (1, 2)]
+        except (TypeError, ValueError):
+            tiers = []
         settings["ai_tiers"] = tiers or [1]
     if "random_tiers" in data:
-        tiers = [int(t) for t in data["random_tiers"] if int(t) in (1, 2)]
+        try:
+            tiers = [int(t) for t in data["random_tiers"] if int(t) in (1, 2)]
+        except (TypeError, ValueError):
+            tiers = []
         settings["random_tiers"] = tiers or [1]
     for key in _WORKSHOP_INT_KEYS:
         if key in data:
-            settings[key] = max(1, int(data[key]))
+            try:
+                settings[key] = max(1, int(data[key]))
+            except (TypeError, ValueError):
+                pass
     if "workshop_decade_spread" in data:
         settings["workshop_decade_spread"] = bool(data["workshop_decade_spread"])
     if "workshop_recency_bias" in data:
-        settings["workshop_recency_bias"] = max(0.0, min(1.0, float(data["workshop_recency_bias"])))
+        try:
+            settings["workshop_recency_bias"] = max(0.0, min(1.0, float(data["workshop_recency_bias"])))
+        except (TypeError, ValueError):
+            pass
 
     save_settings(settings)
     return jsonify({
