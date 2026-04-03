@@ -1736,20 +1736,8 @@
           <!-- ── Category Workshop ── -->
           <div class="ai-section">
             <h3>✦ Category Workshop</h3>
-            <p class="ai-desc">Generate 8 standalone category ideas to cherry-pick from. Toggle which connection types you want Claude to explore.</p>
-            <div class="conn-type-toggles" id="workshop-toggles">
-              <button class="toggle-btn active" data-type="cast">Cast</button>
-              <button class="toggle-btn active" data-type="director">Director</button>
-              <button class="toggle-btn active" data-type="award">Award</button>
-              <button class="toggle-btn active" data-type="genre">Genre</button>
-              <button class="toggle-btn active" data-type="setting">Setting</button>
-              <button class="toggle-btn active" data-type="plot">Plot</button>
-              <button class="toggle-btn active" data-type="trope">Trope</button>
-              <button class="toggle-btn active" data-type="franchise">Franchise</button>
-              <button class="toggle-btn active" data-type="cast_special">Cast (Special)</button>
-              <button class="toggle-btn active" data-type="cast_meta">Cast (Meta)</button>
-            </div>
-            <button class="btn btn--primary" id="btn-ai-workshop">Generate 8 Categories ▶</button>
+            <p class="ai-desc">Give Claude a random sample of films and let it discover surprising connections. Configure pool size and targets in Settings → AI Workshop.</p>
+            <button class="btn btn--primary" id="btn-ai-workshop">Generate Categories ▶</button>
             <div id="ai-workshop-results" class="ai-results"></div>
           </div>
 
@@ -1877,6 +1865,42 @@
             <label class="tier-filter-opt"><input type="checkbox" class="random-tier-cb ai-tier-cb" value="2"> Tier 2</label>
           </div>
           <span id="tier-filter-status" class="settings-status"></span>
+        </div>
+
+        <div class="settings-card" id="settings-workshop">
+          <h3>AI Workshop</h3>
+          <p>Configure the random-pool category generator.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;margin-top:12px;">
+            <label class="settings-field-label">Pool size
+              <input type="number" id="ws-pool-size" class="settings-text-input" min="10" max="100" style="width:80px;">
+            </label>
+            <label class="settings-field-label">Categories to generate
+              <input type="number" id="ws-num-categories" class="settings-text-input" min="1" max="10" style="width:80px;">
+            </label>
+            <label class="settings-field-label">Min movies per category
+              <input type="number" id="ws-min-movies" class="settings-text-input" min="2" max="4" style="width:80px;">
+            </label>
+            <label class="settings-field-label">Max movies per category
+              <input type="number" id="ws-max-movies" class="settings-text-input" min="3" max="5" style="width:80px;">
+            </label>
+            <label class="settings-field-label">Max tokens
+              <input type="number" id="ws-max-tokens" class="settings-text-input" min="512" max="8192" style="width:80px;">
+            </label>
+            <label class="settings-field-label">Expand candidates
+              <input type="number" id="ws-expand-candidates" class="settings-text-input" min="5" max="20" style="width:80px;">
+            </label>
+            <label class="settings-field-label" style="grid-column:1/-1;">Recency bias (0 = era-proportional · 1 = skew modern)
+              <input type="range" id="ws-recency-bias" min="0" max="1" step="0.1" style="width:200px;vertical-align:middle;">
+              <span id="ws-recency-bias-val" style="font-size:12px;opacity:0.7;margin-left:6px;">0.0</span>
+            </label>
+            <label class="settings-field-label" style="grid-column:1/-1;">
+              <input type="checkbox" id="ws-decade-spread"> Stratified decade sampling
+            </label>
+          </div>
+          <div class="settings-action-row" style="margin-top:12px;">
+            <button class="btn btn--ghost btn--sm" id="btn-save-workshop-settings">Save Workshop Settings</button>
+            <span id="workshop-settings-status" class="settings-status"></span>
+          </div>
         </div>
 
         <div class="settings-card" id="settings-bulk-classify">
