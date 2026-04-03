@@ -1599,21 +1599,55 @@ def _titles_only_list(movies: list) -> str:
     """Compact title+year list — lets Claude use its own knowledge of each film."""
     return "\n".join(f'"{m["title"]}" ({m["year"]})' for m in movies)
 
-def _stratified_sample(movies: list, n: int) -> list:
-    """Sample n movies spread proportionally across decades for variety."""
+def _stratified_sample(movies: list, n: int, recency_bias: float = 0.0) -> list:
+    """Sample n movies spread across decades.
+
+    recency_bias: 0.0 = proportional to library composition;
+                  1.0 = post-2000 decades receive 60% of slots total.
+                  Linear interpolation between 0 and 1.
+    """
+    if not movies:
+        return []
+    n = min(n, len(movies))
+
     buckets: dict[int, list] = {}
     for m in movies:
         decade = (int(m.get("year", 2000)) // 10) * 10
         buckets.setdefault(decade, []).append(m)
+
+    total = len(movies)
+    base_weights = {d: len(b) / total for d, b in buckets.items()}
+
+    if recency_bias > 0:
+        modern  = [d for d in buckets if d >= 2000]
+        classic = [d for d in buckets if d < 2000]
+        modern_base  = sum(base_weights.get(d, 0) for d in modern)
+        classic_base = sum(base_weights.get(d, 0) for d in classic)
+        if modern and classic:
+            modern_target  = max(0.0, min(1.0, modern_base + recency_bias * (0.6 - modern_base)))
+            classic_target = 1.0 - modern_target
+            adjusted: dict[int, float] = {}
+            for d in modern:
+                share = base_weights[d] / modern_base if modern_base > 0 else 1 / len(modern)
+                adjusted[d] = modern_target * share
+            for d in classic:
+                share = base_weights[d] / classic_base if classic_base > 0 else 1 / len(classic)
+                adjusted[d] = classic_target * share
+        else:
+            adjusted = base_weights
+    else:
+        adjusted = base_weights
+
     result = []
-    total  = len(movies)
     for decade in sorted(buckets):
         bucket = buckets[decade]
-        target = max(1, round(n * len(bucket) / total))
+        target = max(1, round(n * adjusted.get(decade, 0)))
         result.extend(random.sample(bucket, min(target, len(bucket))))
+
     # top up / trim to exactly n
     if len(result) < n:
-        remaining = [m for m in movies if m not in result]
+        in_result = {id(m) for m in result}
+        remaining = [m for m in movies if id(m) not in in_result]
         result.extend(random.sample(remaining, min(n - len(result), len(remaining))))
     return result[:n]
 
