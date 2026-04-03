@@ -130,7 +130,8 @@ def inject_globals():
     return {"dev_mode": DEV_MODE}
 
 # ── Data ──────────────────────────────────────────────────────────────────────
-_movies_cache = None
+_movies_cache      = None
+_movies_cache_mtime = 0.0
 
 def get_settings() -> dict:
     if not SETTINGS_PATH.exists():
@@ -147,11 +148,16 @@ def save_settings(settings: dict):
         json.dump(settings, f, indent=2)
 
 def get_movies() -> list:
-    global _movies_cache
-    if _movies_cache is None:
-        path = MOVIES_FULL_PATH if MOVIES_FULL_PATH.exists() else MOVIES_PATH
+    global _movies_cache, _movies_cache_mtime
+    path = MOVIES_FULL_PATH if MOVIES_FULL_PATH.exists() else MOVIES_PATH
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    if _movies_cache is None or mtime != _movies_cache_mtime:
         with open(path, "r", encoding="utf-8") as f:
             _movies_cache = json.load(f)["movies"]
+        _movies_cache_mtime = mtime
     return _movies_cache
 
 def get_movies_by_id() -> dict:

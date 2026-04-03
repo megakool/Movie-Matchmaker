@@ -2372,6 +2372,16 @@ function applyWorkshopSettingsUI() {
   setChk('ws-decade-spread',   workshopDecadeSpread);
   const valEl = document.getElementById('ws-recency-bias-val');
   if (valEl) valEl.textContent = parseFloat(workshopRecencyBias).toFixed(1);
+  updateWorkshopSummary();
+}
+
+function updateWorkshopSummary() {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('ws-sum-pool',    workshopPoolSize);
+  set('ws-sum-cats',    workshopNumCategories);
+  set('ws-sum-movies',  `${workshopMinMovies}\u2013${workshopMaxMovies}`);
+  set('ws-sum-tokens',  workshopMaxTokens);
+  set('ws-sum-recency', parseFloat(workshopRecencyBias).toFixed(1));
 }
 
 async function saveWorkshopSettings() {
@@ -2406,6 +2416,7 @@ async function saveWorkshopSettings() {
     workshopDecadeSpread     = data.workshop_decade_spread     ?? workshopDecadeSpread;
     workshopExpandCandidates = data.workshop_expand_candidates ?? workshopExpandCandidates;
     workshopRecencyBias      = data.workshop_recency_bias      ?? workshopRecencyBias;
+    updateWorkshopSummary();
   }
 }
 

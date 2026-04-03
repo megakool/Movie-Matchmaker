@@ -473,6 +473,74 @@
 /* ── btn--danger ────────────────────────────────────────────────── */
 .btn--danger { color: #cc2200; border-color: #cc2200; }
 
+/* ── Settings v2 Layout ──────────────────────────────────────────── */
+.settings-primary-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 22px;
+}
+@media (max-width: 900px) { .settings-primary-grid { grid-template-columns: 1fr; } }
+.settings-card--primary   { max-width: none; padding: 0; }
+.settings-card__hd        { display: flex; align-items: center; gap: 10px; padding: 20px 22px 0; }
+.settings-card__title     { font-family: 'Fraunces', Georgia, serif; font-weight: 900;
+                             font-style: italic; font-size: 22px; line-height: 1; }
+
+/* Summary bar — shows currently saved values */
+.ws-summary-bar   { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 22px;
+                    background: var(--bg);
+                    border-top: var(--bw) solid var(--border);
+                    border-bottom: 1px solid rgba(17,17,17,0.08);
+                    margin-top: 14px; }
+.ws-summary-pill  { font-size: 11px; font-weight: 600; background: var(--surface);
+                    border: 1.5px solid rgba(17,17,17,0.2); border-radius: 20px;
+                    padding: 3px 10px; white-space: nowrap; box-shadow: var(--shadow-xs); }
+.ws-summary-pill__label { color: var(--muted); margin-right: 3px; }
+
+/* Sub-section within primary card */
+.settings-sub-section { padding: 14px 22px; border-bottom: 1px solid rgba(17,17,17,0.08); }
+.settings-sub-label   { font-size: 10px; font-weight: 700; text-transform: uppercase;
+                         letter-spacing: .08em; color: var(--muted); opacity: 0.65;
+                         margin-bottom: 8px; display: block; }
+
+/* Workshop field grid */
+.ws-fields-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px;
+                   padding: 16px 22px; }
+.ws-field        { display: flex; flex-direction: column; gap: 5px; }
+.ws-field--full  { grid-column: 1 / -1; }
+.ws-field--check { flex-direction: row; align-items: center; gap: 8px; }
+.ws-field__label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+                   letter-spacing: .04em; color: var(--text2); }
+.ws-field__input { width: 90px; flex: none; }
+.ws-slider-row   { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.ws-slider       { flex: 1; accent-color: #1a1205; cursor: pointer; }
+.ws-slider-ends  { display: flex; justify-content: space-between; font-size: 10px;
+                   color: var(--muted); opacity: 0.7; margin-top: 3px; }
+.ws-card-actions { padding: 2px 22px 18px; }
+
+/* System tools strip */
+.settings-tools-strip  { margin-bottom: 22px; }
+.settings-tools-grid   { display: grid;
+                          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                          gap: 10px; }
+.settings-tool-card    { background: var(--surface); border: var(--bw) solid var(--border);
+                          border-radius: 10px; box-shadow: var(--shadow-xs); padding: 14px 16px; }
+.settings-tool-card__title   { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+.settings-tool-card__actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+/* Danger zone */
+.settings-danger-zone       { border: var(--bw) solid #cc2200; border-radius: 12px;
+                               overflow: hidden; }
+.settings-danger-zone__hd   { background: #cc2200; padding: 8px 18px;
+                               display: flex; align-items: center; gap: 8px; }
+.settings-danger-zone__label{ font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+                               text-transform: uppercase; color: #fff; }
+.settings-danger-zone__body { padding: 18px 20px; background: var(--surface); }
+.settings-danger-zone__body h3 { font-size: 15px; font-weight: 700; color: #cc2200; margin: 0 0 4px; }
+.settings-danger-zone__body p  { font-size: 13px; color: var(--text2); margin: 0 0 12px;
+                                  line-height: 1.5; }
+
 /* ── Browse panel ───────────────────────────────────────────────── */
 .conn-layout-2col  { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; align-items: start; }
 @media (max-width: 700px) { .conn-layout-2col { grid-template-columns: 1fr; } }
@@ -1853,137 +1921,160 @@
         <h1 class="panel-hd__title">Settings</h1>
       </div>
 
-      <!-- ── AI & Generation ── -->
-      <div class="settings-section">
-        <div class="settings-section__label">AI &amp; Generation</div>
+      <!-- ── Primary Zone: side-by-side ── -->
+      <div class="settings-primary-grid">
 
-        <div class="settings-card" id="settings-tier-filters">
-          <h3>Tier Filters</h3>
-          <p>Select which movie tiers are included in the generator and AI features. Tier 1 = most popular films; Tier 2 = well-known.</p>
-          <div class="tier-filter-group" style="margin-top:10px;">
-            <label class="tier-filter-opt"><input type="checkbox" class="random-tier-cb ai-tier-cb" value="1"> Tier 1</label>
-            <label class="tier-filter-opt"><input type="checkbox" class="random-tier-cb ai-tier-cb" value="2"> Tier 2</label>
+        <!-- AI Workshop -->
+        <div class="admin-card settings-card--primary" id="settings-workshop">
+          <div class="settings-card__hd">
+            <h2 class="settings-card__title">AI Workshop</h2>
           </div>
-          <span id="tier-filter-status" class="settings-status"></span>
-        </div>
 
-        <div class="settings-card" id="settings-workshop">
-          <h3>AI Workshop</h3>
-          <p>Configure the random-pool category generator.</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;margin-top:12px;">
-            <label class="settings-field-label">Pool size
-              <input type="number" id="ws-pool-size" class="settings-text-input" min="10" max="100" style="width:80px;">
+          <!-- Saved-values summary -->
+          <div class="ws-summary-bar" id="ws-summary-bar">
+            <span class="ws-summary-pill"><span class="ws-summary-pill__label">Pool</span><span id="ws-sum-pool">25</span> movies</span>
+            <span class="ws-summary-pill"><span class="ws-summary-pill__label">Categories</span><span id="ws-sum-cats">4</span></span>
+            <span class="ws-summary-pill"><span class="ws-summary-pill__label">Per category</span><span id="ws-sum-movies">3–4</span></span>
+            <span class="ws-summary-pill"><span class="ws-summary-pill__label">Tokens</span><span id="ws-sum-tokens">2048</span></span>
+            <span class="ws-summary-pill"><span class="ws-summary-pill__label">Recency</span><span id="ws-sum-recency">0.0</span></span>
+          </div>
+
+          <!-- Tier Filters (merged) -->
+          <div class="settings-sub-section" id="settings-tier-filters">
+            <span class="settings-sub-label">Movie Pool Tiers</span>
+            <div class="tier-filter-group" style="flex-direction:row;gap:16px;margin-bottom:4px;">
+              <label class="tier-filter-opt"><input type="checkbox" class="random-tier-cb ai-tier-cb" value="1"> Tier 1</label>
+              <label class="tier-filter-opt"><input type="checkbox" class="random-tier-cb ai-tier-cb" value="2"> Tier 2</label>
+            </div>
+            <span id="tier-filter-status" class="settings-status"></span>
+          </div>
+
+          <!-- Workshop fields -->
+          <div class="ws-fields-grid">
+            <label class="ws-field">
+              <span class="ws-field__label">Pool size</span>
+              <input type="number" id="ws-pool-size" class="settings-text-input ws-field__input" min="10" max="100">
             </label>
-            <label class="settings-field-label">Categories to generate
-              <input type="number" id="ws-num-categories" class="settings-text-input" min="1" max="10" style="width:80px;">
+            <label class="ws-field">
+              <span class="ws-field__label">Categories to generate</span>
+              <input type="number" id="ws-num-categories" class="settings-text-input ws-field__input" min="1" max="10">
             </label>
-            <label class="settings-field-label">Min movies per category
-              <input type="number" id="ws-min-movies" class="settings-text-input" min="2" max="4" style="width:80px;">
+            <label class="ws-field">
+              <span class="ws-field__label">Min movies / category</span>
+              <input type="number" id="ws-min-movies" class="settings-text-input ws-field__input" min="2" max="4">
             </label>
-            <label class="settings-field-label">Max movies per category
-              <input type="number" id="ws-max-movies" class="settings-text-input" min="3" max="5" style="width:80px;">
+            <label class="ws-field">
+              <span class="ws-field__label">Max movies / category</span>
+              <input type="number" id="ws-max-movies" class="settings-text-input ws-field__input" min="3" max="5">
             </label>
-            <label class="settings-field-label">Max tokens
-              <input type="number" id="ws-max-tokens" class="settings-text-input" min="512" max="8192" style="width:80px;">
+            <label class="ws-field">
+              <span class="ws-field__label">Max tokens</span>
+              <input type="number" id="ws-max-tokens" class="settings-text-input ws-field__input" min="512" max="8192">
             </label>
-            <label class="settings-field-label">Expand candidates
-              <input type="number" id="ws-expand-candidates" class="settings-text-input" min="5" max="20" style="width:80px;">
+            <label class="ws-field">
+              <span class="ws-field__label">Expand candidates</span>
+              <input type="number" id="ws-expand-candidates" class="settings-text-input ws-field__input" min="5" max="20">
             </label>
-            <label class="settings-field-label" style="grid-column:1/-1;">Recency bias (0 = era-proportional · 1 = skew modern)
-              <input type="range" id="ws-recency-bias" min="0" max="1" step="0.1" style="width:200px;vertical-align:middle;">
-              <span id="ws-recency-bias-val" style="font-size:12px;opacity:0.7;margin-left:6px;">0.0</span>
-            </label>
-            <label class="settings-field-label" style="grid-column:1/-1;">
-              <input type="checkbox" id="ws-decade-spread"> Stratified decade sampling
+            <div class="ws-field ws-field--full">
+              <span class="ws-field__label">Recency bias &mdash; <span id="ws-recency-bias-val">0.0</span></span>
+              <div class="ws-slider-row">
+                <input type="range" id="ws-recency-bias" min="0" max="1" step="0.1" class="ws-slider">
+              </div>
+              <div class="ws-slider-ends"><span>Era-balanced</span><span>Modern-skewed</span></div>
+            </div>
+            <label class="ws-field ws-field--full ws-field--check">
+              <input type="checkbox" id="ws-decade-spread">
+              <span style="font-size:13px;font-weight:600;color:var(--text);">Stratified decade sampling</span>
             </label>
           </div>
-          <div class="settings-action-row" style="margin-top:12px;">
-            <button class="btn btn--ghost btn--sm" id="btn-save-workshop-settings">Save Workshop Settings</button>
+
+          <div class="settings-action-row ws-card-actions">
+            <button class="btn btn--ghost btn--sm" id="btn-save-workshop-settings">Save Changes</button>
             <span id="workshop-settings-status" class="settings-status"></span>
           </div>
         </div>
 
-        <div class="settings-card" id="settings-bulk-classify">
-          <h3>Classify Connection Types</h3>
-          <p>Auto-classify every category that's missing a connection type using AI. Runs one at a time and saves each result immediately — safe to stop and resume.</p>
-          <div class="settings-action-row" style="margin-top:2px;">
-            <button class="btn btn--ghost btn--sm" id="btn-bulk-classify">Classify All Unclassified</button>
-            <button class="btn btn--ghost btn--sm" id="btn-bulk-classify-stop" style="display:none;">Stop</button>
-            <span id="bulk-classify-status" class="settings-status" style="margin-top:0;"></span>
+        <!-- Movie Library -->
+        <div class="admin-card settings-card--primary" id="settings-add-movie">
+          <div class="settings-card__hd">
+            <h2 class="settings-card__title">Movie Library</h2>
           </div>
-          <div id="bulk-classify-bar-wrap" class="classify-progress-wrap" style="display:none;">
-            <div class="classify-progress-track">
-              <div id="bulk-classify-bar" class="classify-progress-fill"></div>
+          <div style="padding:0 22px 20px;">
+            <p style="font-size:13px;color:var(--text2);margin:14px 0 12px;line-height:1.5;">Search TMDB by title, preview the data, then add to <code>movies_full.json</code>.</p>
+            <div class="settings-action-row" style="margin-bottom:4px;">
+              <input type="text" id="add-movie-query" class="settings-text-input"
+                placeholder="Search movie title…" aria-label="Search movie title">
+              <button class="btn btn--ghost btn--sm" id="btn-add-movie-search">Search</button>
+            </div>
+            <span id="add-movie-status" class="settings-status"></span>
+            <div id="add-movie-results" style="margin-top:10px;display:none;"></div>
+            <div id="add-movie-confirm" style="margin-top:12px;display:none;"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── System Tools ── -->
+      <div class="settings-tools-strip">
+        <div class="settings-section__label">System Tools</div>
+        <div class="settings-tools-grid">
+
+          <div class="settings-tool-card">
+            <div class="settings-tool-card__title">Export Data</div>
+            <div class="settings-tool-card__actions">
+              <a class="btn btn--ghost btn--sm" href="/admin/export/puzzles" download>Puzzles</a>
+              <a class="btn btn--ghost btn--sm" href="/admin/categories" download="categories_export.json">Categories</a>
+              <a class="btn btn--ghost btn--sm" href="/admin/export/categories/unused" download>Unused</a>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- ── Movie Library ── -->
-      <div class="settings-section">
-        <div class="settings-section__label">Movie Library</div>
-
-        <div class="settings-card" id="settings-add-movie">
-          <h3>Add Movie to Full Library</h3>
-          <p>Search TMDB by title to find a movie, preview its data, then add it to <code>movies_full.json</code>.</p>
-
-          <!-- Search input -->
-          <div class="settings-action-row" style="margin-top:10px;">
-            <input type="text" id="add-movie-query" class="settings-text-input"
-              placeholder="Search movie title…" aria-label="Search movie title">
-            <button class="btn btn--ghost btn--sm" id="btn-add-movie-search">Search</button>
+          <div class="settings-tool-card">
+            <div class="settings-tool-card__title">Import Library</div>
+            <div class="settings-tool-card__actions">
+              <button class="btn btn--ghost btn--sm" id="btn-import-library-choose">Choose File…</button>
+              <input type="file" id="import-library-file-input" accept=".json" style="display:none;">
+              <span id="import-library-status" class="settings-status" style="margin-top:0;"></span>
+            </div>
           </div>
-          <span id="add-movie-status" class="settings-status"></span>
 
-          <!-- Search results list -->
-          <div id="add-movie-results" style="margin-top:10px;display:none;"></div>
-
-          <!-- Confirmation / duplicate card -->
-          <div id="add-movie-confirm" style="margin-top:12px;display:none;"></div>
-        </div>
-      </div>
-
-      <!-- ── Data Management ── -->
-      <div class="settings-section">
-        <div class="settings-section__label">Data Management</div>
-
-        <div class="settings-card">
-          <h3>Export Data</h3>
-          <p>Download your published puzzles or saved category library as JSON.</p>
-          <div class="settings-action-row" style="margin-top:10px;">
-            <a class="btn btn--ghost btn--sm" href="/admin/export/puzzles" download>Export Puzzles</a>
-            <a class="btn btn--ghost btn--sm" href="/admin/categories" download="categories_export.json">Export All Categories</a>
-            <a class="btn btn--ghost btn--sm" href="/admin/export/categories/unused" download>Export Unused Categories</a>
+          <div class="settings-tool-card">
+            <div class="settings-tool-card__title">Renumber Puzzles</div>
+            <div class="settings-tool-card__actions">
+              <button class="btn btn--ghost btn--sm" id="btn-renumber-all">Renumber All</button>
+            </div>
           </div>
-        </div>
 
-        <div class="settings-card">
-          <h3>Import Library</h3>
-          <p>Replace the category library from a JSON export. Accepts a <strong>puzzles export</strong> (extracts unique categories) or a <strong>categories export</strong>. This will <em>wipe and replace</em> your current library.</p>
-          <div class="settings-action-row" style="margin-top:10px;">
-            <button class="btn btn--ghost btn--sm" id="btn-import-library-choose">Choose File…</button>
-            <input type="file" id="import-library-file-input" accept=".json" style="display:none;">
-            <span id="import-library-status" class="settings-status" style="margin-top:0;"></span>
+          <div class="settings-tool-card">
+            <div class="settings-tool-card__title">Duplicate Detection</div>
+            <div class="settings-tool-card__actions">
+              <button class="btn btn--ghost btn--sm" id="btn-scan-duplicates">Scan for Duplicates</button>
+            </div>
           </div>
-        </div>
 
-        <div class="settings-card">
-          <h3>Renumber All Puzzles</h3>
-          <p>Renumber all Marquee puzzles chronologically so #1 is the oldest. Use this if puzzle numbers are out of order after edits or deletions.</p>
-          <button class="btn btn--ghost btn--sm" id="btn-renumber-all">Renumber All</button>
-        </div>
+          <div class="settings-tool-card" id="settings-bulk-classify">
+            <div class="settings-tool-card__title">Classify Connection Types</div>
+            <div class="settings-tool-card__actions">
+              <button class="btn btn--ghost btn--sm" id="btn-bulk-classify">Classify All</button>
+              <button class="btn btn--ghost btn--sm" id="btn-bulk-classify-stop" style="display:none;">Stop</button>
+              <span id="bulk-classify-status" class="settings-status" style="margin-top:0;"></span>
+            </div>
+            <div id="bulk-classify-bar-wrap" class="classify-progress-wrap" style="display:none;margin-top:8px;">
+              <div class="classify-progress-track">
+                <div id="bulk-classify-bar" class="classify-progress-fill"></div>
+              </div>
+            </div>
+          </div>
 
-        <div class="settings-card">
-          <h3>Duplicate Detection</h3>
-          <p>Scan the category library for potential duplicates using exact movie ID matching, title similarity, and connection type overlap.</p>
-          <button class="btn btn--ghost btn--sm" id="btn-scan-duplicates">Scan for Duplicates</button>
         </div>
       </div>
 
       <!-- ── Danger Zone ── -->
-      <div class="settings-section">
-        <div class="settings-section__label settings-section__label--danger">Danger Zone</div>
-        <div class="danger-card">
+      <div class="settings-danger-zone">
+        <div class="settings-danger-zone__hd">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 2L1 21h22L12 2zm0 4l8.5 15H3.5L12 6zm-1 5v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>
+          <span class="settings-danger-zone__label">Danger Zone</span>
+        </div>
+        <div class="settings-danger-zone__body">
           <h3>Reset All Player Progress</h3>
           <p>Wipes every player's streak and history on their next visit. Use this after major puzzle corrections or if you need to clear corrupted client state. This cannot be undone.</p>
           <button class="btn btn--ghost btn--sm btn--danger" id="btn-reset-progress-settings">Reset All Player Progress</button>
