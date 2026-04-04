@@ -2065,57 +2065,63 @@ def admin_ai_expand():
     if not ANTHROPIC_API_KEY:
         return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 503
 
-    data        = request.get_json(force=True)
-    title       = (data.get("title") or "").strip()[:80]
-    reasoning   = (data.get("reasoning") or "").strip()[:300]
-    seed_ids    = set(data.get("seed_ids", []))
-    seed_titles = data.get("seed_titles", [])
-    exclude_ids = set(data.get("exclude_ids", []))
+    data = request.get_json(force=True, silent=True)
+    if not data or not isinstance(data, dict):
+        return jsonify({"error": "invalid request body"}), 400
+
+    try:
+        title       = (data.get("title") or "").strip()[:80]
+        reasoning   = (data.get("reasoning") or "").strip()[:300]
+        seed_ids    = set(int(i) for i in (data.get("seed_ids") or []) if i is not None)
+        seed_titles = data.get("seed_titles") or []
+        exclude_ids = set(int(i) for i in (data.get("exclude_ids") or []) if i is not None)
+    except Exception as e:
+        return jsonify({"error": f"bad request params: {e}"}), 400
 
     if not title or not seed_ids:
         return jsonify({"error": "title and seed_ids required"}), 400
 
-    settings       = get_settings()
-    num_candidates = settings.get("workshop_expand_candidates", 10)
-
-    full_movies     = get_movies()
-    movies_by_title = {m["title"].lower(): m for m in full_movies}
-    movies_by_id    = {m["id"]: m for m in full_movies}
-
-    exclude_all = seed_ids | exclude_ids
-    seed_list   = ", ".join(f'"{t}"' for t in seed_titles) if seed_titles else ", ".join(
-        f'"{movies_by_id[i]["title"]}"' for i in seed_ids if i in movies_by_id
-    )
-
-    # Ask for more than needed — some suggestions may not match the library title exactly
-    ask_for = num_candidates * 2
-
-    raw = _call_claude(
-        "You are an expert puzzle designer for Marquee, a daily movie connections game. "
-        "You have deep knowledge of film history, production facts, and thematic connections.",
-        f'Category: "{title}"\n'
-        f'Connection: {reasoning}\n'
-        f'Seed films already in this category: {seed_list}\n\n'
-        f"Suggest {ask_for} additional films from your own knowledge that share the SAME specific "
-        f"connection as the seed films. Rank all 'strong' fits before 'good' fits.\n"
-        f"- 'strong': unambiguous, perfect fit\n"
-        f"- 'good': fits well but with a minor caveat\n\n"
-        f"Rules:\n"
-        f"- Do not repeat the seed films\n"
-        f"- Be specific in your reasoning — reference the actual fact that makes it fit\n"
-        f"- Use the exact theatrical release title (no year in parentheses in the title field)\n\n"
-        'Respond ONLY with valid JSON:\n'
-        '{"picks": [\n'
-        '  {"title": "Exact Title", "year": 2001, "reasoning": "Specific reason", "strength": "strong"}\n'
-        ']}',
-        max_tokens=2000,
-    )
-    if not raw:
-        return jsonify({"error": "AI unavailable"}), 503
-
     try:
-        parsed   = json.loads(_extract_json(raw))
-        picks_raw = parsed.get("picks") or []   # guard against null / missing key
+        settings       = get_settings()
+        num_candidates = settings.get("workshop_expand_candidates", 10)
+
+        full_movies     = get_movies()
+        movies_by_title = {m["title"].lower(): m for m in full_movies if m.get("title")}
+        movies_by_id    = {m["id"]: m for m in full_movies if m.get("id") is not None}
+
+        exclude_all = seed_ids | exclude_ids
+        seed_list   = ", ".join(f'"{t}"' for t in seed_titles) if seed_titles else ", ".join(
+            f'"{movies_by_id[i]["title"]}"' for i in seed_ids if i in movies_by_id
+        )
+
+        # Ask for more than needed — some suggestions may not match the library title exactly
+        ask_for = num_candidates * 2
+
+        raw = _call_claude(
+            "You are an expert puzzle designer for Marquee, a daily movie connections game. "
+            "You have deep knowledge of film history, production facts, and thematic connections.",
+            f'Category: "{title}"\n'
+            f'Connection: {reasoning}\n'
+            f'Seed films already in this category: {seed_list}\n\n'
+            f"Suggest {ask_for} additional films from your own knowledge that share the SAME specific "
+            f"connection as the seed films. Rank all 'strong' fits before 'good' fits.\n"
+            f"- 'strong': unambiguous, perfect fit\n"
+            f"- 'good': fits well but with a minor caveat\n\n"
+            f"Rules:\n"
+            f"- Do not repeat the seed films\n"
+            f"- Be specific in your reasoning — reference the actual fact that makes it fit\n"
+            f"- Use the exact theatrical release title (no year in parentheses in the title field)\n\n"
+            'Respond ONLY with valid JSON:\n'
+            '{"picks": [\n'
+            '  {"title": "Exact Title", "year": 2001, "reasoning": "Specific reason", "strength": "strong"}\n'
+            ']}',
+            max_tokens=2000,
+        )
+        if not raw:
+            return jsonify({"error": "AI unavailable"}), 503
+
+        parsed    = json.loads(_extract_json(raw))
+        picks_raw = parsed.get("picks") or []
         if not isinstance(picks_raw, list):
             picks_raw = []
         out = []
@@ -2143,8 +2149,10 @@ def admin_ai_expand():
             })
         out.sort(key=lambda x: 0 if x["strength"] == "strong" else 1)
         return jsonify({"candidates": out})
+
     except Exception as e:
-        return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
+        print(f"[expand] error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.post("/admin/ai/suggest-difficulty")
