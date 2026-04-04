@@ -1392,16 +1392,16 @@ def admin_update_settings():
     save_settings(settings)
     return jsonify({
         "ok":                         True,
-        "ai_tiers":                   settings["ai_tiers"],
-        "random_tiers":               settings["random_tiers"],
-        "workshop_pool_size":         settings["workshop_pool_size"],
-        "workshop_num_categories":    settings["workshop_num_categories"],
-        "workshop_min_movies":        settings["workshop_min_movies"],
-        "workshop_max_movies":        settings["workshop_max_movies"],
-        "workshop_max_tokens":        settings["workshop_max_tokens"],
-        "workshop_decade_spread":     settings["workshop_decade_spread"],
-        "workshop_expand_candidates": settings["workshop_expand_candidates"],
-        "workshop_recency_bias":      settings["workshop_recency_bias"],
+        "ai_tiers":                   settings.get("ai_tiers",                   [1]),
+        "random_tiers":               settings.get("random_tiers",               [1]),
+        "workshop_pool_size":         settings.get("workshop_pool_size",         25),
+        "workshop_num_categories":    settings.get("workshop_num_categories",    4),
+        "workshop_min_movies":        settings.get("workshop_min_movies",        3),
+        "workshop_max_movies":        settings.get("workshop_max_movies",        4),
+        "workshop_max_tokens":        settings.get("workshop_max_tokens",        2048),
+        "workshop_decade_spread":     settings.get("workshop_decade_spread",     True),
+        "workshop_expand_candidates": settings.get("workshop_expand_candidates", 10),
+        "workshop_recency_bias":      settings.get("workshop_recency_bias",      0.0),
     })
 
 
