@@ -13,9 +13,11 @@ const COLOR_TEXT  = { yellow: '#7a5c00', green: '#1a4d19', blue: '#0f3d5a', purp
 
 // ── Builder State ──────────────────────────────────────────────────
 let allMovies      = [];
+let allMoviesById  = {};
 let builderQuery   = '';   // legacy — kept for category search compatibility
 let activeSlot     = 0;
 let currentDraftId = null;
+let workshopFindMoreState = null;
 
 // ── Builder Library State ──────────────────────────────────────────
 let builderLibQuery      = '';
@@ -161,6 +163,7 @@ function switchToGame(game) {
 async function loadMovies() {
   const res = await fetch('/admin/movies');
   allMovies = await res.json();
+  allMoviesById = Object.fromEntries(allMovies.map(m => [m.id, m]));
 }
 
 /* ── Movie pool ── */
@@ -2651,6 +2654,7 @@ function bindAIEvents() {
   });
 
   document.getElementById('btn-ai-workshop').addEventListener('click', onAIWorkshop);
+  document.getElementById('btn-ai-workshop-demo')?.addEventListener('click', openWorkshopFindMoreDemo);
 }
 
 function getExcludeIds() {
@@ -4540,6 +4544,382 @@ function renderSuggestFooter(footer) {
   footer.appendChild(saveBtn);
 }
 
+function getWorkshopMovieOption({ id, title, reasoning = '', strength = 'good', original = false }) {
+  const movie = allMoviesById[id] || {};
+  return {
+    id,
+    title: movie.title || title || 'Unknown title',
+    year: movie.year || '',
+    poster_url: movie.poster_url || '',
+    reasoning: reasoning || (original ? 'Original seed from the workshop suggestion.' : ''),
+    strength,
+    original,
+  };
+}
+
+function getAssignedWorkshopMovieIds() {
+  return workshopFindMoreState ? workshopFindMoreState.slots.filter(Boolean) : [];
+}
+
+function getWorkshopMovieSortWeight(movie) {
+  if (movie.strength === 'strong') return 0;
+  if (movie.strength === 'good') return 1;
+  if (movie.original) return 2;
+  return 3;
+}
+
+function getOrderedWorkshopMovies(movies) {
+  return [...movies].sort((a, b) => {
+    const diff = getWorkshopMovieSortWeight(a) - getWorkshopMovieSortWeight(b);
+    if (diff !== 0) return diff;
+    return a.title.localeCompare(b.title);
+  });
+}
+
+function getDefaultWorkshopSlots(movies) {
+  const ordered = getOrderedWorkshopMovies(movies);
+  const slots = ordered.slice(0, 4).map(movie => movie.id);
+  while (slots.length < 4) slots.push(null);
+  return slots;
+}
+
+function renderFindMorePoster(movie) {
+  if (movie.poster_url) {
+    return `<img src="${escHtml(movie.poster_url)}" alt="${escHtml(movie.title)}" draggable="false">`;
+  }
+  return '<div class="findmore-poster-fallback">🎬</div>';
+}
+
+function setFindMoreFocus(movieId) {
+  if (!workshopFindMoreState) return;
+  workshopFindMoreState.focusMovieId = movieId;
+  renderWorkshopFindMoreModal();
+}
+
+function assignWorkshopMovieToSlot(payload, targetIndex) {
+  if (!workshopFindMoreState || !payload.movieId) return;
+  workshopFindMoreState.hasCustomSlots = true;
+  const movieId = payload.movieId;
+  if (payload.source === 'slot' && Number.isInteger(payload.slotIndex)) {
+    const fromIdx = payload.slotIndex;
+    if (fromIdx === targetIndex) return;
+    const targetMovie = workshopFindMoreState.slots[targetIndex] || null;
+    workshopFindMoreState.slots[targetIndex] = movieId;
+    workshopFindMoreState.slots[fromIdx] = targetMovie;
+  } else {
+    const existingIndex = workshopFindMoreState.slots.indexOf(movieId);
+    if (existingIndex !== -1) {
+      workshopFindMoreState.slots[existingIndex] = workshopFindMoreState.slots[targetIndex] || null;
+    }
+    workshopFindMoreState.slots[targetIndex] = movieId;
+  }
+  workshopFindMoreState.focusMovieId = movieId;
+  renderWorkshopFindMoreModal();
+}
+
+function muteWorkshopCard(card) {
+  if (!card) return;
+  card.classList.add('ai-result-card--saved');
+  card.dataset.saved = 'true';
+}
+
+function renderWorkshopFindMoreModal() {
+  const state = workshopFindMoreState;
+  if (!state) return;
+
+  document.getElementById('findmore-modal-title').textContent = state.title;
+  document.getElementById('findmore-modal-sub').textContent =
+    state.reasoning || 'Pick the four posters that best define this category.';
+
+  const badges = document.getElementById('findmore-modal-badges');
+  badges.innerHTML = '';
+  if (state.connection_type) {
+    const type = document.createElement('span');
+    type.className = 'ai-conn-type';
+    type.textContent = state.connection_type;
+    badges.appendChild(type);
+  }
+  if (state.difficulty) {
+    const diff = document.createElement('span');
+    diff.className = 'ai-difficulty';
+    diff.textContent = `Diff ${state.difficulty}`;
+    badges.appendChild(diff);
+  }
+
+  const slotGrid = document.getElementById('findmore-slot-grid');
+  slotGrid.innerHTML = '';
+  state.slots.forEach((movieId, idx) => {
+    const movie = state.movies.find(m => m.id === movieId) || null;
+    const slot = document.createElement('div');
+    slot.className = 'findmore-slot' + (movie ? ' is-filled' : '');
+    slot.addEventListener('dragover', e => {
+      e.preventDefault();
+      slot.classList.add('is-over');
+    });
+    slot.addEventListener('dragleave', () => slot.classList.remove('is-over'));
+    slot.addEventListener('drop', e => {
+      e.preventDefault();
+      slot.classList.remove('is-over');
+      const raw = e.dataTransfer.getData('application/x-workshop-movie');
+      if (!raw) return;
+      try {
+        assignWorkshopMovieToSlot(JSON.parse(raw), idx);
+      } catch (_) {}
+    });
+
+    if (!movie) {
+      slot.innerHTML = '<div class="findmore-slot__empty">Drop a poster here to add it to the final four.</div>';
+    } else {
+      slot.innerHTML = `
+        <div class="findmore-slot__poster" draggable="true">${renderFindMorePoster(movie)}</div>
+        <div class="findmore-slot__meta">
+          <div class="findmore-slot__title">${escHtml(movie.title)}<span class="findmore-slot__year">${escHtml(String(movie.year || ''))}</span></div>
+          <button class="findmore-slot__clear" type="button" aria-label="Clear slot">×</button>
+        </div>`;
+      slot.querySelector('.findmore-slot__poster').addEventListener('dragstart', e => {
+        e.dataTransfer.setData('application/x-workshop-movie', JSON.stringify({
+          source: 'slot',
+          slotIndex: idx,
+          movieId: movie.id,
+        }));
+      });
+      slot.querySelector('.findmore-slot__poster').addEventListener('click', () => setFindMoreFocus(movie.id));
+      slot.querySelector('.findmore-slot__clear').addEventListener('click', () => {
+        state.hasCustomSlots = true;
+        state.slots[idx] = null;
+        renderWorkshopFindMoreModal();
+      });
+    }
+    slotGrid.appendChild(slot);
+  });
+
+  const assigned = new Set(getAssignedWorkshopMovieIds());
+  const pool = document.getElementById('findmore-pool-grid');
+  pool.innerHTML = '';
+  const orderedMovies = getOrderedWorkshopMovies(state.movies);
+  const availableMovies = orderedMovies.filter(movie => !assigned.has(movie.id));
+  availableMovies.forEach(movie => {
+    const card = document.createElement('div');
+    card.className = 'findmore-pool-card'
+      + (state.focusMovieId === movie.id ? ' is-focused' : '');
+    card.draggable = true;
+    card.innerHTML = `
+      <div class="findmore-pool-card__poster">${renderFindMorePoster(movie)}</div>
+      <div class="findmore-pool-card__meta">
+        <div class="findmore-pool-card__title">${escHtml(movie.title)}<span class="findmore-pool-card__year">${escHtml(String(movie.year || ''))}</span></div>
+        <div class="findmore-pool-card__badges">
+          ${movie.original ? '<span class="findmore-badge findmore-badge--original">Original</span>' : ''}
+        </div>
+      </div>`;
+    card.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('application/x-workshop-movie', JSON.stringify({
+        source: 'pool',
+        movieId: movie.id,
+      }));
+    });
+    card.addEventListener('click', () => setFindMoreFocus(movie.id));
+    pool.appendChild(card);
+  });
+
+  if (!availableMovies.length) {
+    pool.innerHTML = '<div class="findmore-slot__empty">All available posters are currently in the final four. Clear a slot to swap one back in.</div>';
+  }
+
+  const focusMovie = state.movies.find(m => m.id === state.focusMovieId) || orderedMovies[0] || null;
+  const side = document.getElementById('findmore-detail-bar');
+  if (!focusMovie) {
+    side.innerHTML = '<div class="findmore-detail-bar__body">Select a poster to read the reasoning.</div>';
+  } else {
+    side.innerHTML = `
+      <div class="findmore-detail-bar__title">${escHtml(focusMovie.title)}${focusMovie.original ? ' · Original' : ''}</div>
+      <div class="findmore-detail-bar__body">${escHtml(focusMovie.reasoning || state.reasoning || 'No extra reasoning available.')}</div>`;
+  }
+
+  const filledCount = state.slots.filter(Boolean).length;
+  const saveBtn = document.getElementById('findmore-modal-save');
+  saveBtn.disabled = filledCount !== 4;
+  saveBtn.textContent = 'Save to Library';
+  document.getElementById('findmore-modal-status').textContent =
+    filledCount === 4
+      ? 'Four posters selected. Save this final group directly to the library.'
+      : `Fill all 4 slots to save. ${filledCount}/4 selected.`;
+}
+
+function closeWorkshopFindMoreModal() {
+  workshopFindMoreState = null;
+  const overlay = document.getElementById('workshop-findmore-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+async function saveWorkshopFindMoreSelection() {
+  if (!workshopFindMoreState) return;
+  const selectedIds = workshopFindMoreState.slots.filter(Boolean);
+  if (selectedIds.length !== 4) return;
+  const saveBtn = document.getElementById('findmore-modal-save');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+  try {
+    await saveCategoryToLibrary({
+      title: workshopFindMoreState.title,
+      movie_ids: selectedIds,
+      movie_titles: selectedIds.map(id => {
+        const movie = allMoviesById[id] || workshopFindMoreState.movies.find(m => m.id === id) || {};
+        return movie.title || '';
+      }),
+      source: 'ai',
+      connection_type: workshopFindMoreState.connection_type || '',
+      difficulty: workshopFindMoreState.difficulty || null,
+    });
+    muteWorkshopCard(workshopFindMoreState.sourceCard);
+    closeWorkshopFindMoreModal();
+  } catch (err) {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save to Library';
+    alert(err.message || 'Failed to save category.');
+  }
+}
+
+function bindWorkshopFindMoreModalEvents() {
+  document.getElementById('findmore-modal-close')?.addEventListener('click', closeWorkshopFindMoreModal);
+  document.getElementById('findmore-modal-cancel')?.addEventListener('click', closeWorkshopFindMoreModal);
+  document.getElementById('findmore-modal-save')?.addEventListener('click', saveWorkshopFindMoreSelection);
+  document.getElementById('workshop-findmore-overlay')?.addEventListener('click', e => {
+    if (e.target.id === 'workshop-findmore-overlay') closeWorkshopFindMoreModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && workshopFindMoreState) closeWorkshopFindMoreModal();
+  });
+}
+
+function openWorkshopFindMoreDemo() {
+  const overlay = document.getElementById('workshop-findmore-overlay');
+  if (!overlay || !allMovies.length) return;
+
+  const pool = allMovies.filter(m => m.poster_url).slice(0, 12);
+  if (pool.length < 8) return;
+
+  const seeds = pool.slice(0, 4);
+  const candidates = pool.slice(4, 12);
+
+  const seedReasoning = [
+    'Original seed from the workshop suggestion. This one anchors the category cleanly.',
+    'Original seed from the workshop suggestion. It fits the same core idea from a different angle.',
+    'Original seed from the workshop suggestion. Useful because the connection is still obvious here.',
+    'Original seed from the workshop suggestion. This one helps round out the final four.',
+  ];
+
+  workshopFindMoreState = {
+    sourceCard: null,
+    title: 'People Replaced By Doubles',
+    reasoning: 'A category about films where a character is substituted, impersonated, cloned, or otherwise replaced by another version of themselves.',
+    connection_type: 'Plot',
+    difficulty: 3,
+    slots: [],
+    movies: [
+      ...seeds.map((m, i) => getWorkshopMovieOption({
+        id: m.id,
+        title: m.title,
+        reasoning: seedReasoning[i],
+        original: true,
+        strength: 'seed',
+      })),
+      ...candidates.map((m, i) => getWorkshopMovieOption({
+        id: m.id,
+        title: m.title,
+        reasoning: [
+          'Strong fit. The replacement idea is central to the movie rather than incidental.',
+          'Strong fit. The category clicks quickly once you know the plot beat.',
+          'Good fit. Same idea, but the substitution is slightly less central than the top candidates.',
+          'Strong fit. One of the cleanest alternates for the final four.',
+          'Good fit. Works best if you want a slightly trickier fourth movie.',
+          'Strong fit. Reinforces the category without feeling repetitive.',
+          'Good fit. Same pattern, but more of a twist than the film\'s whole identity.',
+          'Strong fit. Very legible category movie and visually distinct from the seeds.',
+        ][i] || 'Good fit.',
+        strength: i % 3 === 2 ? 'good' : 'strong',
+      })),
+    ],
+    focusMovieId: seeds[0].id,
+    hasCustomSlots: false,
+  };
+  workshopFindMoreState.slots = getDefaultWorkshopSlots(workshopFindMoreState.movies);
+  workshopFindMoreState.focusMovieId = workshopFindMoreState.slots[0] || seeds[0].id;
+
+  overlay.style.display = 'flex';
+  renderWorkshopFindMoreModal();
+  document.getElementById('findmore-modal-status').textContent = 'Demo mode: drag posters around and test the save flow without calling the AI.';
+}
+
+async function onFindMore(card, btn) {
+  if (card.dataset.saved === 'true') return;
+  const overlay = document.getElementById('workshop-findmore-overlay');
+  if (!overlay) return;
+
+  btn.disabled = true;
+  overlay.style.display = 'flex';
+  workshopFindMoreState = {
+    sourceCard: card,
+    title: card._cat.title,
+    reasoning: card._cat.reasoning,
+    connection_type: card._cat.connection_type,
+    difficulty: card._cat.difficulty,
+    slots: [],
+    movies: card._cat.movie_ids.map((id, index) => getWorkshopMovieOption({
+      id,
+      title: card._cat.movie_titles[index],
+      reasoning: 'Original seed from the workshop suggestion.',
+      original: true,
+      strength: 'seed',
+    })),
+    focusMovieId: card._cat.movie_ids[0] || null,
+    hasCustomSlots: false,
+  };
+  workshopFindMoreState.slots = getDefaultWorkshopSlots(workshopFindMoreState.movies);
+  workshopFindMoreState.focusMovieId = workshopFindMoreState.slots[0] || card._cat.movie_ids[0] || null;
+  renderWorkshopFindMoreModal();
+  document.getElementById('findmore-modal-status').textContent = 'Loading additional movie options...';
+
+  try {
+    const res = await fetch('/admin/ai/expand', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: card._cat.title,
+        reasoning: card._cat.reasoning,
+        seed_ids: card._cat.movie_ids,
+        seed_titles: card._cat.movie_titles,
+        exclude_ids: getExcludeIds(),
+      }),
+    });
+    const raw = await res.text();
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (_) {
+      data = {};
+    }
+    if (!res.ok || data.error) {
+      document.getElementById('findmore-modal-status').textContent = `Error: ${data.error || raw || `HTTP ${res.status}`}`;
+      return;
+    }
+    const candidates = (data.candidates || []).map(c => getWorkshopMovieOption(c));
+    workshopFindMoreState.movies = [...workshopFindMoreState.movies, ...candidates];
+    if (!workshopFindMoreState.hasCustomSlots) {
+      workshopFindMoreState.slots = getDefaultWorkshopSlots(workshopFindMoreState.movies);
+      workshopFindMoreState.focusMovieId = workshopFindMoreState.slots[0] || workshopFindMoreState.focusMovieId;
+    }
+    if (!candidates.length) {
+      document.getElementById('findmore-modal-status').textContent = 'No additional candidates found. You can still edit the original seeds.';
+    } else {
+      renderWorkshopFindMoreModal();
+    }
+  } catch (err) {
+    document.getElementById('findmore-modal-status').textContent = `Error: ${err.message || 'Request failed.'}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function renderWorkshopCard(catData) {
   const card = document.createElement('div');
   card.className = 'ai-result-card';
@@ -4612,6 +4992,7 @@ function renderWorkshopCard(catData) {
         difficulty: card._cat.difficulty || null,
       });
       saveBtn.textContent = 'Saved';
+      muteWorkshopCard(card);
     } catch (err) {
       saveBtn.disabled = false;
       alert(err.message || 'Failed to save category.');
@@ -4625,3 +5006,4 @@ function renderWorkshopCard(catData) {
 
 init();
 initConnTypeHelpModal();
+bindWorkshopFindMoreModalEvents();

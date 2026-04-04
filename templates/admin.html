@@ -601,6 +601,22 @@
 .ai-result-card__movies { font-size: 13px; color: var(--text2); margin-bottom: 6px; line-height: 1.6; }
 .ai-result-card__reasoning { font-size: 12px; color: var(--text2); font-style: italic; margin-bottom: 10px; line-height: 1.5; }
 .ai-result-card__footer { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ai-result-card--saved { opacity: 0.52; position: relative; }
+.ai-result-card--saved::after {
+  content: 'Saved to library';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #1a5c2e;
+  background: #d9f0de;
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+.ai-result-card--saved button { pointer-events: none; opacity: 0.55; }
 .ai-conn-type      { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
                      padding: 2px 8px; border-radius: 8px; background: #e8d5ff; color: #4a0080; }
 .ai-difficulty     { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 8px;
@@ -1471,6 +1487,127 @@
   color: #cc2200; border-color: rgba(204,34,0,.3);
 }
 .modal-footer .modal-delete-btn:hover { border-color: #cc2200; background: rgba(204,34,0,.04); }
+/* ── Workshop Find More Modal ───────────────────────────────────── */
+#workshop-findmore-overlay {
+  position: fixed; inset: 0; z-index: 1100;
+  background: rgba(0,0,0,.58);
+  display: none;
+  align-items: center; justify-content: center;
+  padding: 18px;
+}
+#workshop-findmore-modal {
+  width: min(1360px, 99vw);
+  max-height: 94vh;
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: 18px;
+  box-shadow: 6px 6px 0 var(--border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.findmore-modal__hd {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: start; gap: 12px; padding: 14px 16px 10px;
+  border-bottom: 1.5px solid rgba(17,17,17,.08);
+}
+.findmore-modal__intro { min-width: 0; }
+.findmore-modal__title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 900; font-style: italic; font-size: 20px; line-height: 1.02; margin: 0;
+}
+.findmore-modal__sub {
+  font-size: 11px; color: var(--text2); line-height: 1.28; margin-top: 3px; max-width: 520px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.findmore-modal__badges { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.findmore-modal__focus {
+  margin-top: 8px;
+  max-width: 560px;
+}
+.findmore-modal__selection { display: flex; flex-direction: column; align-items: flex-end; min-width: 0; }
+.findmore-modal__close {
+  background: none; border: none; cursor: pointer; font-size: 22px; color: var(--text2); line-height: 1;
+}
+.findmore-modal__close:hover { color: var(--text); }
+.findmore-modal__body {
+  display: flex; flex-direction: column; gap: 0; min-height: 0; flex: 1;
+}
+.findmore-main { padding: 10px 16px 14px; display: flex; flex-direction: column; min-height: 0; gap: 8px; }
+.findmore-section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text2); opacity: .55; margin-bottom: 6px;
+}
+.findmore-slot-grid { display: grid; grid-template-columns: repeat(4, 124px); gap: 8px; }
+.findmore-slot {
+  background: #fbf7f3; border: 2px dashed #cdbeb0; border-radius: 12px; padding: 6px;
+  display: flex; flex-direction: column; gap: 5px; position: relative;
+}
+.findmore-slot.is-over { border-color: #111; background: #f2ece6; }
+.findmore-slot.is-filled { border-style: solid; border-color: var(--border); box-shadow: var(--shadow-xs); }
+.findmore-slot__empty {
+  width: 100%; aspect-ratio: 2 / 3; display: flex; align-items: center; justify-content: center; text-align: center;
+  color: var(--text2); font-size: 10px; line-height: 1.25; padding: 8px 7px; border-radius: 9px;
+  background: rgba(255,255,255,.55);
+}
+.findmore-slot__poster,
+.findmore-pool-card__poster {
+  width: 100%; aspect-ratio: 2 / 3; border-radius: 10px; overflow: hidden; background: #e6ddd4;
+  display: flex; align-items: center; justify-content: center;
+}
+.findmore-slot__poster img,
+.findmore-pool-card__poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.findmore-poster-fallback { font-size: 30px; color: #9b8f83; }
+.findmore-slot__meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; min-height: 24px; }
+.findmore-slot__title { font-size: 8px; font-weight: 700; line-height: 1.1; }
+.findmore-slot__year { display: inline; font-size: 8px; opacity: .55; font-weight: 500; margin-left: 4px; }
+.findmore-slot__clear {
+  flex-shrink: 0; background: none; border: 1.5px solid rgba(204,34,0,.22); color: #b12d1d;
+  border-radius: 8px; cursor: pointer; padding: 0 5px; font-size: 10px; line-height: 18px;
+}
+.findmore-slot__clear:hover { background: rgba(204,34,0,.06); }
+.findmore-detail-bar {
+  background: transparent; border: 0; border-radius: 0; padding: 0; min-height: 0;
+}
+.findmore-detail-bar__title { font-size: 11px; font-weight: 700; line-height: 1.2; }
+.findmore-detail-bar__body {
+  font-size: 10px; color: var(--text2); line-height: 1.3; margin-top: 3px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.findmore-pool-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.findmore-pool-grid {
+  display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; align-content: start;
+}
+.findmore-pool-card {
+  border: 1.5px solid #d7ccc1; border-radius: 12px; background: #fcf9f6; padding: 5px; cursor: grab;
+  transition: transform .1s, box-shadow .1s, border-color .1s, opacity .1s;
+}
+.findmore-pool-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-xs); }
+.findmore-pool-card.is-focused { border-color: #111; box-shadow: 0 0 0 2px #111; }
+.findmore-pool-card__meta { padding: 4px 1px 1px; }
+.findmore-pool-card__title { font-size: 8px; font-weight: 700; line-height: 1.1; }
+.findmore-pool-card__year { display: block; font-size: 8px; opacity: .55; font-weight: 500; margin-top: 1px; }
+.findmore-pool-card__badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.findmore-badge {
+  font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  border-radius: 999px; padding: 2px 5px;
+}
+.findmore-badge--original { background: #ece6df; color: #6b5740; }
+.findmore-modal__ft {
+  display: flex; align-items: center; gap: 10px; justify-content: space-between;
+  padding: 10px 16px 12px; border-top: 1.5px solid rgba(17,17,17,.08); background: #fbf7f3;
+}
+.findmore-modal__status { font-size: 12px; color: var(--text2); }
+@media (max-width: 980px) {
+  .findmore-modal__hd { grid-template-columns: 1fr; }
+  .findmore-modal__selection { align-items: flex-start; }
+  .findmore-modal__focus { max-width: none; }
+  .findmore-pool-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .findmore-slot-grid { grid-template-columns: repeat(4, 82px); }
+  .findmore-pool-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
   /* ── Stats panel ─────────────────────────────────────────────────── */
   .stats-summary-row {
     display: flex;
@@ -1805,7 +1942,12 @@
           <div class="ai-section">
             <h3>✦ Category Workshop</h3>
             <p class="ai-desc">Give Claude a random sample of films and let it discover surprising connections. Configure pool size and targets in Settings → AI Workshop.</p>
-            <button class="btn btn--primary" id="btn-ai-workshop">Generate Categories ▶</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn--primary" id="btn-ai-workshop">Generate Categories ▶</button>
+              {% if dev_mode %}
+              <button class="btn btn--ghost btn--sm" id="btn-ai-workshop-demo" type="button">Open Demo Modal</button>
+              {% endif %}
+            </div>
             <div id="ai-workshop-results" class="ai-results"></div>
           </div>
 
@@ -2390,6 +2532,42 @@
     </div>
     <p class="dup-scan-summary" id="dup-scan-summary">Scanning…</p>
     <div id="dup-scan-body"></div>
+  </div>
+</div>
+
+<!-- ── Workshop Find More Modal ── -->
+<div id="workshop-findmore-overlay">
+  <div id="workshop-findmore-modal" role="dialog" aria-modal="true" aria-labelledby="findmore-modal-title">
+    <div class="findmore-modal__hd">
+      <div class="findmore-modal__intro">
+        <h2 class="findmore-modal__title" id="findmore-modal-title">Build the final four</h2>
+        <div class="findmore-modal__sub" id="findmore-modal-sub">Pick the four posters that best define this category.</div>
+        <div class="findmore-modal__badges" id="findmore-modal-badges"></div>
+        <div class="findmore-modal__focus">
+          <div class="findmore-detail-bar" id="findmore-detail-bar"></div>
+        </div>
+      </div>
+      <div class="findmore-modal__selection">
+        <div class="findmore-section-label">Final Category</div>
+        <div class="findmore-slot-grid" id="findmore-slot-grid"></div>
+      </div>
+      <button class="findmore-modal__close" id="findmore-modal-close" aria-label="Close">×</button>
+    </div>
+    <div class="findmore-modal__body">
+      <div class="findmore-main">
+        <div class="findmore-pool-wrap">
+          <div class="findmore-section-label">Movie Options</div>
+          <div class="findmore-pool-grid" id="findmore-pool-grid"></div>
+        </div>
+      </div>
+    </div>
+    <div class="findmore-modal__ft">
+      <div class="findmore-modal__status" id="findmore-modal-status">Drag posters into the four slots. Original picks are marked in the pool.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn--ghost btn--sm" id="findmore-modal-cancel" type="button">Cancel</button>
+        <button class="btn btn--sm" id="findmore-modal-save" type="button">Save to Library</button>
+      </div>
+    </div>
   </div>
 </div>
 
