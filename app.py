@@ -1710,20 +1710,44 @@ def _stratified_sample(movies: list, n: int, recency_bias: float = 0.0) -> list:
     return result[:n]
 
 def _match_titles_to_ids(titles: list, movies_by_title: dict) -> list:
-    """Match movie title strings back to IDs using exact → case-insensitive → article-stripped fallback."""
+    """Match movie title strings back to IDs.
+    Tries: exact → year-stripped → article-stripped → both stripped.
+    """
     import re
     ids = []
+
+    def strip_year(t):
+        """Remove trailing year like ' (2001)' or ', 2001'."""
+        t = re.sub(r'\s*\(\d{4}\)\s*$', '', t)
+        t = re.sub(r',\s*\d{4}\s*$', '', t)
+        return t.strip()
+
     def normalise(t):
         t = t.lower().strip()
         t = re.sub(r'^(the|a|an)\s+', '', t)
         return t
+
     norm_map = {normalise(k): v for k, v in movies_by_title.items()}
+
     for title in titles:
         tl = title.lower().strip()
+        # 1. Exact lowercase match
         if tl in movies_by_title:
             ids.append(movies_by_title[tl]["id"])
-        elif normalise(title) in norm_map:
+            continue
+        # 2. Strip trailing year, then exact match
+        tl_stripped = strip_year(title).lower().strip()
+        if tl_stripped != tl and tl_stripped in movies_by_title:
+            ids.append(movies_by_title[tl_stripped]["id"])
+            continue
+        # 3. Article-strip match
+        if normalise(title) in norm_map:
             ids.append(norm_map[normalise(title)]["id"])
+            continue
+        # 4. Year-stripped + article-strip
+        if tl_stripped != tl and normalise(strip_year(title)) in norm_map:
+            ids.append(norm_map[normalise(strip_year(title))]["id"])
+
     return ids
 
 def _extract_json(raw: str) -> str:
@@ -2063,7 +2087,7 @@ def admin_ai_expand():
         f'"{movies_by_id[i]["title"]}"' for i in seed_ids if i in movies_by_id
     )
 
-    # Ask for more than needed — some suggestions won't be in the library
+    # Ask for more than needed — some suggestions may not match the library title exactly
     ask_for = num_candidates * 2
 
     raw = _call_claude(
@@ -2079,7 +2103,7 @@ def admin_ai_expand():
         f"Rules:\n"
         f"- Do not repeat the seed films\n"
         f"- Be specific in your reasoning — reference the actual fact that makes it fit\n"
-        f"- Include the exact release year for each film\n\n"
+        f"- Use the exact theatrical release title (no year in parentheses in the title field)\n\n"
         'Respond ONLY with valid JSON:\n'
         '{"picks": [\n'
         '  {"title": "Exact Title", "year": 2001, "reasoning": "Specific reason", "strength": "strong"}\n'
@@ -2090,15 +2114,22 @@ def admin_ai_expand():
         return jsonify({"error": "AI unavailable"}), 503
 
     try:
-        picks_raw = json.loads(_extract_json(raw)).get("picks", [])
+        parsed   = json.loads(_extract_json(raw))
+        picks_raw = parsed.get("picks") or []   # guard against null / missing key
+        if not isinstance(picks_raw, list):
+            picks_raw = []
         out = []
+        seen_ids = set()
         for p in picks_raw:
+            if not isinstance(p, dict):
+                continue
             ids = _match_titles_to_ids([p.get("title", "")], movies_by_title)
             if not ids:
                 continue
             mid = ids[0]
-            if mid in exclude_all:
+            if mid in exclude_all or mid in seen_ids:
                 continue
+            seen_ids.add(mid)
             m = movies_by_id.get(mid)
             if not m:
                 continue
@@ -2112,7 +2143,7 @@ def admin_ai_expand():
             })
         out.sort(key=lambda x: 0 if x["strength"] == "strong" else 1)
         return jsonify({"candidates": out})
-    except (json.JSONDecodeError, KeyError) as e:
+    except Exception as e:
         return jsonify({"error": f"AI parse error: {e}", "raw": raw}), 500
 
 

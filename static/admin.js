@@ -4652,6 +4652,10 @@ function renderWorkshopFindMoreModal() {
     const movie = state.movies.find(m => m.id === movieId) || null;
     const slot = document.createElement('div');
     slot.className = 'findmore-slot' + (movie ? ' is-filled' : '');
+    slot.addEventListener('dragenter', e => {
+      e.preventDefault();
+      slot.classList.add('is-over');
+    });
     slot.addEventListener('dragover', e => {
       e.preventDefault();
       slot.classList.add('is-over');
@@ -4696,33 +4700,48 @@ function renderWorkshopFindMoreModal() {
   const assigned = new Set(getAssignedWorkshopMovieIds());
   const pool = document.getElementById('findmore-pool-grid');
   pool.innerHTML = '';
+  pool.parentElement.querySelectorAll('.findmore-pool-empty').forEach(el => el.remove());
   const orderedMovies = getOrderedWorkshopMovies(state.movies);
   const availableMovies = orderedMovies.filter(movie => !assigned.has(movie.id));
-  availableMovies.forEach(movie => {
-    const card = document.createElement('div');
-    card.className = 'findmore-pool-card'
-      + (state.focusMovieId === movie.id ? ' is-focused' : '');
-    card.draggable = true;
-    card.innerHTML = `
-      <div class="findmore-pool-card__poster">${renderFindMorePoster(movie)}</div>
-      <div class="findmore-pool-card__meta">
-        <div class="findmore-pool-card__title">${escHtml(movie.title)}<span class="findmore-pool-card__year">${escHtml(String(movie.year || ''))}</span></div>
-        <div class="findmore-pool-card__badges">
-          ${movie.original ? '<span class="findmore-badge findmore-badge--original">Original</span>' : ''}
-        </div>
-      </div>`;
-    card.addEventListener('dragstart', e => {
-      e.dataTransfer.setData('application/x-workshop-movie', JSON.stringify({
-        source: 'pool',
-        movieId: movie.id,
-      }));
-    });
-    card.addEventListener('click', () => setFindMoreFocus(movie.id));
-    pool.appendChild(card);
-  });
 
   if (!availableMovies.length) {
-    pool.innerHTML = '<div class="findmore-slot__empty">All available posters are currently in the final four. Clear a slot to swap one back in.</div>';
+    const emptyMsg = document.createElement('div');
+    emptyMsg.className = 'findmore-pool-empty';
+    emptyMsg.textContent = 'All available posters are in the final four. Clear a slot to swap one back in.';
+    pool.parentElement.appendChild(emptyMsg);
+  } else {
+    availableMovies.forEach(movie => {
+      const card = document.createElement('div');
+      card.className = 'findmore-pool-card'
+        + (state.focusMovieId === movie.id ? ' is-focused' : '');
+      card.draggable = true;
+      let badges = '';
+      if (movie.original) badges += '<span class="findmore-badge findmore-badge--original">Original</span>';
+      else if (movie.strength === 'strong') badges += '<span class="findmore-badge findmore-badge--strong">Strong</span>';
+      else if (movie.strength === 'good') badges += '<span class="findmore-badge findmore-badge--good">Good</span>';
+      card.innerHTML = `
+        <div class="findmore-pool-card__poster">${renderFindMorePoster(movie)}</div>
+        <div class="findmore-pool-card__meta">
+          <div class="findmore-pool-card__title">${escHtml(movie.title)}</div>
+          <span class="findmore-pool-card__year">${escHtml(String(movie.year || ''))}</span>
+          <div class="findmore-pool-card__badges">${badges}</div>
+        </div>`;
+      card.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('application/x-workshop-movie', JSON.stringify({
+          source: 'pool',
+          movieId: movie.id,
+        }));
+      });
+      card.addEventListener('click', () => {
+        const emptySlotIdx = state.slots.indexOf(null);
+        if (emptySlotIdx !== -1) {
+          assignWorkshopMovieToSlot({ source: 'pool', movieId: movie.id }, emptySlotIdx);
+        } else {
+          setFindMoreFocus(movie.id);
+        }
+      });
+      pool.appendChild(card);
+    });
   }
 
   const focusMovie = state.movies.find(m => m.id === state.focusMovieId) || orderedMovies[0] || null;
@@ -4742,7 +4761,7 @@ function renderWorkshopFindMoreModal() {
   document.getElementById('findmore-modal-status').textContent =
     filledCount === 4
       ? 'Four posters selected. Save this final group directly to the library.'
-      : `Fill all 4 slots to save. ${filledCount}/4 selected.`;
+      : `Click or drag posters to fill slots. ${filledCount}/4 selected.`;
 }
 
 function closeWorkshopFindMoreModal() {
@@ -4878,6 +4897,13 @@ async function onFindMore(card, btn) {
   workshopFindMoreState.focusMovieId = workshopFindMoreState.slots[0] || card._cat.movie_ids[0] || null;
   renderWorkshopFindMoreModal();
   document.getElementById('findmore-modal-status').textContent = 'Loading additional movie options...';
+  const poolEl = document.getElementById('findmore-pool-grid');
+  if (poolEl) {
+    const skeletonCount = 8;
+    poolEl.innerHTML = Array.from({ length: skeletonCount }, () =>
+      '<div class="findmore-pool-skeleton"></div>'
+    ).join('');
+  }
 
   try {
     const res = await fetch('/admin/ai/expand', {
