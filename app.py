@@ -1064,7 +1064,7 @@ def admin_ai_check_duplicate():
                 f'Connection type: {c.get("connection_type") or "(none)"}\n'
                 f'Movies: {", ".join(c.get("movie_titles", []))}')
 
-    raw = _call_claude(
+    raw, ai_err = _call_claude(
         "You are a strict duplicate checker for a movie connections puzzle game. "
         "Two categories are duplicates if a player would find them conceptually interchangeable.",
         f"Category A:\n{fmt(c1)}\n\nCategory B:\n{fmt(c2)}\n\n"
@@ -1073,7 +1073,7 @@ def admin_ai_check_duplicate():
         max_tokens=256,
     )
     if not raw:
-        return jsonify({"error": "AI unavailable"}), 503
+        return jsonify({"error": f"AI unavailable: {ai_err}"}), 503
     try:
         return jsonify(json.loads(_extract_json(raw)))
     except (json.JSONDecodeError, KeyError) as e:
@@ -1770,10 +1770,10 @@ def _extract_json(raw: str) -> str:
             pass
     return raw
 
-def _call_claude(system: str, user: str, max_tokens: int = 1024) -> str | None:
-    """Call Claude API and return the text response, or None on failure."""
+def _call_claude(system: str, user: str, max_tokens: int = 1024) -> tuple[str | None, str | None]:
+    """Call Claude API. Returns (text, None) on success or (None, error_message) on failure."""
     if not ANTHROPIC_API_KEY:
-        return None
+        return None, "ANTHROPIC_API_KEY not set"
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -1783,10 +1783,10 @@ def _call_claude(system: str, user: str, max_tokens: int = 1024) -> str | None:
             system=system,
             messages=[{"role": "user", "content": user}],
         )
-        return msg.content[0].text
+        return msg.content[0].text, None
     except Exception as e:
         print(f"Claude API error: {e}")
-        return None
+        return None, str(e)
 
 # ── Duplicate Detection Helpers ───────────────────────────────────────────────
 _STOPWORDS = {
@@ -1914,7 +1914,7 @@ def admin_ai_suggest():
 
     movies_block = "\n".join(movie_line(m) for m in candidates)
 
-    raw = _call_claude(
+    raw, ai_err = _call_claude(
         "You are an expert puzzle designer for Marquee, a daily movie connections game. "
         "You have deep knowledge of film history, plots, production facts, and thematic connections.",
         f'The puzzle designer wants to build a category around this concept:\n"{prompt}"\n\n'
@@ -1935,7 +1935,7 @@ def admin_ai_suggest():
     )
 
     if not raw:
-        return jsonify({"error": "AI unavailable"}), 503
+        return jsonify({"error": f"AI unavailable: {ai_err}"}), 503
 
     try:
         picks_raw = json.loads(_extract_json(raw)).get("picks", [])
@@ -2009,7 +2009,7 @@ def admin_ai_workshop():
 
         movies_block = "\n".join(movie_meta(m) for m in sample)
 
-        raw = _call_claude(
+        raw, ai_err = _call_claude(
             "You are an expert puzzle designer for Marquee, a daily movie connections game. "
             "You find surprising, non-obvious connections between films that most people wouldn't notice. "
             "Your categories must never be about a single shared actor, director, or plain genre label — "
@@ -2037,7 +2037,7 @@ def admin_ai_workshop():
             max_tokens=max_tokens,
         )
         if not raw:
-            return jsonify({"error": "AI unavailable"}), 503
+            return jsonify({"error": f"AI unavailable: {ai_err}"}), 503
 
         cats = json.loads(_extract_json(raw)).get("categories") or []
         out  = []
@@ -2102,7 +2102,7 @@ def admin_ai_expand():
         # Ask for more than needed — some suggestions may not match the library title exactly
         ask_for = num_candidates * 2
 
-        raw = _call_claude(
+        raw, ai_err = _call_claude(
             "You are an expert puzzle designer for Marquee, a daily movie connections game. "
             "You have deep knowledge of film history, production facts, and thematic connections.",
             f'Category: "{title}"\n'
@@ -2123,7 +2123,7 @@ def admin_ai_expand():
             max_tokens=2000,
         )
         if not raw:
-            return jsonify({"error": "AI unavailable"}), 503
+            return jsonify({"error": f"AI unavailable: {ai_err}"}), 503
 
         parsed    = json.loads(_extract_json(raw))
         picks_raw = parsed.get("picks") or []
@@ -2172,7 +2172,7 @@ def admin_ai_suggest_difficulty():
     if not title or len(movie_titles) != 4:
         return jsonify({"error": "invalid"}), 400
     films = ", ".join(f'"{t}"' for t in movie_titles)
-    raw = _call_claude(
+    raw, ai_err = _call_claude(
         "You rate the difficulty of movie connection puzzles. "
         "yellow=easiest (very obvious), green=easy, blue=hard, purple=hardest (only cinephiles).",
         f'Category: "{title}"\nFilms: {films}\n\n'
@@ -2182,7 +2182,7 @@ def admin_ai_suggest_difficulty():
         max_tokens=5,
     )
     if not raw:
-        return jsonify({"error": "ai_unavailable"}), 503
+        return jsonify({"error": f"ai_unavailable: {ai_err}"}), 503
     word = raw.strip().lower().split()[0] if raw.strip() else ""
     mapping = {"yellow": 1, "green": 2, "blue": 3, "purple": 4}
     diff = mapping.get(word)
@@ -2203,7 +2203,7 @@ def admin_ai_suggest_connection_type():
     if not title or len(movie_titles) != 4:
         return jsonify({"error": "invalid"}), 400
     films = ", ".join(f'"{t}"' for t in movie_titles)
-    raw = _call_claude(
+    raw, ai_err = _call_claude(
         "You classify movie connection puzzle categories into exactly one type. "
         "Cast = all four films feature the same actor. "
         "Director = all four films by the same director. "
@@ -2221,7 +2221,7 @@ def admin_ai_suggest_connection_type():
         max_tokens=10,
     )
     if not raw:
-        return jsonify({"error": "ai_unavailable"}), 503
+        return jsonify({"error": f"ai_unavailable: {ai_err}"}), 503
     valid = {"Cast", "Director", "Award", "Genre", "Setting", "Plot", "Trope", "Franchise", "Cast (Special)", "Cast (Meta)"}
     result = raw.strip()
     if result not in valid:
@@ -2249,7 +2249,7 @@ def admin_ai_suggest_titles():
         return jsonify({"error": "invalid"}), 400
     films = ", ".join(f'"{t}"' for t in movie_titles)
     ctype_line = f'\nConnection type: {ctype}' if ctype else ''
-    raw = _call_claude(
+    raw, ai_err = _call_claude(
         "You write titles for movie connections puzzle categories. "
         "Titles must immediately tell the player exactly what the connection is — specific, direct, no ambiguity. "
         "Style guide based on real examples:\n"
@@ -2265,7 +2265,7 @@ def admin_ai_suggest_titles():
         max_tokens=300,
     )
     if not raw:
-        return jsonify({"error": "ai_unavailable"}), 503
+        return jsonify({"error": f"ai_unavailable: {ai_err}"}), 503
     try:
         suggestions = json.loads(_extract_json(raw))
         if not isinstance(suggestions, list):
