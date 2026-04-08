@@ -2276,6 +2276,189 @@ def admin_ai_suggest_titles():
         return jsonify({"error": f"parse_error: {e}", "raw": raw}), 500
 
 
+# ── Puzzle Assembler ──────────────────────────────────────────────────────────
+
+def _enrich_cat(cat: dict, movie_by_id: dict) -> dict:
+    """Return a copy of a saved category with movie_titles filled in."""
+    ids = cat.get("movie_ids", [])
+    return {**cat, "movie_titles": [movie_by_id.get(mid, {}).get("title", f"#{mid}") for mid in ids]}
+
+
+def _build_person_index(movies_list: list) -> tuple[dict, dict]:
+    """Return (actor→set(movie_ids), director→set(movie_ids)) for the whole library."""
+    actor_ids: dict[str, set] = {}
+    dir_ids:   dict[str, set] = {}
+    for m in movies_list:
+        mid = m["id"]
+        for a in (m.get("actors") or [])[:5]:
+            actor_ids.setdefault(a, set()).add(mid)
+        for d in (m.get("directors") or []):
+            dir_ids.setdefault(d, set()).add(mid)
+    return actor_ids, dir_ids
+
+
+def _hidden_connections(cats: list, movie_id_set: set,
+                        actor_ids: dict, dir_ids: dict) -> list:
+    """Find actors/directors with 4+ movies in the puzzle that aren't already a category."""
+    cat_titles_lower = {c.get("title", "").lower() for c in cats}
+    hidden = []
+    for person, ids in {**{f"a:{a}": s for a, s in actor_ids.items()},
+                         **{f"d:{d}": s for d, s in dir_ids.items()}}.items():
+        overlap = ids & movie_id_set
+        if len(overlap) < 4:
+            continue
+        kind, name = person.split(":", 1)
+        if any(name.lower() in t for t in cat_titles_lower):
+            continue
+        hidden.append({"name": name, "type": "actor" if kind == "a" else "director",
+                        "count": len(overlap)})
+    hidden.sort(key=lambda x: -x["count"])
+    return hidden
+
+
+def _score_combo(cats: list, hidden: list) -> int:
+    perfect_traps = sum(1 for h in hidden if h["count"] == 4)
+    bonus_traps   = sum(1 for h in hidden if h["count"] > 4)
+    diffs         = [c.get("difficulty", 2) for c in cats]
+    diff_spread   = len(set(diffs))
+    return perfect_traps * 3 + bonus_traps + diff_spread
+
+
+@app.post("/admin/assemble-puzzle")
+@admin_required
+def admin_assemble_puzzle():
+    """Find good 4-category combos from unused saved categories.
+    Returns top combos scored by hidden-connection (red herring) potential."""
+    from itertools import combinations as _combos
+    data       = request.get_json(force=True) or {}
+    anchor_ids = set(data.get("anchor_ids", []))
+    count      = min(int(data.get("count", 3)), 5)
+
+    unused = [c for c in get_saved_categories() if not c.get("times_used")]
+
+    movies_list = get_movies()
+    movie_by_id = {m["id"]: m for m in movies_list}
+    actor_ids, dir_ids = _build_person_index(movies_list)
+
+    anchors   = [c for c in unused if c["id"] in anchor_ids]
+    free_cats = [c for c in unused if c["id"] not in anchor_ids]
+
+    anchor_movie_set: set = set()
+    for c in anchors:
+        anchor_movie_set.update(c.get("movie_ids", []))
+
+    needed = 4 - len(anchors)
+    if needed < 0:
+        return jsonify({"error": "Too many anchors"}), 400
+
+    # Filter free cats: drop any that overlap with anchors
+    free_valid = [c for c in free_cats
+                  if not (set(c.get("movie_ids", [])) & anchor_movie_set)]
+
+    valid_combos: list[tuple[int, list, list]] = []
+    MAX_VALID = 3000  # cap to keep response time reasonable
+
+    for filler_combo in _combos(free_valid, needed):
+        filler_set: set = set()
+        ok = True
+        for fc in filler_combo:
+            fc_ids = set(fc.get("movie_ids", []))
+            if fc_ids & filler_set:
+                ok = False
+                break
+            filler_set.update(fc_ids)
+        if not ok:
+            continue
+        cat_list    = anchors + list(filler_combo)
+        all_ids     = anchor_movie_set | filler_set
+        hidden      = _hidden_connections(cat_list, all_ids, actor_ids, dir_ids)
+        sc          = _score_combo(cat_list, hidden)
+        valid_combos.append((sc, cat_list, hidden))
+        if len(valid_combos) >= MAX_VALID:
+            break
+
+    valid_combos.sort(key=lambda x: -x[0])
+    result = []
+    for sc, cat_list, hidden in valid_combos[:count]:
+        result.append({
+            "categories":         [_enrich_cat(c, movie_by_id) for c in cat_list],
+            "hidden_connections": hidden,
+            "score":              sc,
+        })
+
+    return jsonify({
+        "combos":      result,
+        "mode":        "anchored" if anchor_ids else "full",
+        "total_valid": len(valid_combos),
+    })
+
+
+@app.post("/admin/suggest-filler")
+@admin_required
+def admin_suggest_filler():
+    """Generate simple Cast/Director filler categories from movie metadata.
+    Used when the saved-category pool can't fill all 4 slots."""
+    data          = request.get_json(force=True) or {}
+    locked_ids    = set(int(x) for x in data.get("locked_movie_ids", []))
+    target_diff   = int(data.get("target_difficulty", 1))
+    count         = min(int(data.get("count", 8)), 20)
+
+    movies_list = get_movies()
+    movie_by_id = {m["id"]: m for m in movies_list}
+
+    # Build indexes of available (non-locked) movies per person
+    actor_movies:  dict[str, list] = {}
+    dir_movies:    dict[str, list] = {}
+    for m in movies_list:
+        if m["id"] in locked_ids:
+            continue
+        for a in (m.get("actors") or [])[:5]:
+            actor_movies.setdefault(a, []).append(m)
+        for d in (m.get("directors") or []):
+            dir_movies.setdefault(d, []).append(m)
+
+    # Red-herring potential: actors/directors shared with the locked movies
+    locked_actors: set[str] = set()
+    locked_dirs:   set[str] = set()
+    for mid in locked_ids:
+        m = movie_by_id.get(mid, {})
+        locked_actors.update((m.get("actors") or [])[:5])
+        locked_dirs.update(m.get("directors") or [])
+
+    candidates = []
+    for person, movies in {**{f"a:{a}": ms for a, ms in actor_movies.items()},
+                            **{f"d:{d}": ms for d, ms in dir_movies.items()}}.items():
+        if len(movies) < 4:
+            continue
+        kind, name = person.split(":", 1)
+        # Best 4 by rating
+        best4 = sorted(movies, key=lambda m: -(m.get("vote_average") or 0))[:4]
+        if len(best4) < 4:
+            continue
+        # Red-herring score: how many of these movies star/are-directed-by locked-category people
+        rh = 0
+        for m in best4:
+            if kind == "a" and set((m.get("actors") or [])[:5]) & locked_actors:
+                rh += 1
+            elif kind == "d" and set(m.get("directors") or []) & locked_dirs:
+                rh += 1
+        candidates.append({
+            "title":           f"{name} Movies" if kind == "a" else f"{name} Films",
+            "movie_ids":       [m["id"] for m in best4],
+            "movie_titles":    [m["title"] for m in best4],
+            "connection_type": "Cast" if kind == "a" else "Director",
+            "difficulty":      target_diff,
+            "source":          "auto",
+            "_rh":             rh,
+        })
+
+    candidates.sort(key=lambda c: -c["_rh"])
+    for c in candidates:
+        c.pop("_rh", None)
+
+    return jsonify({"fillers": candidates[:count]})
+
+
 # ── Trivia Admin Routes ───────────────────────────────────────────────────────
 
 @app.get("/admin/trivia/questions")

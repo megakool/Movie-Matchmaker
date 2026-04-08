@@ -5030,6 +5030,238 @@ function renderWorkshopCard(catData) {
   return card;
 }
 
+// ══════════════════════════════════════════════════════════════════
+// PUZZLE ASSEMBLER
+// ══════════════════════════════════════════════════════════════════
+
+const COLOR_HEX_FULL = { yellow: '#f9df6d', green: '#6abf69', blue: '#6ab0d4', purple: '#b07ecf' };
+
+// IDs of locked saved categories (user selected as anchors)
+let assemblerAnchorIds = new Set();
+
+function openAssembler() {
+  document.getElementById('assembler-overlay').style.display = 'flex';
+  renderAssemblerAnchors();
+  runAssembler();
+}
+
+function closeAssembler() {
+  document.getElementById('assembler-overlay').style.display = 'none';
+}
+
+function renderAssemblerAnchors() {
+  const bar = document.getElementById('assembler-anchor-pills');
+  bar.innerHTML = '';
+  // Collect filled slots that came from saved categories (title + movie_ids match)
+  slots.forEach((slot, i) => {
+    if (!slot.title || slot.movies.length !== 4) return;
+    // Find matching saved category by movie ids
+    const movieIdSet = JSON.stringify([...slot.movies.map(m => m.id)].sort((a,b)=>a-b));
+    const matched = savedCategories.find(c => {
+      const ids = JSON.stringify([...c.movie_ids].sort((a,b)=>a-b));
+      return ids === movieIdSet && c.title === slot.title;
+    });
+    if (!matched) return;
+    const pill = document.createElement('button');
+    pill.className = 'assembler-anchor-pill ' + (assemblerAnchorIds.has(matched.id) ? 'active' : 'inactive');
+    pill.style.background = COLOR_HEX_FULL[slot.color] + '44';
+    pill.style.borderColor = COLOR_HEX_FULL[slot.color];
+    pill.style.color = '#333';
+    pill.textContent = slot.title;
+    pill.title = assemblerAnchorIds.has(matched.id) ? 'Click to unlock' : 'Click to lock as anchor';
+    pill.addEventListener('click', () => {
+      if (assemblerAnchorIds.has(matched.id)) assemblerAnchorIds.delete(matched.id);
+      else assemblerAnchorIds.add(matched.id);
+      renderAssemblerAnchors();
+    });
+    bar.appendChild(pill);
+  });
+  if (bar.children.length === 0) {
+    bar.innerHTML = '<span style="font-size:11px;color:var(--text2);font-style:italic;">No filled slots — anchor any slot by filling it first</span>';
+  }
+}
+
+async function runAssembler() {
+  const loading = document.getElementById('assembler-loading');
+  const results = document.getElementById('assembler-results');
+  const fillerSection = document.getElementById('assembler-filler-section');
+  const sub = document.getElementById('assembler-sub');
+
+  loading.style.display = 'flex';
+  results.style.display = 'none';
+  fillerSection.style.display = 'none';
+
+  try {
+    const res = await fetch('/admin/assemble-puzzle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ anchor_ids: [...assemblerAnchorIds], count: 3 }),
+    });
+    const data = await res.json();
+
+    loading.style.display = 'none';
+    results.style.display = 'block';
+
+    if (!data.combos || data.combos.length === 0) {
+      results.innerHTML = `<div class="assembler-no-results">
+        No valid combos found — too much movie overlap between your saved categories,
+        or too few unused categories.
+        Try using metadata fillers below.
+      </div>`;
+      showAssemblerFillers();
+      return;
+    }
+
+    const total = data.total_valid || data.combos.length;
+    sub.textContent = `Found ${total.toLocaleString()} valid combo${total === 1 ? '' : 's'} — showing top ${data.combos.length}`;
+
+    results.innerHTML = '';
+    data.combos.forEach((combo, idx) => renderAssemblerCombo(combo, idx, results));
+
+    // If combos have < 4 categories, also show filler suggestions
+    if (data.combos[0] && data.combos[0].categories.length < 4) {
+      showAssemblerFillers();
+    }
+  } catch (err) {
+    loading.style.display = 'none';
+    results.style.display = 'block';
+    results.innerHTML = `<div class="assembler-no-results">Error: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderAssemblerCombo(combo, idx, container) {
+  const card = document.createElement('div');
+  card.className = 'assembler-combo';
+
+  const traps = (combo.hidden_connections || []).filter(h => h.count === 4);
+  const trapHtml = traps.length
+    ? `<span class="assembler-trap-badge">🎭 ${traps.length} trap${traps.length > 1 ? 's' : ''}</span>`
+    : '';
+
+  card.innerHTML = `
+    <div class="assembler-combo-hd">
+      <span class="assembler-combo-label">Combo ${idx + 1}</span>
+      <div class="assembler-combo-badges">${trapHtml}</div>
+    </div>
+    <div class="assembler-cat-rows">
+      ${combo.categories.map(cat => renderAssemblerCatRow(cat)).join('')}
+    </div>
+    ${renderAssemblerHidden(combo.hidden_connections)}
+    <div class="assembler-combo-footer">
+      <button class="btn btn--primary btn--sm assembler-load-btn">Load into Builder</button>
+    </div>`;
+
+  card.querySelector('.assembler-load-btn').addEventListener('click', () => {
+    loadAssemblerCombo(combo.categories);
+    closeAssembler();
+  });
+
+  container.appendChild(card);
+}
+
+function renderAssemblerCatRow(cat) {
+  const diff = cat.difficulty || 2;
+  const titles = (cat.movie_titles || cat.movie_ids).join(', ');
+  return `<div class="assembler-cat-row">
+    <span class="assembler-diff-badge assembler-diff-${diff}">${['E','E','M','H','H'][diff] || diff}</span>
+    <span class="assembler-cat-title">${escHtml(cat.title)}</span>
+    <span class="assembler-cat-movies">${escHtml(titles)}</span>
+  </div>`;
+}
+
+function renderAssemblerHidden(hidden) {
+  if (!hidden || hidden.length === 0) return '';
+  const items = hidden.slice(0, 5).map(h =>
+    `<span class="assembler-hidden-trap" title="${h.count} movies">
+      ${escHtml(h.name)} (${h.count})
+    </span>`
+  ).join('');
+  return `<div class="assembler-hidden">
+    <span class="assembler-hidden-label">🎭 Hidden traps:</span>${items}
+  </div>`;
+}
+
+function loadAssemblerCombo(categories) {
+  // Sort by difficulty so yellow=1, green=2, blue=3, purple=4
+  const sorted = [...categories].sort((a, b) => (a.difficulty || 2) - (b.difficulty || 2));
+  sorted.forEach((cat, i) => {
+    if (i >= 4) return;
+    slots[i].title  = cat.title;
+    slots[i].difficulty = cat.difficulty || (i + 1);
+    slots[i].movies = (cat.movie_ids || []).map((id, j) => ({
+      id, title: cat.movie_titles?.[j] || String(id), year: '',
+    }));
+  });
+  renderSlots(); renderBuilderLibrary(); renderPreview();
+}
+
+async function showAssemblerFillers() {
+  const section = document.getElementById('assembler-filler-section');
+  const container = document.getElementById('assembler-filler-results');
+  section.style.display = 'block';
+  container.innerHTML = '<div class="assembler-loading"><div class="assembler-spinner"></div>Loading filler suggestions…</div>';
+
+  const lockedIds = slots.flatMap(s => s.movies.map(m => m.id));
+
+  try {
+    const res = await fetch('/admin/suggest-filler', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locked_movie_ids: lockedIds, target_difficulty: 1, count: 8 }),
+    });
+    const data = await res.json();
+    if (!data.fillers || data.fillers.length === 0) {
+      container.innerHTML = '<p style="font-size:12px;color:var(--text2);">No filler suggestions available.</p>';
+      return;
+    }
+    container.innerHTML = `
+      <p style="font-size:12px;color:var(--text2);margin:0 0 8px;">
+        Click any to load into the next empty slot. These are simple actor/director categories
+        — good for easy slots and creating red herrings.
+      </p>
+      <div class="assembler-filler-grid"></div>`;
+    const grid = container.querySelector('.assembler-filler-grid');
+    data.fillers.forEach(filler => {
+      const card = document.createElement('div');
+      card.className = 'assembler-filler-card';
+      card.innerHTML = `
+        <div class="assembler-filler-title">${escHtml(filler.title)}</div>
+        <div class="assembler-filler-movies">${escHtml((filler.movie_titles || []).join(', '))}</div>
+        <div class="assembler-filler-badge">${escHtml(filler.connection_type)} · Diff ${filler.difficulty}</div>`;
+      card.addEventListener('click', () => {
+        const emptySlot = slots.findIndex(s => !s.title && s.movies.length === 0);
+        if (emptySlot === -1) {
+          alert('All slots are already filled.');
+          return;
+        }
+        slots[emptySlot].title  = filler.title;
+        slots[emptySlot].difficulty = filler.difficulty;
+        slots[emptySlot].movies = (filler.movie_ids || []).map((id, j) => ({
+          id, title: filler.movie_titles?.[j] || String(id), year: '',
+        }));
+        renderSlots(); renderBuilderLibrary(); renderPreview();
+        closeAssembler();
+      });
+      grid.appendChild(card);
+    });
+  } catch (err) {
+    container.innerHTML = `<p style="font-size:12px;color:#c00;">Error loading fillers: ${escHtml(err.message)}</p>`;
+  }
+}
+
+function bindAssemblerEvents() {
+  document.getElementById('btn-auto-assemble').addEventListener('click', () => {
+    assemblerAnchorIds.clear();
+    openAssembler();
+  });
+  document.getElementById('assembler-close').addEventListener('click', closeAssembler);
+  document.getElementById('assembler-refresh').addEventListener('click', runAssembler);
+  document.getElementById('assembler-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('assembler-overlay')) closeAssembler();
+  });
+}
+
 init();
 initConnTypeHelpModal();
+bindAssemblerEvents();
 bindWorkshopFindMoreModalEvents();
