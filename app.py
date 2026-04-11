@@ -2653,6 +2653,167 @@ def admin_trivia_import_puzzles():
     return jsonify({"ok": True, "saved": saved})
 
 
+# ── Trivia AI Generation ─────────────────────────────────────────────────────
+
+@app.get("/admin/trivia/generation-settings")
+@admin_required
+def admin_trivia_get_generation_settings():
+    return jsonify(get_trivia_generation_settings())
+
+
+@app.post("/admin/trivia/generation-settings")
+@admin_required
+def admin_trivia_save_generation_settings():
+    data = request.get_json(force=True)
+    settings = get_trivia_generation_settings()
+    settings["style_notes"] = data.get("style_notes", "")
+    save_trivia_generation_settings(settings)
+    return jsonify({"ok": True})
+
+
+@app.post("/admin/trivia/questions/<int:qid>/exemplar")
+@admin_required
+def admin_trivia_toggle_exemplar(qid: int):
+    questions = [q.copy() for q in get_trivia_questions()]
+    for i, q in enumerate(questions):
+        if q["id"] == qid:
+            questions[i]["exemplar"] = not q.get("exemplar", False)
+            save_trivia_questions(questions)
+            return jsonify({"ok": True, "exemplar": questions[i]["exemplar"]})
+    return jsonify({"ok": False, "error": "Not found"}), 404
+
+
+@app.post("/admin/trivia/generate")
+@admin_required
+def admin_trivia_generate():
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 503
+
+    # Find unfilled dates in the next 14 days
+    today = date.today()
+    scheduled_dates = set(get_all_trivia_puzzle_dates())
+    target_dates = [
+        (today + timedelta(days=i)).isoformat()
+        for i in range(14)
+        if (today + timedelta(days=i)).isoformat() not in scheduled_dates
+    ]
+
+    if not target_dates:
+        return jsonify({"ok": True, "days": [], "message": "All 14 days already scheduled"})
+
+    n_questions = len(target_dates) * 3
+    all_questions = get_trivia_questions()
+
+    # Prefer starred exemplar questions; fall back to a difficulty-spread sample
+    exemplars = [q for q in all_questions if q.get("exemplar")]
+    if not exemplars:
+        by_difficulty = sorted(all_questions, key=lambda q: q.get("difficulty", 5))
+        step = max(1, len(by_difficulty) // 15)
+        exemplars = by_difficulty[::step][:15]
+
+    settings = get_trivia_generation_settings()
+    style_notes = settings.get("style_notes", "").strip()
+
+    examples_text = "\n".join(
+        f'- Q: {q["question"]}\n  A: {q["answer"]} (Category: {q["category"]}, Difficulty: {q.get("difficulty", 5)}/10)'
+        for q in exemplars[:20]
+    )
+    existing_qs_text = "\n".join(f'- {q["question"]}' for q in all_questions)
+    style_section = f"\nAdditional style guidance:\n{style_notes}\n" if style_notes else ""
+
+    system = (
+        "You are a trivia question writer for a daily trivia game. "
+        "Questions should be clever, specific, and have surprising angles — "
+        "not generic 'What is X?' questions. Prefer questions that reward lateral thinking "
+        "or unexpected connections. Always return valid JSON only, no commentary."
+    )
+    user = (
+        f"Write exactly {n_questions} trivia questions for a daily trivia game.\n\n"
+        f"Here are example questions that capture the style and quality we want:\n{examples_text}\n"
+        f"{style_section}\n"
+        f"Rules:\n"
+        f"- Each question must have a clean, specific single answer\n"
+        f"- Vary categories: FILM, SPORTS, SCIENCE, GEOGRAPHY, MUSIC, HISTORY, LITERATURE, FOOD/DRINK, TECHNOLOGY, LANGUAGE\n"
+        f"- Difficulty: integer 1-10 (1=very easy, 10=very hard), mix across the set\n"
+        f"- Do NOT duplicate any of these existing questions:\n{existing_qs_text}\n\n"
+        f"Return exactly this JSON (no markdown, no explanation):\n"
+        f'{{"questions": [{{"question": "...", "answer": "...", "category": "...", "difficulty": 5}}, ...]}}'
+    )
+
+    raw, err = _call_claude(system, user, max_tokens=4096)
+    if err:
+        return jsonify({"error": err}), 500
+
+    try:
+        parsed = json.loads(raw)
+        flat_questions = parsed["questions"]
+    except (json.JSONDecodeError, KeyError) as e:
+        return jsonify({"error": f"Failed to parse AI response: {e}", "raw": raw}), 500
+
+    if len(flat_questions) < n_questions:
+        return jsonify({"error": f"AI returned {len(flat_questions)} questions, need {n_questions}"}), 500
+
+    days = [
+        {"date": d, "questions": flat_questions[i * 3: i * 3 + 3]}
+        for i, d in enumerate(target_dates)
+    ]
+    return jsonify({"ok": True, "days": days})
+
+
+@app.post("/admin/trivia/generate/confirm")
+@admin_required
+def admin_trivia_generate_confirm():
+    data = request.get_json(force=True)
+    days = data.get("days", [])
+    if not days:
+        return jsonify({"error": "No days provided"}), 400
+
+    questions = list(get_trivia_questions())
+    next_id = max((q["id"] for q in questions), default=0) + 1
+    TRIVIA_PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
+    saved_dates = []
+
+    for day in days:
+        puzzle_date = day.get("date", "").strip()
+        day_qs = day.get("questions", [])
+        if not puzzle_date or len(day_qs) != 3:
+            continue
+
+        new_ids = []
+        for q in day_qs:
+            q_text = q.get("question", "").strip()
+            a_text = q.get("answer", "").strip()
+            if not q_text or not a_text:
+                continue
+            try:
+                difficulty = max(1, min(10, int(q.get("difficulty", 5))))
+            except (TypeError, ValueError):
+                difficulty = 5
+            questions.append({
+                "id": next_id,
+                "question": q_text,
+                "answer": a_text,
+                "category": q.get("category", "GENERAL").strip().upper(),
+                "difficulty": difficulty,
+                "active": True,
+            })
+            new_ids.append(next_id)
+            next_id += 1
+
+        if len(new_ids) == 3:
+            puzzle = {
+                "date": puzzle_date,
+                "questions": new_ids,
+                "created_at": datetime.now().isoformat(timespec="seconds"),
+            }
+            with open(TRIVIA_PUZZLES_DIR / f"{puzzle_date}.json", "w", encoding="utf-8") as f:
+                json.dump(puzzle, f, indent=2)
+            saved_dates.append(puzzle_date)
+
+    save_trivia_questions(questions)
+    return jsonify({"ok": True, "saved_dates": saved_dates})
+
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
