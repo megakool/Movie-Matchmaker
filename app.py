@@ -256,6 +256,8 @@ def admin_required(f):
     def decorated(*args, **kwargs):
         if DEV_MODE or session.get("admin"):
             return f(*args, **kwargs)
+        if request.is_json or request.headers.get("Content-Type", "").startswith("application/json"):
+            return jsonify({"error": "Not authenticated"}), 401
         return redirect(url_for("admin_login"))
     return decorated
 
@@ -2329,6 +2331,14 @@ def _score_combo(cats: list, hidden: list) -> int:
 def admin_assemble_puzzle():
     """Find good 4-category combos from unused saved categories.
     Returns top combos scored by hidden-connection (red herring) potential."""
+    try:
+        return _admin_assemble_puzzle_impl()
+    except Exception as exc:
+        import traceback
+        app.logger.error("assemble-puzzle error: %s", traceback.format_exc())
+        return jsonify({"error": str(exc)}), 500
+
+def _admin_assemble_puzzle_impl():
     from itertools import combinations as _combos
     data       = request.get_json(force=True) or {}
     anchor_ids = set(data.get("anchor_ids", []))

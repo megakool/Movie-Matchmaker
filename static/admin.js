@@ -5097,6 +5097,19 @@ async function runAssembler() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ anchor_ids: [...assemblerAnchorIds], count: 3 }),
     });
+    if (res.status === 401) {
+      loading.style.display = 'none';
+      results.style.display = 'block';
+      results.innerHTML = `<div class="assembler-no-results">Session expired — <a href="/admin">log in again</a></div>`;
+      return;
+    }
+    if (!res.ok) {
+      const text = await res.text();
+      loading.style.display = 'none';
+      results.style.display = 'block';
+      results.innerHTML = `<div class="assembler-no-results">Server error ${res.status} — check server logs.<br><pre style="font-size:10px;white-space:pre-wrap;max-height:120px;overflow:auto">${escHtml(text.slice(0, 500))}</pre></div>`;
+      return;
+    }
     const data = await res.json();
 
     loading.style.display = 'none';
