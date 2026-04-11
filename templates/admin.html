@@ -803,6 +803,28 @@
 .trivia-q-edit textarea { min-height: 65px; resize: vertical; }
 .trivia-q-edit__footer { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
 
+.trivia-gen-settings { border: 1px solid var(--border); border-radius: 8px; margin: 16px 0 8px; }
+.trivia-gen-settings summary { padding: 12px 16px; font-weight: 600; font-size: 13px; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; user-select: none; }
+.trivia-gen-settings summary::before { content: '▶'; font-size: 10px; color: var(--muted); transition: transform 0.2s; }
+.trivia-gen-settings[open] summary::before { transform: rotate(90deg); }
+.trivia-gen-settings__body { padding: 0 16px 16px; }
+.trivia-gen-settings__body label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+.trivia-gen-settings__body textarea { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; padding: 8px 10px; border: 1.5px solid #ccc; border-radius: 7px; resize: vertical; outline: none; }
+.trivia-gen-settings__body textarea:focus { border-color: var(--accent); }
+
+.gen-day-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+.gen-day-card__date { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+.gen-q-row { background: var(--bg); border-radius: 7px; padding: 10px 12px; margin-bottom: 8px; }
+.gen-q-row:last-child { margin-bottom: 0; }
+.gen-q-row__fields { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: start; }
+.gen-q-row__question { font-size: 13px; width: 100%; box-sizing: border-box; font-family: inherit; padding: 5px 8px; border: 1.5px solid #ccc; border-radius: 6px; resize: none; }
+.gen-q-row__question:focus { border-color: var(--accent); outline: none; }
+.gen-q-row__answer { font-size: 12px; width: 140px; font-family: inherit; padding: 5px 8px; border: 1.5px solid #ccc; border-radius: 6px; }
+.gen-q-row__answer:focus { border-color: var(--accent); outline: none; }
+.gen-q-row__meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.gen-q-row__cat { font-size: 11px; background: #e8f0fe; color: #1a56db; padding: 2px 7px; border-radius: 20px; font-weight: 600; }
+.gen-q-row__diff { font-size: 11px; color: var(--muted); }
+
 .trivia-add-form {
   background: var(--surface); border: var(--bw) solid var(--border);
   border-radius: 12px; box-shadow: var(--shadow); padding: 18px 20px; margin-bottom: 20px;
@@ -2454,6 +2476,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
           <button class="btn btn--ghost btn--sm" id="btn-trivia-pub-refresh">Refresh</button>
+          <button class="btn btn--primary btn--sm" id="btn-trivia-generate">Generate 14 Days</button>
         </div>
       </div>
 
@@ -2475,6 +2498,19 @@
 
       <!-- Expanded detail area -->
       <div id="trivia-pub-detail-area"></div>
+
+      <!-- AI Generation Review Area -->
+      <div id="trivia-gen-review" style="display:none;margin-top:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <h2 style="margin:0;font-size:16px;">Review Generated Questions</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span id="trivia-gen-status" style="font-size:12px;color:var(--muted);"></span>
+            <button class="btn btn--ghost btn--sm" id="btn-trivia-gen-cancel">Cancel</button>
+            <button class="btn btn--primary btn--sm" id="btn-trivia-gen-approve" disabled>Approve All</button>
+          </div>
+        </div>
+        <div id="trivia-gen-cards"></div>
+      </div>
 
     </div>
 
@@ -2537,6 +2573,23 @@
       </div>
 
       <div id="trivia-q-list"><div class="loading-state">Loading…</div></div>
+
+      <!-- ── AI Generation Settings ── -->
+      <details class="trivia-gen-settings" id="trivia-gen-settings">
+        <summary>AI Generation Settings</summary>
+        <div class="trivia-gen-settings__body">
+          <label for="trivia-style-notes">Style notes <span style="font-weight:400;color:var(--muted)">(sent to AI on every generation run)</span></label>
+          <textarea id="trivia-style-notes" placeholder="e.g. Avoid yes/no answers. Prefer questions with unexpected connections. Never ask who directed a film directly." rows="4"></textarea>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+            <button class="btn btn--primary btn--sm" id="btn-save-gen-settings">Save</button>
+            <span id="gen-settings-msg" style="font-size:12px;font-weight:700;"></span>
+          </div>
+          <p style="margin-top:10px;font-size:12px;color:var(--muted);">
+            Star (★) questions in the bank above to use them as style examples for generation.
+            If no questions are starred, the AI samples from your existing bank automatically.
+          </p>
+        </div>
+      </details>
 
     </div>
 
