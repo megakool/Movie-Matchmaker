@@ -3145,8 +3145,8 @@ function bindTriviaEvents() {
 
   // (Schedule lazy-load removed — schedule is no longer shown)
 
-  // Generation settings
-  document.getElementById('btn-save-gen-settings').addEventListener('click', saveGenSettings);
+  // Generation settings (element lives in a different panel — guard against null)
+  document.getElementById('btn-save-gen-settings')?.addEventListener('click', saveGenSettings);
 }
 
 async function loadTriviaData() {
