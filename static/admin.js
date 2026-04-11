@@ -3584,10 +3584,12 @@ function renderTriviaBuilderSlots() {
           </div>
           <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
             <button class="trivia-slot__edit-btn" data-slot="${i}" title="Edit">✎</button>
+            <button class="trivia-slot__regen-btn" data-slot="${i}" title="Regenerate with AI">↺</button>
             <button class="trivia-slot__remove" data-slot="${i}" title="Remove">×</button>
           </div>`;
         el.querySelector('.trivia-slot__remove').addEventListener('click', () => removeTriviaSlot(i));
         el.querySelector('.trivia-slot__edit-btn').addEventListener('click', () => { triviaSlotEditing[i] = true; renderTriviaBuilderSlots(); });
+        el.querySelector('.trivia-slot__regen-btn').addEventListener('click', () => regenBuilderSlot(i));
         el.querySelector('.tslot-preview-btn').addEventListener('click', () => showAcceptedAnswers(slot.answer));
       }
     } else {
@@ -3786,6 +3788,7 @@ function renderGenCards() {
           <div class="gen-q-row__fields">
             <textarea class="gen-q-row__question" id="gen-q-text-${di}-${qi}" rows="2">${escHtml(q.question)}</textarea>
             <input type="text" class="gen-q-row__answer" id="gen-q-ans-${di}-${qi}" value="${escHtml(q.answer)}" placeholder="Answer">
+            <button class="btn btn--ghost btn--sm" onclick="regenQuestion(${di},${qi})" title="Regenerate this question" id="gen-q-regen-${di}-${qi}">↺</button>
           </div>
           <div class="gen-q-row__meta">
             <span class="gen-q-row__cat">${escHtml(q.category)}</span>
@@ -3835,6 +3838,38 @@ async function approveTriviaGenerate() {
     $status.style.color = '#cc2200';
     $approve.disabled = false;
     $approve.textContent = 'Approve All';
+  }
+}
+
+async function regenQuestion(di, qi) {
+  readGenCardsState();
+  const $btn = document.getElementById(`gen-q-regen-${di}-${qi}`);
+  const $row = document.getElementById(`gen-q-${di}-${qi}`);
+  const excludeQ = triviaGenDays[di].questions[qi].question;
+  $btn.disabled = true;
+  $btn.textContent = '…';
+  $row.style.opacity = '0.5';
+
+  try {
+    const res  = await fetch('/admin/trivia/generate/single', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exclude_question: excludeQ }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      triviaGenDays[di].questions[qi] = data.question;
+      renderGenCards();
+    } else {
+      $btn.disabled = false;
+      $btn.textContent = '↺';
+      $row.style.opacity = '';
+      alert('Error: ' + (data.error || 'Unknown error'));
+    }
+  } catch (e) {
+    $btn.disabled = false;
+    $btn.textContent = '↺';
+    $row.style.opacity = '';
   }
 }
 
@@ -4090,6 +4125,42 @@ async function saveSlotEdit(i) {
   triviaSlotEditing[i] = false;
   renderTriviaBuilderSlots();
   renderTriviaBank();
+}
+
+async function regenBuilderSlot(i) {
+  const slot = triviaBuilderSlots[i];
+  if (!slot) return;
+
+  const $btn = document.querySelector(`.trivia-slot__regen-btn[data-slot="${i}"]`);
+  if ($btn) { $btn.disabled = true; $btn.textContent = '…'; }
+
+  try {
+    const res  = await fetch('/admin/trivia/generate/single', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exclude_question: slot.question }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Generation failed');
+
+    const q = data.question;
+    const payload = { question: q.question, answer: q.answer, category: q.category || slot.category };
+    const saveRes  = await fetch(`/admin/trivia/questions/${slot.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    const saveData = await saveRes.json();
+    if (!saveData.ok) throw new Error(saveData.error || 'Save failed');
+
+    Object.assign(slot, payload);
+    const tqIdx = triviaQuestions.findIndex(tq => tq.id === slot.id);
+    if (tqIdx !== -1) Object.assign(triviaQuestions[tqIdx], payload);
+
+    renderTriviaBuilderSlots();
+    renderTriviaBank();
+  } catch (err) {
+    if ($btn) { $btn.disabled = false; $btn.textContent = '↺'; }
+    alert(`Regenerate failed: ${err.message}`);
+  }
 }
 
 // ── Fuzzy match helpers (mirrors trivia.js) ────────────────────────

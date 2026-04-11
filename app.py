@@ -2815,6 +2815,67 @@ def admin_trivia_generate_confirm():
     return jsonify({"ok": True, "saved_dates": saved_dates})
 
 
+@app.post("/admin/trivia/generate/single")
+@admin_required
+def admin_trivia_generate_single():
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 503
+
+    data = request.get_json(force=True)
+    exclude_question = data.get("exclude_question", "").strip()
+
+    all_questions = get_trivia_questions()
+    exemplars = [q for q in all_questions if q.get("exemplar")]
+    if not exemplars:
+        by_difficulty = sorted(all_questions, key=lambda q: q.get("difficulty", 5))
+        step = max(1, len(by_difficulty) // 15)
+        exemplars = by_difficulty[::step][:15]
+
+    settings = get_trivia_generation_settings()
+    style_notes = settings.get("style_notes", "").strip()
+
+    examples_text = "\n".join(
+        f'- Q: {q["question"]}\n  A: {q["answer"]} (Category: {q["category"]}, Difficulty: {q.get("difficulty", 5)}/10)'
+        for q in exemplars[:20]
+    )
+    existing_qs_text = "\n".join(f'- {q["question"]}' for q in all_questions)
+    style_section = f"\nAdditional style guidance:\n{style_notes}\n" if style_notes else ""
+    exclude_section = f"\nDo NOT write a question similar to: {exclude_question}\n" if exclude_question else ""
+
+    system = (
+        "You are a trivia question writer for a daily trivia game. "
+        "Questions should be clever, specific, and have surprising angles — "
+        "not generic 'What is X?' questions. Prefer questions that reward lateral thinking "
+        "or unexpected connections. Always return valid JSON only, no commentary."
+    )
+    user = (
+        f"Write exactly 1 trivia question for a daily trivia game.\n\n"
+        f"Here are example questions that capture the style and quality we want:\n{examples_text}\n"
+        f"{style_section}"
+        f"{exclude_section}"
+        f"Rules:\n"
+        f"- The question must have a clean, specific single answer\n"
+        f"- Category: one of FILM, SPORTS, SCIENCE, GEOGRAPHY, MUSIC, HISTORY, LITERATURE, FOOD/DRINK, TECHNOLOGY, LANGUAGE\n"
+        f"- Difficulty: integer 1-10 (1=very easy, 10=very hard)\n"
+        f"- Do NOT duplicate any of these existing questions:\n{existing_qs_text}\n\n"
+        f"Return exactly this JSON (no markdown, no explanation):\n"
+        f'{{"question": "...", "answer": "...", "category": "...", "difficulty": 5}}'
+    )
+
+    raw, err = _call_claude(system, user, max_tokens=512)
+    if err:
+        return jsonify({"error": err}), 500
+
+    try:
+        q = json.loads(raw)
+        if "question" not in q or "answer" not in q:
+            raise KeyError("missing question or answer")
+    except Exception as e:
+        return jsonify({"error": f"Failed to parse AI response: {e}", "raw": raw}), 500
+
+    return jsonify({"ok": True, "question": q})
+
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     PUZZLES_DIR.mkdir(parents=True, exist_ok=True)
