@@ -3743,8 +3743,14 @@ async function startTriviaGenerate() {
   $approve.disabled = true;
 
   try {
-    const res  = await fetch('/admin/trivia/generate', { method: 'POST' });
-    const data = await res.json();
+    const res  = await fetch('/admin/trivia/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch {
+      $cards.innerHTML = `<div class="loading-state" style="color:#cc2200;">Server error — try logging out and back in, then retry. (${escHtml(res.status + ' ' + res.statusText)})</div>`;
+      $btn.disabled = false; $btn.textContent = 'Generate 14 Days';
+      return;
+    }
 
     if (!res.ok || !data.ok) {
       $status.textContent = '';
