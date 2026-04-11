@@ -3080,6 +3080,7 @@ function bindNav() {
         loadTriviaData();
       }
       if (panelId === 'trivia-published') {
+        if (!window._triviaGenBound) { bindTriviaGenerateEvents(); window._triviaGenBound = true; }
         loadTriviaPublished();
       }
       if (panelId === 'stats') {
@@ -3143,6 +3144,9 @@ function bindTriviaEvents() {
   });
 
   // (Schedule lazy-load removed — schedule is no longer shown)
+
+  // Generation settings
+  document.getElementById('btn-save-gen-settings').addEventListener('click', saveGenSettings);
 }
 
 async function loadTriviaData() {
@@ -3160,6 +3164,29 @@ async function loadTriviaData() {
   renderTriviaBank();
   renderTriviaBankForBuilder();
   bindTriviaHideUsedToggle();
+  loadGenSettings();
+}
+
+async function loadGenSettings() {
+  const res = await fetch('/admin/trivia/generation-settings');
+  if (!res.ok) return;
+  const data = await res.json();
+  const el = document.getElementById('trivia-style-notes');
+  if (el) el.value = data.style_notes || '';
+}
+
+async function saveGenSettings() {
+  const $msg = document.getElementById('gen-settings-msg');
+  const style_notes = document.getElementById('trivia-style-notes').value.trim();
+  const res = await fetch('/admin/trivia/generation-settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ style_notes }),
+  });
+  const data = await res.json();
+  $msg.style.color = data.ok ? '#1a7a1a' : '#cc2200';
+  $msg.textContent = data.ok ? 'Saved!' : (data.error || 'Error saving.');
+  setTimeout(() => { $msg.textContent = ''; }, 2000);
 }
 
 function renderTriviaStats() {
@@ -3265,6 +3292,9 @@ function renderTriviaBank() {
           <div class="trivia-q-row__a">Answer: <strong>${escHtml(q.answer)}</strong></div>
         </div>
         <div class="trivia-q-row__actions" onclick="event.stopPropagation()">
+          <button class="btn btn--ghost btn--sm" style="font-size:16px;padding:2px 7px;${q.exemplar ? 'color:#c8860a;' : 'color:#bbb;'}"
+            title="${q.exemplar ? 'Remove as style example' : 'Use as style example for AI generation'}"
+            onclick="toggleExemplar(${q.id})">★</button>
           <button class="btn btn--sm" style="font-size:11px;padding:3px 8px;"
             onclick="sendTriviaQuestionToBuilder(${q.id})">→ Builder</button>
           <button class="btn btn--ghost btn--sm" style="font-size:11px;"
@@ -3358,6 +3388,16 @@ async function deleteTriviaQuestion(id) {
     renderTriviaStats();
     renderTriviaBank();
     renderTriviaBankForBuilder();
+  }
+}
+
+async function toggleExemplar(id) {
+  const res  = await fetch(`/admin/trivia/questions/${id}/exemplar`, { method: 'POST' });
+  const data = await res.json();
+  if (data.ok) {
+    const q = triviaQuestions.find(q => q.id === id);
+    if (q) q.exemplar = data.exemplar;
+    renderTriviaBank();
   }
 }
 
@@ -3673,6 +3713,135 @@ function bindTriviaPuzzleBuilderEvents() {
       updateTriviaPubBtn();
     });
   }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TRIVIA AI GENERATION
+// ══════════════════════════════════════════════════════════════════
+
+let triviaGenDays = [];  // [{date, questions: [{question, answer, category, difficulty}]}]
+
+function bindTriviaGenerateEvents() {
+  document.getElementById('btn-trivia-generate').addEventListener('click', startTriviaGenerate);
+  document.getElementById('btn-trivia-gen-cancel').addEventListener('click', cancelTriviaGenerate);
+  document.getElementById('btn-trivia-gen-approve').addEventListener('click', approveTriviaGenerate);
+}
+
+async function startTriviaGenerate() {
+  const $status  = document.getElementById('trivia-gen-status');
+  const $cards   = document.getElementById('trivia-gen-cards');
+  const $review  = document.getElementById('trivia-gen-review');
+  const $approve = document.getElementById('btn-trivia-gen-approve');
+  const $btn     = document.getElementById('btn-trivia-generate');
+
+  $btn.disabled = true;
+  $btn.textContent = 'Generating…';
+  $status.textContent = 'Asking Claude to write questions…';
+  $status.style.color = 'var(--muted)';
+  $cards.innerHTML = '<div class="loading-state">Generating questions — this may take 15–30 seconds…</div>';
+  $review.style.display = 'block';
+  $approve.disabled = true;
+
+  try {
+    const res  = await fetch('/admin/trivia/generate', { method: 'POST' });
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      $status.textContent = '';
+      $cards.innerHTML = `<div class="loading-state" style="color:#cc2200;">Error: ${escHtml(data.error || 'Unknown error')}</div>`;
+      return;
+    }
+
+    if (data.days.length === 0) {
+      $status.textContent = '';
+      $cards.innerHTML = '<div class="loading-state">All 14 days are already scheduled — nothing to generate.</div>';
+      return;
+    }
+
+    triviaGenDays = data.days;
+    $status.textContent = `${data.days.length} day(s) ready for review`;
+    renderGenCards();
+    $approve.disabled = false;
+  } catch (e) {
+    $cards.innerHTML = `<div class="loading-state" style="color:#cc2200;">Network error: ${escHtml(String(e))}</div>`;
+  } finally {
+    $btn.disabled = false;
+    $btn.textContent = 'Generate 14 Days';
+  }
+}
+
+function renderGenCards() {
+  const $cards = document.getElementById('trivia-gen-cards');
+  $cards.innerHTML = triviaGenDays.map((day, di) => `
+    <div class="gen-day-card">
+      <div class="gen-day-card__date">${day.date}</div>
+      ${day.questions.map((q, qi) => `
+        <div class="gen-q-row" id="gen-q-${di}-${qi}">
+          <div class="gen-q-row__fields">
+            <textarea class="gen-q-row__question" id="gen-q-text-${di}-${qi}" rows="2">${escHtml(q.question)}</textarea>
+            <input type="text" class="gen-q-row__answer" id="gen-q-ans-${di}-${qi}" value="${escHtml(q.answer)}" placeholder="Answer">
+          </div>
+          <div class="gen-q-row__meta">
+            <span class="gen-q-row__cat">${escHtml(q.category)}</span>
+            <span class="gen-q-row__diff">Difficulty: ${q.difficulty}/10</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+function readGenCardsState() {
+  triviaGenDays.forEach((day, di) => {
+    day.questions.forEach((q, qi) => {
+      const qEl = document.getElementById(`gen-q-text-${di}-${qi}`);
+      const aEl = document.getElementById(`gen-q-ans-${di}-${qi}`);
+      if (qEl) q.question = qEl.value.trim();
+      if (aEl) q.answer   = aEl.value.trim();
+    });
+  });
+}
+
+async function approveTriviaGenerate() {
+  readGenCardsState();
+  const $approve = document.getElementById('btn-trivia-gen-approve');
+  const $status  = document.getElementById('trivia-gen-status');
+  $approve.disabled = true;
+  $approve.textContent = 'Saving…';
+
+  const res  = await fetch('/admin/trivia/generate/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ days: triviaGenDays }),
+  });
+  const data = await res.json();
+
+  if (data.ok) {
+    $status.textContent = `Saved ${data.saved_dates.length} day(s)!`;
+    $status.style.color = '#1a7a1a';
+    triviaPublishedLoaded = false;
+    triviaLoaded = false;
+    loadTriviaData();
+    loadTriviaPublished();
+    setTimeout(() => cancelTriviaGenerate(), 2500);
+  } else {
+    $status.textContent = data.error || 'Error saving.';
+    $status.style.color = '#cc2200';
+    $approve.disabled = false;
+    $approve.textContent = 'Approve All';
+  }
+}
+
+function cancelTriviaGenerate() {
+  triviaGenDays = [];
+  document.getElementById('trivia-gen-review').style.display = 'none';
+  document.getElementById('trivia-gen-cards').innerHTML = '';
+  const $status = document.getElementById('trivia-gen-status');
+  $status.textContent = '';
+  $status.style.color = '';
+  const $approve = document.getElementById('btn-trivia-gen-approve');
+  $approve.disabled = true;
+  $approve.textContent = 'Approve All';
 }
 
 // ══════════════════════════════════════════════════════════════════
