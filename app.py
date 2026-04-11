@@ -47,6 +47,7 @@ DRAFTS_PATH               = DATA_DIR / "drafts.json"
 SETTINGS_PATH             = DATA_DIR / "settings.json"
 MARQUEE_STATS_PATH = DATA_DIR / "marquee_stats.json"
 TRIVIA_STATS_PATH  = DATA_DIR / "trivia_stats.json"
+TRIVIA_GENERATION_SETTINGS_PATH = DATA_DIR / "trivia_generation.json"
 
 
 def _init_persistent_disk() -> None:
@@ -285,6 +286,19 @@ def save_trivia_questions(questions: list) -> None:
     with open(TRIVIA_DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(questions, f, indent=2, ensure_ascii=False)
     _trivia_cache = questions
+
+
+def get_trivia_generation_settings() -> dict:
+    if TRIVIA_GENERATION_SETTINGS_PATH.exists():
+        with open(TRIVIA_GENERATION_SETTINGS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    return {"style_notes": ""}
+
+
+def save_trivia_generation_settings(settings: dict) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(TRIVIA_GENERATION_SETTINGS_PATH, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2, ensure_ascii=False)
 
 
 def get_marquee_stats() -> dict:
