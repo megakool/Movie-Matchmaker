@@ -2286,26 +2286,23 @@ def _enrich_cat(cat: dict, movie_by_id: dict) -> dict:
     return {**cat, "movie_titles": [movie_by_id.get(mid, {}).get("title", f"#{mid}") for mid in ids]}
 
 
-def _build_person_index(movies_list: list) -> tuple[dict, dict]:
-    """Return (actor→set(movie_ids), director→set(movie_ids)) for the whole library."""
-    actor_ids: dict[str, set] = {}
-    dir_ids:   dict[str, set] = {}
+def _build_person_index(movies_list: list) -> dict:
+    """Return merged person→set(movie_ids) dict keyed as 'a:Name' / 'd:Name'."""
+    person_ids: dict[str, set] = {}
     for m in movies_list:
         mid = m["id"]
         for a in (m.get("actors") or [])[:5]:
-            actor_ids.setdefault(a, set()).add(mid)
+            person_ids.setdefault(f"a:{a}", set()).add(mid)
         for d in (m.get("directors") or []):
-            dir_ids.setdefault(d, set()).add(mid)
-    return actor_ids, dir_ids
+            person_ids.setdefault(f"d:{d}", set()).add(mid)
+    return person_ids
 
 
-def _hidden_connections(cats: list, movie_id_set: set,
-                        actor_ids: dict, dir_ids: dict) -> list:
+def _hidden_connections(cats: list, movie_id_set: set, person_ids: dict) -> list:
     """Find actors/directors with 4+ movies in the puzzle that aren't already a category."""
     cat_titles_lower = {c.get("title", "").lower() for c in cats}
     hidden = []
-    for person, ids in {**{f"a:{a}": s for a, s in actor_ids.items()},
-                         **{f"d:{d}": s for d, s in dir_ids.items()}}.items():
+    for person, ids in person_ids.items():
         overlap = ids & movie_id_set
         if len(overlap) < 4:
             continue
@@ -2339,6 +2336,7 @@ def admin_assemble_puzzle():
         return jsonify({"error": str(exc)}), 500
 
 def _admin_assemble_puzzle_impl():
+    import time
     from itertools import combinations as _combos
     data       = request.get_json(force=True) or {}
     anchor_ids = set(data.get("anchor_ids", []))
@@ -2348,7 +2346,7 @@ def _admin_assemble_puzzle_impl():
 
     movies_list = get_movies()
     movie_by_id = {m["id"]: m for m in movies_list}
-    actor_ids, dir_ids = _build_person_index(movies_list)
+    person_ids  = _build_person_index(movies_list)
 
     anchors   = [c for c in unused if c["id"] in anchor_ids]
     free_cats = [c for c in unused if c["id"] not in anchor_ids]
@@ -2366,9 +2364,12 @@ def _admin_assemble_puzzle_impl():
                   if not (set(c.get("movie_ids", [])) & anchor_movie_set)]
 
     valid_combos: list[tuple[int, list, list]] = []
-    MAX_VALID = 3000  # cap to keep response time reasonable
+    MAX_VALID  = 500   # reduced to avoid gunicorn timeout
+    DEADLINE   = time.monotonic() + 18  # hard 18-second cutoff
 
     for filler_combo in _combos(free_valid, needed):
+        if time.monotonic() > DEADLINE or len(valid_combos) >= MAX_VALID:
+            break
         filler_set: set = set()
         ok = True
         for fc in filler_combo:
@@ -2381,7 +2382,7 @@ def _admin_assemble_puzzle_impl():
             continue
         cat_list    = anchors + list(filler_combo)
         all_ids     = anchor_movie_set | filler_set
-        hidden      = _hidden_connections(cat_list, all_ids, actor_ids, dir_ids)
+        hidden      = _hidden_connections(cat_list, all_ids, person_ids)
         sc          = _score_combo(cat_list, hidden)
         valid_combos.append((sc, cat_list, hidden))
         if len(valid_combos) >= MAX_VALID:
