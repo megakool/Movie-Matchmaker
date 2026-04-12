@@ -4122,6 +4122,7 @@ async function saveSlotEdit(i) {
   const tqIdx = triviaQuestions.findIndex(tq => tq.id === slot.id);
   if (tqIdx !== -1) Object.assign(triviaQuestions[tqIdx], payload);
 
+  triviaPublishedLoaded = false;
   triviaSlotEditing[i] = false;
   renderTriviaBuilderSlots();
   renderTriviaBank();
@@ -4155,6 +4156,7 @@ async function regenBuilderSlot(i) {
     const tqIdx = triviaQuestions.findIndex(tq => tq.id === slot.id);
     if (tqIdx !== -1) Object.assign(triviaQuestions[tqIdx], payload);
 
+    triviaPublishedLoaded = false;
     renderTriviaBuilderSlots();
     renderTriviaBank();
   } catch (err) {
