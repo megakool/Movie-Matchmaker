@@ -763,17 +763,74 @@ body::before {
   font-weight: 600;
 }
 .archive-card--today .archive-card__date { color: rgba(250,244,239,0.7); }
-.archive-card--played::after {
-  content: '';
+.archive-card--played {
+  opacity: 0.5;
+}
+.archive-card--played:hover {
+  opacity: 1;
+}
+
+/* ── Archive badge (solved / failed / unfinished) ── */
+.archive-card__badge {
   position: absolute;
   bottom: 8px;
   right: 8px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--text);
+  width: 14px;
+  height: 14px;
 }
-.archive-card--today.archive-card--played::after {
+
+/* Checkmark */
+.archive-card__badge[data-state="solved"]::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border-right: 2px solid var(--text);
+  border-bottom: 2px solid var(--text);
+  transform: rotate(45deg);
+}
+
+/* X — two crossed lines */
+.archive-card__badge[data-state="failed"]::before,
+.archive-card__badge[data-state="failed"]::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 1px;
+}
+.archive-card__badge[data-state="failed"]::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.archive-card__badge[data-state="failed"]::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* Dash */
+.archive-card__badge[data-state="unfinished"]::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+
+/* Today card — invert icon colors */
+.archive-card--today .archive-card__badge[data-state="solved"]::after {
+  border-color: var(--bg);
+}
+.archive-card--today .archive-card__badge[data-state="failed"]::before,
+.archive-card--today .archive-card__badge[data-state="failed"]::after,
+.archive-card--today .archive-card__badge[data-state="unfinished"]::after {
   background: var(--bg);
 }
 

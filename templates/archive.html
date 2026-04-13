@@ -16,6 +16,7 @@
            data-date="{{ p.date }}">
           <div class="archive-card__num">#{{ p.puzzle_number }}</div>
           <div class="archive-card__date">{{ p.date }}</div>
+          <span class="archive-card__badge"></span>
         </a>
       {% endfor %}
     </div>
@@ -37,8 +38,16 @@
   document.querySelectorAll('[data-date]').forEach(function(el) {
     var d = el.getAttribute('data-date');
     var rec = history[d];
-    if (rec && (rec.emoji || rec.solved)) {
-      el.classList.add('archive-card--played');
+    if (!rec) return;
+    el.classList.add('archive-card--played');
+    var badge = el.querySelector('.archive-card__badge');
+    if (!badge) return;
+    if (rec.won) {
+      badge.setAttribute('data-state', 'solved');
+    } else if (rec.gameOver) {
+      badge.setAttribute('data-state', 'failed');
+    } else if (rec.solved && rec.solved.length > 0) {
+      badge.setAttribute('data-state', 'unfinished');
     }
   });
 })();
