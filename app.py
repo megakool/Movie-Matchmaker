@@ -263,29 +263,43 @@ def admin_required(f):
     return decorated
 
 # ── Trivia helpers ────────────────────────────────────────────────────────────
+# Per-process cache with mtime tracking so gunicorn workers stay in sync:
+# each worker checks the file's modification time on every call and re-reads
+# from disk whenever another worker has written a newer version.
 _trivia_cache = None
+_trivia_cache_mtime = 0.0
 
 def get_trivia_questions() -> list:
     """Return trivia questions. Prefer editable copy on persistent disk."""
-    global _trivia_cache
-    if _trivia_cache is None:
-        if TRIVIA_DATA_PATH.exists():
-            with open(TRIVIA_DATA_PATH, "r", encoding="utf-8") as f:
-                _trivia_cache = json.load(f)
-        elif TRIVIA_PATH.exists():
-            with open(TRIVIA_PATH, "r", encoding="utf-8") as f:
-                _trivia_cache = json.load(f)["questions"]
-        else:
-            _trivia_cache = []
-    return _trivia_cache
+    global _trivia_cache, _trivia_cache_mtime
+    if TRIVIA_DATA_PATH.exists():
+        try:
+            mtime = TRIVIA_DATA_PATH.stat().st_mtime
+            if _trivia_cache is None or mtime != _trivia_cache_mtime:
+                with open(TRIVIA_DATA_PATH, "r", encoding="utf-8") as f:
+                    _trivia_cache = json.load(f)
+                _trivia_cache_mtime = mtime
+            return _trivia_cache
+        except Exception:
+            pass
+    # Fallback to bundled trivia source
+    if TRIVIA_PATH.exists():
+        with open(TRIVIA_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)["questions"]
+    return []
 
 
 def save_trivia_questions(questions: list) -> None:
-    global _trivia_cache
+    global _trivia_cache, _trivia_cache_mtime
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     with open(TRIVIA_DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(questions, f, indent=2, ensure_ascii=False)
     _trivia_cache = questions
+    try:
+        _trivia_cache_mtime = TRIVIA_DATA_PATH.stat().st_mtime
+    except Exception:
+        _trivia_cache = None
+        _trivia_cache_mtime = 0.0
 
 
 def get_trivia_generation_settings() -> dict:
@@ -2495,15 +2509,26 @@ def admin_trivia_list():
 @app.get("/admin/trivia/schedule")
 @admin_required
 def admin_trivia_schedule():
-    """Return 14-day question schedule starting from today."""
+    """Return 14-day question schedule starting from today.
+    Dates that have a published puzzle file use those questions;
+    otherwise the algorithmic fallback is shown."""
     questions = get_trivia_questions()
+    questions_by_id = {q["id"]: q for q in questions}
     today = date.today()
     schedule = []
     for i in range(14):
         d = (today + timedelta(days=i)).isoformat()
-        qs = get_daily_trivia(questions, d, count=3)
+        published = get_trivia_puzzle(d)
+        if published:
+            qs = [questions_by_id.get(qid) for qid in published.get("questions", [])]
+            qs = [q for q in qs if q]
+            source = "published"
+        else:
+            qs = get_daily_trivia(questions, d, count=3)
+            source = "algorithmic"
         schedule.append({
             "date": d,
+            "source": source,
             "questions": [{"id": q["id"], "question": q["question"],
                            "answer": q["answer"], "category": q["category"]} for q in qs],
         })

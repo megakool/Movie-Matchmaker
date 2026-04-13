@@ -4014,9 +4014,6 @@ function findTriviaGap(byDate, todayStr) {
 function renderTriviaDetailCard($detail, puzzle, dateStr, todayStr) {
   if (!$detail) return;
   const isUpcoming = dateStr > todayStr;
-  const editBtn = isUpcoming
-    ? `<button class="btn btn--ghost btn--sm trivia-detail-edit-btn" data-date="${escHtml(dateStr)}" style="font-size:11px;">Edit</button>`
-    : '';
 
   const qs = (puzzle.questions || []).map(q => `
     <div class="trivia-pub-q">
@@ -4031,7 +4028,7 @@ function renderTriviaDetailCard($detail, puzzle, dateStr, todayStr) {
       ${qs}
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;">
         <a href="/trivia/${escHtml(dateStr)}" target="_blank" class="btn btn--ghost btn--sm" style="font-size:11px;">Play ↗</a>
-        ${editBtn}
+        <button class="btn btn--ghost btn--sm trivia-detail-edit-btn" data-date="${escHtml(dateStr)}" style="font-size:11px;">Edit</button>
         <button class="btn btn--ghost btn--sm trivia-detail-del-btn" data-date="${escHtml(dateStr)}"
                 style="font-size:11px;color:#cc2200;border-color:#cc2200;margin-left:auto;">Delete</button>
       </div>
@@ -4050,12 +4047,13 @@ function renderTriviaDetailCard($detail, puzzle, dateStr, todayStr) {
     }
   });
 
-  const editBtnEl = $detail.querySelector('.trivia-detail-edit-btn');
-  if (editBtnEl) {
-    editBtnEl.addEventListener('click', () => {
-      editTriviaPublishedPuzzle(dateStr, puzzle.questions || []);
-    });
-  }
+  $detail.querySelector('.trivia-detail-edit-btn').addEventListener('click', () => {
+    if (!isUpcoming) {
+      const confirmed = confirm('This puzzle has already been published. Editing it may affect the live game. Continue?');
+      if (!confirmed) return;
+    }
+    editTriviaPublishedPuzzle(dateStr, puzzle.questions || []);
+  });
 }
 
 function bindTriviaPublishedEvents() {
@@ -4135,6 +4133,8 @@ async function regenBuilderSlot(i) {
   const $btn = document.querySelector(`.trivia-slot__regen-btn[data-slot="${i}"]`);
   if ($btn) { $btn.disabled = true; $btn.textContent = '…'; }
 
+  const oldId = slot.id;
+
   try {
     const res  = await fetch('/admin/trivia/generate/single', {
       method: 'POST',
@@ -4145,20 +4145,39 @@ async function regenBuilderSlot(i) {
     if (!data.ok) throw new Error(data.error || 'Generation failed');
 
     const q = data.question;
-    const payload = { question: q.question, answer: q.answer, category: q.category || slot.category };
-    const saveRes  = await fetch(`/admin/trivia/questions/${slot.id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    // Add as a brand-new question (new ID) so the old question is untouched
+    // until Publish overwrites the puzzle file with the new IDs.
+    const addRes = await fetch('/admin/trivia/questions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: q.question,
+        answer:   q.answer,
+        category: q.category || slot.category,
+        difficulty: q.difficulty || slot.difficulty || 5,
+      }),
     });
-    const saveData = await saveRes.json();
-    if (!saveData.ok) throw new Error(saveData.error || 'Save failed');
+    const addData = await addRes.json();
+    if (!addData.ok) throw new Error(addData.error || 'Save failed');
 
-    Object.assign(slot, payload);
-    const tqIdx = triviaQuestions.findIndex(tq => tq.id === slot.id);
-    if (tqIdx !== -1) Object.assign(triviaQuestions[tqIdx], payload);
+    const newQ = addData.question;
+
+    // Deactivate the replaced question so it no longer appears in the bank
+    // or algorithmic schedule. (The game can still look it up by ID if needed.)
+    await fetch(`/admin/trivia/questions/${oldId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: false }),
+    });
+
+    // Update in-memory state
+    const tqIdx = triviaQuestions.findIndex(tq => tq.id === oldId);
+    if (tqIdx !== -1) triviaQuestions[tqIdx].active = false;
+    triviaQuestions.push(newQ);
+    triviaBuilderSlots[i] = newQ;
 
     triviaPublishedLoaded = false;
     renderTriviaBuilderSlots();
     renderTriviaBank();
+    renderTriviaBankForBuilder();
   } catch (err) {
     if ($btn) { $btn.disabled = false; $btn.textContent = '↺'; }
     alert(`Regenerate failed: ${err.message}`);
