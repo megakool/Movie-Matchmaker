@@ -1800,6 +1800,7 @@ def _extract_json(raw: str) -> str:
             pass
     return raw
 
+
 def _call_claude(system: str, user: str, max_tokens: int = 1024) -> tuple[str | None, str | None]:
     """Call Claude API. Returns (text, None) on success or (None, error_message) on failure."""
     if not ANTHROPIC_API_KEY:
@@ -2771,7 +2772,7 @@ def admin_trivia_generate():
         return jsonify({"error": err}), 500
 
     try:
-        parsed = json.loads(raw)
+        parsed = json.loads(_extract_json(raw))
         flat_questions = parsed["questions"]
     except (json.JSONDecodeError, KeyError) as e:
         return jsonify({"error": f"Failed to parse AI response: {e}", "raw": raw}), 500
@@ -2892,7 +2893,7 @@ def admin_trivia_generate_single():
         return jsonify({"error": err}), 500
 
     try:
-        q = json.loads(raw)
+        q = json.loads(_extract_json(raw))
         if "question" not in q or "answer" not in q:
             raise KeyError("missing question or answer")
     except Exception as e:
