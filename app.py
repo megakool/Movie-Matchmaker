@@ -1283,8 +1283,11 @@ def admin_stats_marquee():
     all_dates  = get_all_puzzle_dates()
     date_to_num = {d: i + 1 for i, d in enumerate(all_dates)}
 
+    today_str = date.today().isoformat()
     result = []
     for date_str in reversed(all_dates):
+        if date_str > today_str:
+            continue
         entry    = stats.get(date_str, {})
         plays    = entry.get("plays", 0)
         wins     = entry.get("wins", 0)
@@ -1331,8 +1334,11 @@ def admin_stats_trivia():
     stats     = get_trivia_stats()
     all_dates = get_all_trivia_puzzle_dates()
 
+    today_str = date.today().isoformat()
     result = []
     for i, date_str in enumerate(reversed(all_dates)):
+        if date_str > today_str:
+            continue
         entry  = stats.get(date_str, {})
         plays  = entry.get("plays", 0)
         scores = entry.get("scores", {})

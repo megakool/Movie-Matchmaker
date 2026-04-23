@@ -3083,6 +3083,8 @@ function bindNav() {
       }
       if (panelId === 'stats') {
         loadStats();
+        const subtab = item.dataset.statsSubtab;
+        if (subtab) switchToSubTab(subtab);
       }
     });
   });
