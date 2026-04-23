@@ -716,15 +716,48 @@ def admin_logout():
 @admin_required
 def admin_dashboard():
     all_dates = get_all_puzzle_dates()
-    # Pass (date, number) pairs so the template shows the same number as players see
+    trivia_dates_list = get_all_trivia_puzzle_dates()
     puzzle_dates_numbered = [(d, i + 1) for i, d in enumerate(all_dates)]
     pending = [s for s in get_submissions() if s.get("status") == "pending"]
+    today_dt = date.today()
+    today_str = today_dt.isoformat()
+    today_puzzle = get_puzzle(today_str)
+    today_trivia = get_trivia_puzzle(today_str)
+    today_puzzle_number = all_dates.index(today_str) + 1 if today_str in all_dates else None
+    today_trivia_number = trivia_dates_list.index(today_str) + 1 if today_str in trivia_dates_list else None
+    movies_by_id = get_movies_by_id()
+    trivia_questions_by_id = {q["id"]: q for q in get_trivia_questions()}
+    next_14_days = [(today_dt + timedelta(days=i)).isoformat() for i in range(14)]
+    puzzle_dates_set = set(all_dates)
+    trivia_dates_set = set(trivia_dates_list)
+    mq_future = [d for d in all_dates if d > today_str]
+    tr_future = [d for d in trivia_dates_list if d > today_str]
+    mq_days_ahead = len(mq_future)
+    mq_last = mq_future[-1] if mq_future else None
+    tr_days_ahead = len(tr_future)
+    tr_last = tr_future[-1] if tr_future else None
+    today_display = today_dt.strftime('%A, %B ') + str(today_dt.day) + ', ' + str(today_dt.year)
     return render_template(
         "admin.html",
         puzzle_dates=all_dates,
         puzzle_dates_numbered=puzzle_dates_numbered,
         pending_count=len(pending),
-        today=date.today().isoformat(),
+        today=today_str,
+        today_display=today_display,
+        today_puzzle=today_puzzle,
+        today_trivia=today_trivia,
+        today_puzzle_number=today_puzzle_number,
+        today_trivia_number=today_trivia_number,
+        trivia_dates=trivia_dates_list,
+        movies_by_id=movies_by_id,
+        trivia_questions_by_id=trivia_questions_by_id,
+        next_14_days=next_14_days,
+        puzzle_dates_set=puzzle_dates_set,
+        trivia_dates_set=trivia_dates_set,
+        mq_days_ahead=mq_days_ahead,
+        mq_last=mq_last,
+        tr_days_ahead=tr_days_ahead,
+        tr_last=tr_last,
     )
 
 @app.get("/admin/movies")

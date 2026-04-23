@@ -145,13 +145,11 @@ function switchToGame(game) {
     navTrivia.style.display  = 'none';
     pillMarquee.classList.remove('game-pill--inactive');
     pillTrivia.classList.add('game-pill--inactive');
-    switchToPanel('builder');
   } else {
     navMarquee.style.display = 'none';
     navTrivia.style.display  = '';
     pillTrivia.classList.remove('game-pill--inactive');
     pillMarquee.classList.add('game-pill--inactive');
-    switchToPanel('trivia-builder');
     loadTriviaData();
   }
 }

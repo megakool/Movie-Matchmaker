@@ -1828,6 +1828,234 @@
   .stats-cat-cell--green  { border-left: 3px solid var(--green); }
   .stats-cat-cell--blue   { border-left: 3px solid var(--blue); }
   .stats-cat-cell--purple { border-left: 3px solid var(--purple); }
+
+/* ── Dashboard Panel ────────────────────────────────────────────── */
+.dash-banner {
+  background: #ede5dc;
+  border: var(--bw) solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.dash-banner__date {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1;
+}
+.dash-banner__pills { display: flex; gap: 10px; flex-wrap: wrap; }
+.dash-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: var(--bw) solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  box-shadow: 2px 2px 0 var(--border);
+}
+.dash-status-pill--ok   { background: #c8f0c8; color: #1a4d19; }
+.dash-status-pill--miss { background: #fad4d4; color: #7a1515; }
+.dash-status-pill__icon { font-size: 13px; line-height: 1; }
+
+.dash-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) { .dash-cols { grid-template-columns: 1fr; } }
+
+.dash-game-col { display: flex; flex-direction: column; gap: 14px; }
+
+.dash-card {
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.dash-card__hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1.5px solid rgba(17,17,17,0.1);
+}
+.dash-card__title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 18px;
+  line-height: 1;
+}
+.dash-card__link {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1.5px solid rgba(17,17,17,0.15);
+  transition: background 0.1s, color 0.1s;
+}
+.dash-card__link:hover { background: var(--bg); color: var(--text); }
+
+.dash-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  border: 2px dashed rgba(17,17,17,0.2);
+  border-radius: 8px;
+  margin: 12px;
+}
+
+.dash-cat-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(17,17,17,0.06);
+}
+.dash-cat-row:last-child { border-bottom: none; }
+.dash-cat-bar {
+  width: 4px;
+  border-radius: 2px;
+  align-self: stretch;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+.dash-cat-body { flex: 1; min-width: 0; }
+.dash-cat-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 5px;
+  line-height: 1.2;
+}
+.dash-movie-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.dash-movie-chip {
+  background: #f0ebe5;
+  border: 1.5px solid #ccc;
+  border-radius: 20px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dash-q-row {
+  padding: 11px 14px;
+  border-bottom: 1px solid rgba(17,17,17,0.06);
+}
+.dash-q-row:last-child { border-bottom: none; }
+.dash-q-text {
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+.dash-q-answer {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.dash-q-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dash-q-cat {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: #e8e1d8;
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--text2);
+}
+.dash-q-dots { display: flex; gap: 3px; align-items: center; }
+.dash-q-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ccc;
+  flex-shrink: 0;
+}
+.dash-q-dot--on { background: var(--text); }
+
+.dash-runway {
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+}
+.dash-runway__stat {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+.dash-runway__stat--warn { color: #b91c1c; }
+.dash-runway__strip {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.dash-day-sq {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  border: var(--bw) solid var(--border);
+  flex-shrink: 0;
+  cursor: default;
+}
+.dash-day-sq--on  { background: var(--green); }
+.dash-day-sq--off { background: var(--bg); border-style: dashed; }
+.dash-day-sq__label {
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text);
+  pointer-events: none;
+}
+.dash-day-sq[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+.dash-runway__strip-wrap { padding-top: 14px; }
 </style>
 {% endblock %}
 
@@ -1864,9 +2092,14 @@
     </div>
 
     <nav class="admin-nav">
+      <div class="nav-section">
+        <button class="nav-item active" data-panel="dashboard">
+          <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span> Home
+        </button>
+      </div>
       <div class="nav-section" id="nav-marquee">
         <span class="nav-label">Marquee</span>
-        <button class="nav-item active" data-panel="builder">
+        <button class="nav-item" data-panel="builder">
           <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span> Puzzle Builder
         </button>
         <button class="nav-item" data-panel="create">
@@ -1911,8 +2144,161 @@
   <!-- ══════════ MAIN CONTENT ══════════ -->
   <main class="admin-main">
 
+    <!-- ══════════════ DASHBOARD PANEL ══════════════ -->
+    <div class="admin-panel active" id="panel-dashboard">
+
+      {% set color_map = {'yellow': '#f9df6d', 'green': '#6abf69', 'blue': '#6ab0d4', 'purple': '#b07ecf'} %}
+
+      <!-- Status Banner -->
+      <div class="dash-banner">
+        <span class="dash-banner__date">{{ today_display }}</span>
+        <div class="dash-banner__pills">
+          {% if today_puzzle_number %}
+            <span class="dash-status-pill dash-status-pill--ok">
+              <span class="dash-status-pill__icon">✓</span> Marquee #{{ today_puzzle_number }}
+            </span>
+          {% else %}
+            <span class="dash-status-pill dash-status-pill--miss">
+              <span class="dash-status-pill__icon">✗</span> Marquee — not published
+            </span>
+          {% endif %}
+          {% if today_trivia_number %}
+            <span class="dash-status-pill dash-status-pill--ok">
+              <span class="dash-status-pill__icon">✓</span> Trivia #{{ today_trivia_number }}
+            </span>
+          {% else %}
+            <span class="dash-status-pill dash-status-pill--miss">
+              <span class="dash-status-pill__icon">✗</span> Trivia — not published
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Two columns -->
+      <div class="dash-cols">
+
+        <!-- ── Marquee column ── -->
+        <div class="dash-game-col">
+
+          <!-- Today's Marquee puzzle -->
+          <div class="dash-card">
+            <div class="dash-card__hd">
+              <div style="width:20px;height:20px;border-radius:4px;border:2px solid var(--border);display:grid;grid-template-columns:1fr 1fr;overflow:hidden;flex-shrink:0;">
+                <div style="background:var(--yellow);"></div><div style="background:var(--green);"></div>
+                <div style="background:var(--blue);"></div><div style="background:var(--purple);"></div>
+              </div>
+              <span class="dash-card__title">Marquee</span>
+              {% if today_puzzle %}
+                <a class="dash-card__link" href="/marquee/{{ today }}" target="_blank" rel="noopener">View live ↗</a>
+              {% endif %}
+            </div>
+            {% if today_puzzle %}
+              {% for cat in today_puzzle.categories %}
+                <div class="dash-cat-row">
+                  <div class="dash-cat-bar" style="background:{{ color_map.get(cat.color, '#ccc') }};"></div>
+                  <div class="dash-cat-body">
+                    <div class="dash-cat-title">{{ cat.title }}</div>
+                    <div class="dash-movie-chips">
+                      {% for mid in cat.movie_ids %}
+                        {% set mv = movies_by_id.get(mid) %}
+                        <span class="dash-movie-chip">{{ mv.title if mv else mid }}</span>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="dash-empty">No puzzle published for today</div>
+            {% endif %}
+          </div>
+
+          <!-- Marquee runway -->
+          <div class="dash-runway">
+            {% if mq_days_ahead > 0 %}
+              <div class="dash-runway__stat">Scheduled through {{ mq_last }} &middot; {{ mq_days_ahead }} day{{ 's' if mq_days_ahead != 1 else '' }} ahead</div>
+            {% else %}
+              <div class="dash-runway__stat dash-runway__stat--warn">No future Marquee puzzles scheduled</div>
+            {% endif %}
+            <div class="dash-runway__strip-wrap">
+              <div class="dash-runway__strip">
+                {% for d in next_14_days %}
+                  <div class="dash-day-sq {{ 'dash-day-sq--on' if d in puzzle_dates_set else 'dash-day-sq--off' }}" title="{{ d }}">
+                    {% if loop.first %}<span class="dash-day-sq__label">today</span>{% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ── Trivia column ── -->
+        <div class="dash-game-col">
+
+          <!-- Today's Trivia quiz -->
+          <div class="dash-card">
+            <div class="dash-card__hd">
+              <div style="width:20px;height:20px;border-radius:4px;border:2px solid var(--border);background:#d4890a;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <span style="font-family:'Fraunces',Georgia,serif;font-weight:900;font-style:italic;font-size:14px;color:rgba(90,40,0,0.7);line-height:1;">?</span>
+              </div>
+              <span class="dash-card__title">Trivia</span>
+              {% if today_trivia %}
+                <a class="dash-card__link" href="/trivia/{{ today }}" target="_blank" rel="noopener">View live ↗</a>
+              {% endif %}
+            </div>
+            {% if today_trivia %}
+              {% for qid in today_trivia.questions %}
+                {% set q = trivia_questions_by_id.get(qid) %}
+                {% if q %}
+                  <div class="dash-q-row">
+                    <div class="dash-q-text">{{ q.question }}</div>
+                    <div class="dash-q-answer">{{ q.answer }}</div>
+                    <div class="dash-q-meta">
+                      {% if q.category %}
+                        <span class="dash-q-cat">{{ q.category }}</span>
+                      {% endif %}
+                      {% if q.difficulty %}
+                        {% set filled = ((q.difficulty | int) / 2) | round(0, 'ceil') | int %}
+                        <span class="dash-q-dots">
+                          {% for dot in range(5) %}
+                            <span class="dash-q-dot {{ 'dash-q-dot--on' if dot < filled else '' }}"></span>
+                          {% endfor %}
+                        </span>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            {% else %}
+              <div class="dash-empty">No trivia published for today</div>
+            {% endif %}
+          </div>
+
+          <!-- Trivia runway -->
+          <div class="dash-runway">
+            {% if tr_days_ahead > 0 %}
+              <div class="dash-runway__stat">Scheduled through {{ tr_last }} &middot; {{ tr_days_ahead }} day{{ 's' if tr_days_ahead != 1 else '' }} ahead</div>
+            {% else %}
+              <div class="dash-runway__stat dash-runway__stat--warn">No future Trivia puzzles scheduled</div>
+            {% endif %}
+            <div class="dash-runway__strip-wrap">
+              <div class="dash-runway__strip">
+                {% for d in next_14_days %}
+                  <div class="dash-day-sq {{ 'dash-day-sq--on' if d in trivia_dates_set else 'dash-day-sq--off' }}" title="{{ d }}">
+                    {% if loop.first %}<span class="dash-day-sq__label">today</span>{% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <!-- ══ end DASHBOARD PANEL ══ -->
+
     <!-- ══════════════ BUILDER PANEL ══════════════ -->
-    <div class="admin-panel active" id="panel-builder">
+    <div class="admin-panel" id="panel-builder">
 
       <div class="panel-hd">
         <h1 class="panel-hd__title">Puzzle Builder</h1>
