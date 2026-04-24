@@ -1803,31 +1803,68 @@
     letter-spacing: .05em; opacity: 0.5;
     border-bottom: 1.5px solid var(--border);
   }
-  .stats-table td { padding: 8px 10px; border-bottom: 1px solid #f0ebe5; vertical-align: top; }
+  .stats-table td { padding: 8px 10px; border-bottom: 1px solid #f0ebe5; vertical-align: middle; }
   .stats-table tr:last-child td { border-bottom: none; }
   .stats-table tr:hover td { background: var(--bg); }
   .stats-table tr.stats-row--no-data td { opacity: 0.4; font-style: italic; }
-  .stats-cat-grid {
+  .stats-table tr.stats-cats-row td { padding: 0 10px 12px; border-bottom: 1.5px solid #e8e2db; }
+  .stats-table tr.stats-cats-row:hover td { background: transparent; }
+  /* Win% bar */
+  .stats-win-cell { position: relative; min-width: 80px; }
+  .stats-win-bar {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    border-radius: 2px; opacity: 0.18; pointer-events: none;
+  }
+  .stats-win-bar--high { background: var(--green); }
+  .stats-win-bar--mid  { background: #f59e0b; }
+  .stats-win-bar--low  { background: #ef4444; }
+  .stats-win-val { position: relative; z-index: 1; font-weight: 600; }
+  /* Category block */
+  .stats-cat-block {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-    padding: 8px 0 4px;
+    gap: 5px;
+    padding: 6px 0 2px;
   }
-  .stats-cat-cell {
-    background: var(--surface);
-    border: var(--bw) solid var(--border);
+  .stats-cat-item {
     border-radius: 6px;
     padding: 6px 8px;
     font-size: 11px;
+    background: var(--surface);
+    border: 1px solid #e8e2db;
   }
-  .stats-cat-cell__name { font-weight: 700; font-size: 12px; margin-bottom: 4px;
+  .stats-cat-item--yellow { border-left: 3px solid var(--yellow); }
+  .stats-cat-item--green  { border-left: 3px solid var(--green); }
+  .stats-cat-item--blue   { border-left: 3px solid var(--blue); }
+  .stats-cat-item--purple { border-left: 3px solid var(--purple); }
+  .stats-cat-item__name { font-weight: 700; font-size: 11px; margin-bottom: 3px;
                            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .stats-cat-cell__row { display: flex; justify-content: space-between;
-                          color: var(--text2); margin-top: 1px; }
-  .stats-cat-cell--yellow { border-left: 3px solid var(--yellow); }
-  .stats-cat-cell--green  { border-left: 3px solid var(--green); }
-  .stats-cat-cell--blue   { border-left: 3px solid var(--blue); }
-  .stats-cat-cell--purple { border-left: 3px solid var(--purple); }
+  .stats-cat-item__meta { color: var(--text2); font-size: 10px; line-height: 1.6; }
+  .stats-cat-item__unsolved { color: #b91c1c; font-weight: 600; }
+  /* Trivia score distribution */
+  .stats-score-dist {
+    display: flex;
+    height: 22px;
+    border-radius: 4px;
+    overflow: hidden;
+    min-width: 120px;
+    gap: 1px;
+  }
+  .stats-score-seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.9);
+    overflow: hidden;
+    min-width: 0;
+    transition: opacity 0.15s;
+  }
+  .stats-score-seg--0 { background: #ef4444; }
+  .stats-score-seg--1 { background: #f59e0b; }
+  .stats-score-seg--2 { background: #3b82f6; }
+  .stats-score-seg--3 { background: var(--green); }
 
 /* ── Dashboard Panel ────────────────────────────────────────────── */
 .dash-banner {
@@ -3001,6 +3038,7 @@
 
       <!-- ── Trivia stats sub-panel ── -->
       <div class="sub-panel" id="sub-stats-trivia">
+        <div id="stats-trivia-summary" class="stats-summary-row"></div>
         <div id="stats-trivia-body"><div class="loading-state">Loading…</div></div>
       </div>
 

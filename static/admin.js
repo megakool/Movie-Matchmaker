@@ -4656,57 +4656,84 @@ async function loadStats() {
 
 function renderMarqueeStats(puzzles) {
   // Summary chips — aggregate across all puzzles
-  const totalPlays  = puzzles.reduce((s, p) => s + p.plays, 0);
-  const totalWins   = puzzles.reduce((s, p) => s + p.wins, 0);
-  const played      = puzzles.filter(p => p.plays > 0).length;
-  const overallWin  = totalPlays ? (totalWins / totalPlays * 100).toFixed(1) : '—';
-  const avgMistakes = (() => {
-    const winRows = puzzles.filter(p => p.wins > 0);
-    if (!winRows.length) return '—';
-    const sum = winRows.reduce((s, p) => s + p.avg_mistakes * p.wins, 0);
-    return (sum / totalWins).toFixed(2);
-  })();
+  const totalPlays   = puzzles.reduce((s, p) => s + p.plays, 0);
+  const totalWins    = puzzles.reduce((s, p) => s + p.wins, 0);
+  const totalPerfect = puzzles.reduce((s, p) => s + ((p.mistakes && p.mistakes['0']) || 0), 0);
+  const played       = puzzles.filter(p => p.plays > 0).length;
+  const overallWin   = totalPlays ? (totalWins / totalPlays * 100).toFixed(1) : '—';
+  const perfectRate  = totalPlays ? (totalPerfect / totalPlays * 100).toFixed(1) : '—';
 
   document.getElementById('stats-marquee-summary').innerHTML = `
     <div class="stats-chip"><div class="stats-chip__val">${totalPlays}</div><div class="stats-chip__lbl">Total Plays</div></div>
     <div class="stats-chip"><div class="stats-chip__val">${played}</div><div class="stats-chip__lbl">Puzzles Played</div></div>
     <div class="stats-chip"><div class="stats-chip__val">${overallWin}%</div><div class="stats-chip__lbl">Win Rate</div></div>
-    <div class="stats-chip"><div class="stats-chip__val">${avgMistakes}</div><div class="stats-chip__lbl">Avg Mistakes (wins)</div></div>
+    <div class="stats-chip"><div class="stats-chip__val">${perfectRate}%</div><div class="stats-chip__lbl">Perfect Rate</div></div>
   `;
 
-  // Table
   const $body = document.getElementById('stats-marquee-body');
   if (!puzzles.length) {
     $body.innerHTML = '<p style="opacity:0.5;font-size:13px;">No puzzles yet.</p>';
     return;
   }
 
-  const rows = puzzles.map(p => {
-    const noData = p.plays === 0;
-    const cats = p.categories.map(c => {
-      const colorClass = `stats-cat-cell--${c.color}`;
-      const firstIdx   = p.first_solved[c.color];
-      const unsolvedN  = p.unsolved[c.color] || 0;
-      const firstTxt   = firstIdx != null ? `1st solved: #${firstIdx + 1}` : '';
-      const unsTxt     = unsolvedN ? `Unsolved: ${unsolvedN}` : '';
+  const ORDINALS = ['1st', '2nd', '3rd', '4th'];
+
+  function buildCatBlock(p) {
+    if (!p.categories.length) return '';
+    const items = p.categories.map(c => {
+      // Solve-order: find the position this category is most commonly solved at
+      const positions = (p.solve_positions && p.solve_positions[c.color]) || [0, 0, 0, 0];
+      const totalSolves = positions.reduce((a, b) => a + b, 0);
+      let solveLabel = '';
+      if (totalSolves > 0) {
+        let modalPos = 0;
+        positions.forEach((cnt, idx) => { if (cnt > positions[modalPos]) modalPos = idx; });
+        solveLabel = `solved ${ORDINALS[modalPos]} most often`;
+      }
+      // Unsolved: count and % of all plays
+      const unsolvedCount = (p.unsolved && p.unsolved[c.color]) || 0;
+      const unsolvedPct = p.plays > 0 ? Math.round(unsolvedCount / p.plays * 100) : 0;
+      const unsolvedHtml = unsolvedCount > 0
+        ? `<span class="stats-cat-item__unsolved">${unsolvedCount} unsolved · ${unsolvedPct}%</span>`
+        : '<span>all solved</span>';
       return `
-        <div class="stats-cat-cell ${colorClass}">
-          <div class="stats-cat-cell__name" title="${escHtml(c.title)}">${escHtml(c.title)}</div>
-          ${firstTxt ? `<div class="stats-cat-cell__row"><span>${firstTxt}</span></div>` : ''}
-          ${unsTxt   ? `<div class="stats-cat-cell__row"><span>${unsTxt}</span></div>` : ''}
+        <div class="stats-cat-item stats-cat-item--${c.color}">
+          <div class="stats-cat-item__name" title="${escHtml(c.title)}">${escHtml(c.title)}</div>
+          <div class="stats-cat-item__meta">${solveLabel}</div>
+          <div class="stats-cat-item__meta">${unsolvedHtml}</div>
         </div>`;
     }).join('');
+    return `<div class="stats-cat-block">${items}</div>`;
+  }
+
+  const rows = puzzles.map(p => {
+    const noData = p.plays === 0;
+    const winPct = p.win_pct;
+    const barClass = winPct >= 70 ? 'stats-win-bar--high' : winPct >= 40 ? 'stats-win-bar--mid' : 'stats-win-bar--low';
+
+    const winCell = noData
+      ? '<td>—</td>'
+      : `<td class="stats-win-cell" style="position:relative;padding:0">
+           <div style="padding:8px 10px;position:relative;">
+             <div class="stats-win-bar ${barClass}" style="width:${winPct}%"></div>
+             <span class="stats-win-val">${winPct}%</span>
+           </div>
+         </td>`;
+
+    const catRow = p.categories.length
+      ? `<tr class="stats-cats-row"><td colspan="6">${buildCatBlock(p)}</td></tr>`
+      : '';
 
     return `
       <tr class="${noData ? 'stats-row--no-data' : ''}">
         <td>#${p.puzzle_number}</td>
         <td>${escHtml(p.date)}</td>
         <td>${p.plays}</td>
-        <td>${noData ? '—' : p.win_pct + '%'}</td>
+        ${winCell}
         <td>${noData ? '—' : p.perfect_pct + '%'}</td>
         <td>${noData ? '—' : p.avg_mistakes}</td>
-        <td>${p.categories.length ? `<div class="stats-cat-grid">${cats}</div>` : ''}</td>
-      </tr>`;
+      </tr>
+      ${catRow}`;
   }).join('');
 
   $body.innerHTML = `
@@ -4714,7 +4741,7 @@ function renderMarqueeStats(puzzles) {
       <thead>
         <tr>
           <th>#</th><th>Date</th><th>Plays</th>
-          <th>Win%</th><th>Perfect%</th><th>Avg Mistakes</th><th>Categories</th>
+          <th>Win %</th><th>Perfect %</th><th>Avg Mistakes</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -4722,18 +4749,48 @@ function renderMarqueeStats(puzzles) {
 }
 
 function renderTriviaScoreStats(puzzles) {
+  // Summary chips
+  const totalPlays   = puzzles.reduce((s, p) => s + p.plays, 0);
+  const totalPerfect = puzzles.reduce((s, p) => s + ((p.scores && p.scores['3']) || 0), 0);
+  const totalZero    = puzzles.reduce((s, p) => s + ((p.scores && p.scores['0']) || 0), 0);
+  const totalScore   = puzzles.reduce((s, p) => s + p.avg_score * p.plays, 0);
+  const overallAvg   = totalPlays ? (totalScore / totalPlays).toFixed(2) : '—';
+  const perfectRate  = totalPlays ? (totalPerfect / totalPlays * 100).toFixed(1) : '—';
+  const zeroRate     = totalPlays ? (totalZero / totalPlays * 100).toFixed(1) : '—';
+
+  const $sum = document.getElementById('stats-trivia-summary');
+  if ($sum) {
+    $sum.innerHTML = `
+      <div class="stats-chip"><div class="stats-chip__val">${totalPlays}</div><div class="stats-chip__lbl">Total Plays</div></div>
+      <div class="stats-chip"><div class="stats-chip__val">${overallAvg} / 3</div><div class="stats-chip__lbl">Avg Score</div></div>
+      <div class="stats-chip"><div class="stats-chip__val">${perfectRate}%</div><div class="stats-chip__lbl">Perfect (3/3)</div></div>
+      <div class="stats-chip"><div class="stats-chip__val">${zeroRate}%</div><div class="stats-chip__lbl">Zero (0/3)</div></div>
+    `;
+  }
+
   const $body = document.getElementById('stats-trivia-body');
   if (!puzzles.length) {
     $body.innerHTML = '<p style="opacity:0.5;font-size:13px;">No trivia puzzles yet.</p>';
     return;
   }
 
+  // Score label tooltips: 0/3, 1/3, 2/3, 3/3
+  const SEG_LABELS = ['0 correct', '1 correct', '2 correct', '3 correct'];
+
   const rows = puzzles.map(p => {
     const noData = p.plays === 0;
     const s = p.scores || {};
-    const dist = [0,1,2,3].map(n =>
-      `<span style="opacity:0.7">${n}✓ ×${s[n] || 0}</span>`
-    ).join(' ');
+
+    const scoreBar = noData ? '—' : (() => {
+      const segs = [0, 1, 2, 3].map(n => {
+        const count = s[n] || 0;
+        const pct = p.plays > 0 ? Math.round(count / p.plays * 100) : 0;
+        if (pct === 0) return '';
+        const label = pct >= 14 ? `${pct}%` : '';
+        return `<div class="stats-score-seg stats-score-seg--${n}" style="flex:${pct}" title="${SEG_LABELS[n]} · ${count} plays (${pct}%)">${label}</div>`;
+      }).join('');
+      return `<div class="stats-score-dist">${segs}</div>`;
+    })();
 
     return `
       <tr class="${noData ? 'stats-row--no-data' : ''}">
@@ -4741,7 +4798,7 @@ function renderTriviaScoreStats(puzzles) {
         <td>${escHtml(p.date)}</td>
         <td>${p.plays}</td>
         <td>${noData ? '—' : p.avg_score + ' / 3'}</td>
-        <td>${noData ? '—' : dist}</td>
+        <td>${scoreBar}</td>
       </tr>`;
   }).join('');
 
