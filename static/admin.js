@@ -4681,14 +4681,18 @@ function renderMarqueeStats(puzzles) {
   function buildCatBlock(p) {
     if (!p.categories.length) return '';
     const items = p.categories.map(c => {
-      // Solve-order: find the position this category is most commonly solved at
+      // Solve-order: stacked bar showing % solved 1st/2nd/3rd/4th (colors = yellow/green/blue/purple)
       const positions = (p.solve_positions && p.solve_positions[c.color]) || [0, 0, 0, 0];
       const totalSolves = positions.reduce((a, b) => a + b, 0);
       let solveLabel = '';
       if (totalSolves > 0) {
-        let modalPos = 0;
-        positions.forEach((cnt, idx) => { if (cnt > positions[modalPos]) modalPos = idx; });
-        solveLabel = `solved ${ORDINALS[modalPos]} most often`;
+        const posCls = ['1st', '2nd', '3rd', '4th'];
+        const segs = positions.map((cnt, idx) => {
+          const pct = Math.round(cnt / totalSolves * 100);
+          if (pct === 0) return '';
+          return `<div class="stats-solve-seg stats-solve-seg--${posCls[idx]}" style="flex:${pct}" title="solved ${ORDINALS[idx]}: ${cnt} (${pct}%)"></div>`;
+        }).join('');
+        solveLabel = `<div class="stats-solve-dist">${segs}</div>`;
       }
       // Unsolved: count and % of all plays
       const unsolvedCount = (p.unsolved && p.unsolved[c.color]) || 0;
@@ -4699,7 +4703,7 @@ function renderMarqueeStats(puzzles) {
       return `
         <div class="stats-cat-item stats-cat-item--${c.color}">
           <div class="stats-cat-item__name" title="${escHtml(c.title)}">${escHtml(c.title)}</div>
-          <div class="stats-cat-item__meta">${solveLabel}</div>
+          ${solveLabel}
           <div class="stats-cat-item__meta">${unsolvedHtml}</div>
         </div>`;
     }).join('');

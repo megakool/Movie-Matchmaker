@@ -1841,6 +1841,13 @@
                            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .stats-cat-item__meta { color: var(--text2); font-size: 10px; line-height: 1.6; }
   .stats-cat-item__unsolved { color: #b91c1c; font-weight: 600; }
+  /* Solve-order distribution bar (colors = game difficulty order) */
+  .stats-solve-dist { display: flex; height: 10px; border-radius: 3px; overflow: hidden; gap: 1px; margin: 3px 0 1px; }
+  .stats-solve-seg { min-width: 0; }
+  .stats-solve-seg--1st { background: var(--yellow); }
+  .stats-solve-seg--2nd { background: var(--green); }
+  .stats-solve-seg--3rd { background: var(--blue); }
+  .stats-solve-seg--4th { background: var(--purple); }
   /* Trivia score distribution */
   .stats-score-dist {
     display: flex;
