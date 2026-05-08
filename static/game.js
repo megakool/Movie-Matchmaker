@@ -156,8 +156,11 @@ function renderGrid() {
       $grid.appendChild(div);
     });
 
-  // Fit text after layout is painted
-  requestAnimationFrame(fitTileText);
+  // Fit text after layout is painted and fonts are loaded.
+  // Without fonts.ready the canvas falls back to system-ui (narrower than
+  // DM Sans), picks too large a font, and long titles overflow once the
+  // real font renders.
+  document.fonts.ready.then(() => requestAnimationFrame(fitTileText));
 }
 
 function renderLives() {
